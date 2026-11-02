@@ -10,20 +10,24 @@ final class ScreenChild: @unchecked Sendable {
     let deadline: ContinuousClock.Instant
     private let lock = NSLock()
     private var live = true
+    private var hasReaped = false
     private var monitor: DispatchSourceProcess?
     private let lost: @Sendable () -> Void
+    private let reaped: @Sendable (Int32) -> Void
     var isAlive: Bool { lock.lock(); defer { lock.unlock() }; return live }
 
-    init(executable: String, join: String, bootstrap: Data, lost: @escaping @Sendable () -> Void) throws {
-        guard ScreenReleasePolicy.identityProofApproved, !ScreenReleasePolicy.cliCodeDirectoryHashes.isEmpty else { throw ScreenFailure.peerUntrusted }
+    init(executable: String, join: String, bootstrap: Data, policy: ScreenLaunchPolicy = .production,
+         reaped: @escaping @Sendable (Int32) -> Void = { _ in },
+         lost: @escaping @Sendable () -> Void) throws {
+        guard policy.allowsIPC else { throw ScreenFailure.peerUntrusted }
         try ScreenPeerVerifier.verifySelf()
         guard executable == Bundle.main.bundleURL.appending(path: "Contents/Resources/slicc").path,
               !join.contains("\n"), !join.contains("\r"), join.utf8.count <= 4096 else { throw ScreenFailure.incompatible }
         self.lost = lost
+        self.reaped = reaped
         let arguments = [executable, "-", "follow", "--json", "--native-screen"]
         // No inherited DYLD/loader variables or user CLI settings.
-        let environment = ["PATH=/usr/bin:/bin", "HOME=" + FileManager.default.homeDirectoryForCurrentUser.path,
-                           "TMPDIR=" + NSTemporaryDirectory(), "LANG=en_US.UTF-8"]
+        let environment = policy.environment
         let argv = arguments.map { strdup($0) } + [nil]
         let env = environment.map { strdup($0) } + [nil]
         defer { for pointer in argv + env { free(pointer) } }
@@ -44,7 +48,12 @@ final class ScreenChild: @unchecked Sendable {
             self.invalidate()
             if monitor?.data.contains(.exit) == true {
                 var status: Int32 = 0
-                _ = waitpid(self.pid, &status, 0)
+                var result: pid_t
+                self.lock.lock()
+                repeat { result = waitpid(self.pid, &status, 0) } while result < 0 && errno == EINTR
+                self.hasReaped = true
+                self.lock.unlock()
+                if result == self.pid { self.reaped(status) }
                 monitor?.cancel()
             } else { _ = kill(self.pid, SIGKILL) }
         }
@@ -74,7 +83,14 @@ final class ScreenChild: @unchecked Sendable {
     }
     func stop() {
         lock.lock()
-        if live { _ = kill(pid, SIGTERM) }
+        if !hasReaped { _ = kill(pid, SIGTERM) }
+        lock.unlock()
+        invalidate()
+    }
+    /// Ownership and reaping share this lock, so escalation cannot target a reused PID.
+    func forceStop() {
+        lock.lock()
+        if !hasReaped { _ = kill(pid, SIGKILL) }
         lock.unlock()
         invalidate()
     }

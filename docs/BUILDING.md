@@ -34,3 +34,15 @@ codesign -dvvv Sliccy.app
 
 A valid signed bundle does not enable screen capture. Runtime pins, native identity
 validation and supported source scopes remain separate conditions in the app.
+
+## Connection diagnostic build
+
+The guarded signing workflow also produces a separate `Sliccy-IPC-Proof` artifact
+(version 0.1.0, build 2). Only that compile-time variant accepts `--screen-proof`.
+It reads a synthetic loopback join URL from stdin, launches the exact bundled
+v1.58.1 CLI with isolated settings, and exercises the native connection and Stop
+path. It refuses grants and image submission and starts no capture stream.
+Its Stop Test panel and keyboard shortcut use the same stop relay as sharing.
+The ordinary app retains disabled native screen authority. Diagnostic output
+reports connection stages and elapsed times; it does not establish capture
+exclusion or active-capture stop latency. Signed bundles are assembled only by CI.

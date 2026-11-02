@@ -11,6 +11,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Sliccy"
 BUNDLE_ID="ai.sliccy.mac"
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
+SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build")
+BUILD_NUMBER=1
+if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 ]]; then
+  [[ "$MODE" == --build && "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == ai-ecoverse/sliccy-app && "${GITHUB_EVENT_NAME:-}" == push && "${GITHUB_REF:-}" == refs/heads/main ]] || { echo 'Build the diagnostic bundle through upstream main CI.' >&2; exit 2; }
+  SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/native-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF)
+  APP_BUNDLE="$ROOT_DIR/dist-proof/$APP_NAME.app"
+  BUILD_NUMBER=2
+fi
 SWIFT="${SLICCY_SWIFT:-$(/usr/bin/xcrun --find swift)}"
 cd "$ROOT_DIR"
 export CLANG_MODULE_CACHE_PATH="$ROOT_DIR/.build/ModuleCache"
@@ -18,8 +26,8 @@ export CLANG_MODULE_CACHE_PATH="$ROOT_DIR/.build/ModuleCache"
 if [[ "$MODE" != "--build" ]]; then
   /usr/bin/pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 fi
-"$SWIFT" build --product "$APP_NAME"
-BUILD_DIR="$("$SWIFT" build --show-bin-path)"
+"$SWIFT" build "${SWIFT_FLAGS[@]}" --product "$APP_NAME"
+BUILD_DIR="$("$SWIFT" build "${SWIFT_FLAGS[@]}" --show-bin-path)"
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
 cp "$BUILD_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 if [[ -x "$ROOT_DIR/.build/tools/slicc" ]]; then
@@ -38,7 +46,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <key>CFBundleDisplayName</key><string>Sliccy</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
 <key>LSMinimumSystemVersion</key><string>27.0</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 <key>NSHighResolutionCapable</key><true/>

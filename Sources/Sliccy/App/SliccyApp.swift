@@ -2,7 +2,6 @@ import AppKit
 import SwiftUI
 import OSLog
 
-@main
 struct SliccyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var store = WorkspaceStore(defaults: ProcessInfo.processInfo.arguments.contains("--preview") ? nil : .standard)

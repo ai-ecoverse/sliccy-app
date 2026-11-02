@@ -40,9 +40,10 @@ final class ScreenHandshake: @unchecked Sendable {
         return ScreenSocket.prefix(header.count) + header
     }
     func authenticate(pid: pid_t, until deadline: ContinuousClock.Instant, verifier: ScreenPeerVerifier,
+                      policy: ScreenLaunchPolicy = .production,
                       childAlive: @Sendable () -> Bool) throws -> Pair {
         // Policy cannot be overridden by argv, defaults, an environment variable or peer JSON.
-        guard ScreenReleasePolicy.identityProofApproved, !verifier.approvedHashes.isEmpty else { throw ScreenFailure.peerUntrusted }
+        guard policy.allowsIPC, !verifier.approvedHashes.isEmpty, verifier.approvedHashes == policy.hashes else { throw ScreenFailure.peerUntrusted }
         try ScreenPeerVerifier.verifySelf()
         var attempts = 0
         func accept(_ listener: ScreenSocket, lane: String, connection: String?, previousNonce: String?, identity: ScreenAuditIdentity?) throws -> (ScreenSocket, ScreenAuditIdentity, ScreenHello) {

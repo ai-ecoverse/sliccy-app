@@ -5,6 +5,9 @@ import Foundation
 /// by ScreenHandshake's caller, never inferred from a supplied PID alone.
 final class ScreenTransport: @unchecked Sendable {
     enum Event: Sendable {
+        case ready
+        case revocationConfirmed
+        case revokeQueued(ContinuousClock.Instant)
         case link(String, ScreenRecipient, ScreenBrowserEvidence)
         case granted(ScreenBinding)
         case stopped(ScreenFailure)
@@ -32,14 +35,17 @@ final class ScreenTransport: @unchecked Sendable {
     private var timer: DispatchSourceTimer?
     private var nextHeartbeat = ContinuousClock.now
     private let currentProtection: @Sendable () -> Bool
+    private let noCapture: Bool
     private let event: @Sendable (Event) -> Void
 
     init(pair: ScreenHandshake.Pair, verifier: ScreenPeerVerifier,
+         noCapture: Bool = false,
          currentProtection: @escaping @Sendable () -> Bool,
          event: @escaping @Sendable (Event) -> Void) {
         safety = pair.safety; frames = pair.frames; identity = pair.identity; self.verifier = verifier
         state = ScreenSafetyState(launch: pair.launch, connection: pair.connection, now: pair.authenticatedAt, readyDeadline: pair.readyDeadline)
         self.currentProtection = currentProtection; self.event = event
+        self.noCapture = noCapture
     }
     func start() {
         // Timers are independent of the blocking safety reader and frame writer.
@@ -59,16 +65,19 @@ final class ScreenTransport: @unchecked Sendable {
                         guard !ended else { throw ScreenFailure.stopped }
                         try inputRecords.consume(1); try inputBytes.consume(data.count + 8)
                         let previous = state.phase
+                        let wasReady = state.ready
                         let reply = try state.receive(message)
                         if message.type == "heartbeat", state.phase != .revoked { try gate.renew(until: state.healthUntil) }
                         if message.type == "link", let link = state.link, let recipient = state.recipient, let evidence = state.evidence {
                             return (reply, .link(link, recipient, evidence))
                         }
                         if previous == .pending, state.phase == .active, let binding = state.binding {
-                            guard currentProtection() else { throw ScreenFailure.protection }
+                            guard !noCapture, currentProtection() else { throw ScreenFailure.protection }
                             try gate.activate(binding)
                             return (reply, .granted(binding))
                         }
+                        if !wasReady, state.ready { return (reply, .ready) }
+                        if message.type == "revoked" { return (reply, .revocationConfirmed) }
                         return (reply, message.type == "revoke" ? .stopped(ScreenFailure(rawValue: message.reason ?? "") ?? .stopped) : nil)
                     }
                     if let reply = outcome.0 { try enqueue(reply) }
@@ -81,7 +90,7 @@ final class ScreenTransport: @unchecked Sendable {
     /// Caller has already recorded consent/intent and installed source and indicator.
     func grant(_ binding: ScreenBinding, scope: String) throws {
         do {
-            guard currentProtection() else { throw ScreenFailure.protection }
+            guard !noCapture, currentProtection() else { throw ScreenFailure.protection }
             _ = try verifier.verifyCLI(socket: safety.fd, expectedPID: identity.pid, expectedIdentity: identity)
             let message = try locked {
                 guard !ended else { throw ScreenFailure.stopped }
@@ -107,7 +116,8 @@ final class ScreenTransport: @unchecked Sendable {
                 guard !ended else { throw ScreenFailure.stopped }
                 return try state.revoke(reason)
             }
-            try enqueue(message)
+            let queuedAt = try enqueue(message)
+            event(.revokeQueued(queuedAt))
             event(.stopped(reason))
         } catch { fail(reason) }
     }
@@ -115,7 +125,7 @@ final class ScreenTransport: @unchecked Sendable {
 
     /// Bounded latest-frame slot; stale or old-binding frames are dropped.
     func submit(_ header: ScreenFrameHeader, jpeg: Data, captured: ContinuousClock.Instant) throws {
-        guard header.codec == "jpeg", jpeg.count <= 2_097_152, !jpeg.isEmpty,
+        guard !noCapture, header.codec == "jpeg", jpeg.count <= 2_097_152, !jpeg.isEmpty,
               header.width > 0, header.height > 0, max(header.width, header.height) <= 2560,
               header.width <= 4_000_000 / header.height,
               gate.allows(header.binding), captured <= .now,
@@ -163,14 +173,16 @@ final class ScreenTransport: @unchecked Sendable {
             if let heartbeat { try enqueue(heartbeat) }
         } catch { fail(error as? ScreenFailure ?? .leaseExpired) }
     }
-    private func enqueue(_ message: ScreenSafety) throws {
-        let start = try locked {
+    @discardableResult
+    private func enqueue(_ message: ScreenSafety) throws -> ContinuousClock.Instant {
+        let (start, queuedAt) = try locked {
             guard !ended, outbound.count < 16 else { throw ScreenFailure.resourceLimit }
             outbound.append(message)
-            if controlWriting { return false }
-            controlWriting = true; return true
+            if controlWriting { return (false, ContinuousClock.now) }
+            controlWriting = true; return (true, ContinuousClock.now)
         }
         if start { outputQueue.async { [self] in writeControl() } }
+        return queuedAt
     }
     private func writeControl() {
         do {

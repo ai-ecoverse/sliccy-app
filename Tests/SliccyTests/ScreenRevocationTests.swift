@@ -32,7 +32,8 @@ struct ScreenRevocationTests {
         #expect(throws: ScreenFailure.stalled) { try state.checkHealth(now: now.advanced(by: .milliseconds(1500))) }
     }
 
-    @Test func rejectedGrantInvalidatesBeforeReturningAndClosesBothLanes() throws {
+    @Test(arguments: [false, true])
+    func rejectedGrantInvalidatesBeforeReturningAndClosesBothLanes(diagnostic: Bool) throws {
         func sockets() throws -> (ScreenSocket, ScreenSocket) {
             var fds: [Int32] = [-1, -1]
             guard socketpair(AF_UNIX, SOCK_STREAM, 0, &fds) == 0 else { throw ScreenFailure.peerLost }
@@ -44,10 +45,16 @@ struct ScreenRevocationTests {
         let pair = ScreenHandshake.Pair(safety: safety, frames: frames, identity: try .current(),
             launch: try ScreenID.make(bytes: 32), connection: try ScreenID.make(bytes: 32),
             authenticatedAt: now, readyDeadline: now.advanced(by: .seconds(3)))
-        let transport = ScreenTransport(pair: pair, verifier: .init(approvedHashes: []), currentProtection: { false }, event: { _ in })
+        let transport = ScreenTransport(pair: pair, verifier: .init(approvedHashes: []), noCapture: diagnostic,
+            currentProtection: { diagnostic }, event: { _ in })
         let binding = ScreenBinding(link: try ScreenID.make(), session: try ScreenID.make(), source: try ScreenID.make(), grantEpoch: "1", sourceEpoch: "1", protectionEpoch: "1")
         try transport.gate.renew(until: now.advanced(by: .seconds(10)), now: now)
         try transport.gate.activate(binding, now: now)
+        if diagnostic {
+            let header = ScreenFrameHeader(binding: binding, frameSeq: "1", capturedMonoMs: "1", width: 1, height: 1,
+                launch: pair.launch, connection: pair.connection)
+            #expect(throws: ScreenFailure.stopped) { try transport.submit(header, jpeg: Data([1]), captured: now) }
+        }
         #expect(throws: ScreenFailure.protection) { try transport.grant(binding, scope: "window") }
         #expect(!transport.gate.allows(binding, now: now))
         var byte: UInt8 = 0

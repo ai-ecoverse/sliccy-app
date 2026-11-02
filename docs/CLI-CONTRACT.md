@@ -122,9 +122,11 @@ watch replay across process restarts versus reconnects, gap notices, and cursor 
 The bundled release's actual capabilities response was also checked. No real
 seven join credential was supplied for end-to-end live connection testing.
 
-`script/fetch_cli.sh` downloads v1.57.0 with pinned per-architecture SHA-256
-checksums. The build script bundles it if present; otherwise Settings can select
-an installed binary. App-owned CLI updates must go through app packaging.
+`script/fetch_cli.sh` downloads v1.58.1 with pinned per-architecture SHA-256
+checksums and verifies its Developer ID role and Team ID. This bundling pin does
+not enable native screen grants; runtime screen pins and capture scopes remain
+disabled pending native validation. The build script bundles it if present;
+otherwise Settings can select an installed binary. App-owned CLI updates must go through app packaging.
 
 ## Pending CLI / seven work
 

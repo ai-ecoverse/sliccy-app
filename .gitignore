@@ -10,3 +10,4 @@ artifacts/
 *.p12
 *.p8
 *.keychain-db
+dist-proof/

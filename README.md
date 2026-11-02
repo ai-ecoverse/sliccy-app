@@ -10,7 +10,7 @@ are not part of the launcher UI.
 Requires macOS 27 and Xcode 27 / Swift 6.2 or newer. No Swift package dependencies.
 
 ```sh
-./script/fetch_cli.sh       # pinned, checksum-verified CLI v1.57.0
+./script/fetch_cli.sh       # pinned, checksum-verified CLI v1.58.1
 ./script/build_and_run.sh
 /usr/bin/xcrun swift test
 ```

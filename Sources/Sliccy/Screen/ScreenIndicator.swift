@@ -5,8 +5,15 @@ import Carbon
 final class ScreenStopRelay: @unchecked Sendable {
     let gate: ScreenOutputGate
     private let stop: @Sendable (ScreenFailure) -> Void
-    init(gate: ScreenOutputGate, stop: @escaping @Sendable (ScreenFailure) -> Void) { self.gate = gate; self.stop = stop }
-    func invoke(_ reason: ScreenFailure) { gate.invalidate(); stop(reason) }
+    private let observed: @Sendable (ContinuousClock.Instant, ContinuousClock.Instant) -> Void
+    init(gate: ScreenOutputGate, observed: @escaping @Sendable (ContinuousClock.Instant, ContinuousClock.Instant) -> Void = { _, _ in },
+         stop: @escaping @Sendable (ScreenFailure) -> Void) { self.gate = gate; self.stop = stop; self.observed = observed }
+    func invoke(_ reason: ScreenFailure) {
+        let start = ContinuousClock.now
+        gate.invalidate()
+        observed(start, .now)
+        stop(reason)
+    }
 }
 
 final class ScreenIndicatorHealth: @unchecked Sendable {
@@ -39,18 +46,18 @@ final class ScreenIndicator: NSObject, NSWindowDelegate {
     private var timer: Timer?
     private var observers: [NSObjectProtocol] = []
 
-    init(recipient: String, scope: String, relay: ScreenStopRelay) throws {
+    init(recipient: String, scope: String, relay: ScreenStopRelay, diagnostic: Bool = false) throws {
         self.relay = relay
         panel = NSPanel(contentRect: NSRect(x: 40, y: 60, width: 430, height: 84),
             styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
         super.init()
-        panel.title = "Sliccy is sharing your screen"
+        panel.title = diagnostic ? "Sliccy connection diagnostic · No capture" : "Sliccy is sharing your screen"
         panel.isReleasedWhenClosed = false; panel.hidesOnDeactivate = false
         panel.level = .floating; panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.delegate = self
-        let text = NSTextField(labelWithString: "\(scope) · View only\n\(recipient.prefix(64))")
+        let text = NSTextField(labelWithString: diagnostic ? "Local connection test · No screen access\nStops automatically after 30 seconds" : "\(scope) · View only\n\(recipient.prefix(64))")
         text.font = .systemFont(ofSize: 12)
-        let button = NSButton(title: "Stop Sharing", target: self, action: #selector(stopPressed))
+        let button = NSButton(title: diagnostic ? "Stop Test" : "Stop Sharing", target: self, action: #selector(stopPressed))
         button.bezelStyle = .rounded
         let stack = NSStackView(views: [text, button]); stack.orientation = .horizontal; stack.spacing = 18
         stack.edgeInsets = NSEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
@@ -72,7 +79,7 @@ final class ScreenIndicator: NSObject, NSWindowDelegate {
             throw ScreenFailure.shortcut
         }
         let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        status.button?.title = "Sharing · Stop"; status.button?.target = self; status.button?.action = #selector(stopPressed)
+        status.button?.title = diagnostic ? "Test · Stop" : "Sharing · Stop"; status.button?.target = self; status.button?.action = #selector(stopPressed)
         self.status = status
         panel.orderFrontRegardless()
         health.renew(visible: panel.isVisible)
