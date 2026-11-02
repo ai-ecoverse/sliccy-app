@@ -220,7 +220,9 @@ final class ScreenProofSession: @unchecked Sendable {
         report(result == 0 ? "ancillary-record-sent" : "ancillary-send-refused")
         // Do not close locally in response to EOF: the external driver needs
         // the still-live CLI/Pion link to observe its independent refusal state.
-        queue.asyncAfter(deadline: .now() + 2) { [self] in
+        // A passing refusal is within 500ms, leaving at least two seconds for
+        // the driver to inspect the still-owned live receiver after refusal.
+        queue.asyncAfter(deadline: .now() + 2.5) { [self] in
             let alive = locked { child }?.isAlive == true
             let observed = locked { () -> Bool in
                 guard !closing, !stopping else { return false }
