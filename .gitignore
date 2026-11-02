@@ -1,0 +1,12 @@
+.build/
+dist/
+.DS_Store
+.swiftpm/
+.codex/
+.agents/
+artifacts/
+.env
+.env.*
+*.p12
+*.p8
+*.keychain-db
