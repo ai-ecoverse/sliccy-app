@@ -287,7 +287,7 @@ final class ScreenTransport: @unchecked Sendable {
 
     /// The fixed diagnostic caller receives only the established lanes and a
     /// current heartbeat record; this API is absent from ordinary app builds.
-    func proofExecAfterFreshControl(action: @escaping @Sendable (Int32, Int32, Data, ContinuousClock.Instant) throws -> Void) {
+    func proofAfterFreshControl(action: @escaping @Sendable (Int32, Int32, Data, ContinuousClock.Instant) throws -> Void) {
         outputQueue.async { [self] in
             do {
                 let (heartbeat, deadline) = try locked {
@@ -302,7 +302,6 @@ final class ScreenTransport: @unchecked Sendable {
                 let data = try heartbeat.data()
                 let record = ScreenSocket.prefix(data.count) + data + ScreenSocket.prefix(0)
                 try action(safety.fd, frames.fd, record, deadline)
-                throw ScreenFailure.peerLost // A successful same-PID exec never returns.
             } catch { fail(error as? ScreenFailure ?? .peerLost) }
         }
     }

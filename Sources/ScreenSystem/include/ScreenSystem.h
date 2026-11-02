@@ -11,4 +11,7 @@ int sliccy_screen_spawn(const char *executable, char *const argv[], char *const 
 // Diagnostic caller only: atomically replaces this process, retaining only
 // stdio, private bootstrap FD3 and the two established lanes at FD4/FD5.
 int sliccy_screen_proof_exec(const char *helper, pid_t child, int safety, int frames, const void *record, size_t size, uint64_t elapsed_ns);
+// Diagnostic caller only: one nonblocking sendmsg of the supplied safety record
+// carrying a fixed /dev/null descriptor. Never retries a partial record.
+int sliccy_screen_proof_ancillary(int safety, const void *record, size_t size);
 #endif

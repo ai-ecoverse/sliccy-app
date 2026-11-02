@@ -41,6 +41,13 @@ int main(int argc, char **argv) {
     assert(sliccy_screen_recv(pair[1], &payload, 1) == -1 && errno == EPROTO);
     assert(descriptors() == before); // Received rights were closed, not merely rejected.
     assert(fcntl(sent, F_GETFD) >= 0); // Sender's original remains intact.
+    assert(sliccy_screen_proof_ancillary(pair[0], "y", 1) == 0);
+    assert(descriptors() == before); // Diagnostic sender closes its fixed sentinel.
+    assert(sliccy_screen_recv(pair[1], &payload, 1) == -1 && errno == EPROTO);
+    assert(descriptors() == before && payload == 'y');
+    assert(sliccy_screen_proof_ancillary(pair[0], "", 0) == EINVAL);
+    assert(sliccy_screen_proof_ancillary(-1, "x", 1) == EBADF);
+    assert(descriptors() == before);
     char *arguments[] = {argv[0], "child", NULL};
     char *environment[] = {"PATH=/usr/bin:/bin", NULL};
     setenv("SLICCY_FIXTURE_SECRET", "never-inherited", 1);

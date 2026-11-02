@@ -158,3 +158,22 @@ done:
     if (boot[1] >= 0) close(boot[1]);
     return failure;
 }
+
+int sliccy_screen_proof_ancillary(int safety, const void *record, size_t size) {
+    if (!record || size == 0 || size > 4104) return EINVAL;
+    int sentinel = open("/dev/null", O_RDONLY | O_CLOEXEC);
+    if (sentinel < 0) return errno;
+    union { struct cmsghdr alignment; unsigned char bytes[CMSG_SPACE(sizeof(int))]; } control = {0};
+    struct iovec iov = {.iov_base = (void *)record, .iov_len = size};
+    struct msghdr message = {0};
+    message.msg_iov = &iov; message.msg_iovlen = 1;
+    message.msg_control = control.bytes; message.msg_controllen = sizeof(control.bytes);
+    struct cmsghdr *header = CMSG_FIRSTHDR(&message);
+    header->cmsg_level = SOL_SOCKET; header->cmsg_type = SCM_RIGHTS;
+    header->cmsg_len = CMSG_LEN(sizeof(int));
+    memcpy(CMSG_DATA(header), &sentinel, sizeof(sentinel));
+    ssize_t sent = sendmsg(safety, &message, MSG_DONTWAIT);
+    int result = sent == (ssize_t)size ? 0 : (sent < 0 ? errno : EIO);
+    close(sentinel);
+    return result;
+}

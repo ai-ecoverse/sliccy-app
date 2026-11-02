@@ -68,6 +68,8 @@ final class ScreenProofSession: @unchecked Sendable {
     private var lifecycleStop = false
     private var authenticatedIdentity: ScreenAuditIdentity?
     private var gateInvalidatedBeforeReap = false
+    private var ancillaryObservation: ScreenAncillaryObservation?
+    private var ancillaryCompleted = false
 
     init(show: @escaping @Sendable (ScreenStopRelay) -> Void, completed: @escaping @Sendable (Int32) -> Void) {
         self.show = show; self.completed = completed
@@ -135,12 +137,16 @@ final class ScreenProofSession: @unchecked Sendable {
         case .ready:
             locked { ready = true }; report("heartbeat-ready"); runCaseIfReady()
         case .proofControlSent(let at):
-            report("exec-control-sent", at: at)
+            report(locked { proofCase == .ancillary } ? "ancillary-control-sent" : "exec-control-sent", at: at)
         case .proofControlEchoed(let at):
-            report("exec-control-echoed", at: at)
+            report(locked { proofCase == .ancillary } ? "ancillary-control-echoed" : "exec-control-echoed", at: at)
             let transport = locked { self.transport }
-            transport?.proofExecAfterFreshControl { [self] safety, frames, record, deadline in
+            transport?.proofAfterFreshControl { [self] safety, frames, record, deadline in
                 guard let child = locked({ self.child }), child.isAlive else { throw ScreenFailure.peerLost }
+                if locked({ proofCase == .ancillary }) {
+                    try injectAncillary(safety: safety, record: record, deadline: deadline)
+                    return
+                }
                 let helper = Bundle.main.bundleURL.appending(path: "Contents/Helpers/ScreenProofExecHelper")
                 try Self.verifyExecHelper(helper)
                 guard ContinuousClock.now < deadline else { throw ScreenFailure.stalled }
@@ -151,7 +157,8 @@ final class ScreenProofSession: @unchecked Sendable {
                     sliccy_screen_proof_exec(helper.path, child.pid, safety, frames, $0.baseAddress, record.count, nanos)
                 }
                 report("parent-exec-failed")
-                if result != 0 { throw ScreenFailure.peerLost }
+                _ = result
+                throw ScreenFailure.peerLost // A successful same-PID exec never returns.
             }
         case .link:
             locked { linked = true }; report("synthetic-link-observed"); runCaseIfReady()
@@ -163,6 +170,15 @@ final class ScreenProofSession: @unchecked Sendable {
             report("native-ack", duration: locked { stopAt?.duration(to: .now) })
             close(locked { ready && stopping ? nil : .incompatible })
         case .stopped(let reason):
+            let observed = locked { () -> Bool in
+                guard proofCase == .ancillary, ancillaryObservation != nil, !closing, !stopping else { return false }
+                if ancillaryObservation?.loss == nil { ancillaryObservation?.loss = (reason, .now) }
+                return true
+            }
+            if observed {
+                report("ancillary-association-lost", reason: reason.rawValue)
+                return // Retain the child/Pion link until the fixed observation ends.
+            }
             // stop() reports its local action before the matching peer ack.
             if !locked({ stopping }) || reason != .stopped { close(reason) }
         }
@@ -178,7 +194,7 @@ final class ScreenProofSession: @unchecked Sendable {
             guard let transport = locked({ transport }) else { close(.peerLost); return }
             switch selected {
             case .base: return
-            case .parentExec:
+            case .parentExec, .ancillary:
                 transport.proofBeginExecControl()
             case .lifecycle:
                 guard let identity = locked({ authenticatedIdentity }),
@@ -189,6 +205,30 @@ final class ScreenProofSession: @unchecked Sendable {
                 report("lifecycle-stop-requested")
                 child?.stop()
             }
+        }
+    }
+    private func injectAncillary(safety: Int32, record: Data, deadline: ContinuousClock.Instant) throws {
+        let began = ContinuousClock.now
+        guard began < deadline, locked({ () -> Bool in
+            guard !closing, !stopping, ancillaryObservation == nil else { return false }
+            ancillaryObservation = ScreenAncillaryObservation(started: began)
+            return true
+        }) else { throw ScreenFailure.stalled }
+        report("ancillary-send-started", at: began)
+        let result = record.withUnsafeBytes { sliccy_screen_proof_ancillary(safety, $0.baseAddress, record.count) }
+        locked { ancillaryObservation?.fullWrite = result == 0 }
+        report(result == 0 ? "ancillary-record-sent" : "ancillary-send-refused")
+        // Do not close locally in response to EOF: the external driver needs
+        // the still-live CLI/Pion link to observe its independent refusal state.
+        queue.asyncAfter(deadline: .now() + 2) { [self] in
+            let alive = locked { child }?.isAlive == true
+            let observed = locked { () -> Bool in
+                guard !closing, !stopping else { return false }
+                ancillaryCompleted = ancillaryObservation?.completed(at: .now, childAlive: alive) == true
+                return ancillaryCompleted
+            }
+            report("ancillary-observation-ended", reason: observed ? "elapsed" : "failed")
+            close(observed ? nil : .incompatible)
         }
     }
     func close(_ failure: ScreenFailure?) {
@@ -252,6 +292,7 @@ final class ScreenProofSession: @unchecked Sendable {
         finish(failure)
     }
     private func finish(_ failure: ScreenFailure?) {
+        let failure = failure ?? locked { proofCase == .ancillary && !ancillaryCompleted ? .incompatible : nil }
         let outcome: (Bool, URL?) = locked {
             guard !finished else { return (false, nil) }
             finished = true
@@ -260,7 +301,13 @@ final class ScreenProofSession: @unchecked Sendable {
         guard outcome.0 else { return }
         // root may be nil when stdin validation fails.
         if let cleanup = outcome.1 { try? FileManager.default.removeItem(at: cleanup) }
-        let success = locked { proofCase == .lifecycle ? "lifecycle-only-complete" : "ipc-only-complete" }
+        let success = locked {
+            switch proofCase {
+            case .lifecycle: "lifecycle-only-complete"
+            case .ancillary: "ancillary-observation-complete"
+            default: "ipc-only-complete"
+            }
+        }
         report("terminal", reason: failure?.rawValue ?? success)
         completed(failure == nil ? 0 : 1)
     }

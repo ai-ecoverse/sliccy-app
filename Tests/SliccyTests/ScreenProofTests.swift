@@ -30,11 +30,28 @@ struct ScreenProofTests {
         #expect(try ScreenProofCase.parse(["--screen-proof"]) == .base)
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "parent-exec"]) == .parentExec)
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "lifecycle"]) == .lifecycle)
+        #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "ancillary"]) == .ancillary)
         for bad in [[String](), ["--screen-proof", "--case", "/bin/sh"],
                     ["--screen-proof", "--case", "base"], ["--screen-proof", "--pid", "1"],
                     ["--screen-proof", "--case", "parent-exec", "--path", "/tmp/helper"]] {
             #expect(throws: ScreenFailure.incompatible) { try ScreenProofCase.parse(bad) }
         }
+    }
+    @Test func ancillaryObservationCannotPassFromLeaseExpiryPartialSendOrEarlyExit() {
+        let start = ContinuousClock.now
+        var observation = ScreenAncillaryObservation(started: start)
+        observation.loss = (.peerLost, start.advanced(by: .milliseconds(25)))
+        #expect(!observation.completed(at: start.advanced(by: .seconds(2)), childAlive: true))
+        observation.fullWrite = true
+        #expect(observation.completed(at: start.advanced(by: .seconds(2)), childAlive: true))
+        #expect(!observation.completed(at: start.advanced(by: .seconds(1)), childAlive: true))
+        #expect(!observation.completed(at: start.advanced(by: .seconds(2)), childAlive: false))
+        observation.loss = (.leaseExpired, start.advanced(by: .milliseconds(25)))
+        #expect(!observation.completed(at: start.advanced(by: .seconds(2)), childAlive: true))
+        observation.loss = (.peerLost, start.advanced(by: .milliseconds(501)))
+        #expect(!observation.completed(at: start.advanced(by: .seconds(2)), childAlive: true))
+        observation.loss = (.peerLost, start.advanced(by: .milliseconds(-1)))
+        #expect(!observation.completed(at: start.advanced(by: .seconds(2)), childAlive: true))
     }
     @Test func diagnosticJoinIsLoopbackOnlyAndRefusesDebugPorts() throws {
         let valid = "http://127.0.0.1:32456/join/test.secret"
