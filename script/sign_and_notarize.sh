@@ -48,7 +48,7 @@ identity="Developer ID Application: Lars Trieloff ($APPLE_TEAM_ID)"
 # Preserve the upstream CLI signature and exact artifact bytes; never re-sign it.
 /usr/bin/cmp "$input_app/Contents/Resources/slicc" "$signed_app/Contents/Resources/slicc"
 requirement='anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[subject.OU] = "S8LB56P782" and identifier "ai.sliccy.mac"'
-/usr/bin/codesign --verify --deep --strict -R "$requirement" "$signed_app"
+/usr/bin/codesign --verify --deep --strict -R "=$requirement" "$signed_app"
 /usr/bin/ditto -c -k --keepParent "$signed_app" "$artifact_dir/Sliccy-notarize.zip"
 private_dir=$(mktemp -d "$RUNNER_TEMP/sliccy-notary.XXXXXX")
 trap 'rm -rf "$private_dir"' EXIT
@@ -64,7 +64,7 @@ fi
 /usr/bin/plutil -extract status raw -o - "$artifact_dir/notarization.json" | /usr/bin/grep -qx Accepted
 /usr/bin/xcrun stapler staple "$signed_app"
 /usr/bin/xcrun stapler validate "$signed_app"
-/usr/bin/codesign --verify --deep --strict -R "$requirement" "$signed_app"
+/usr/bin/codesign --verify --deep --strict -R "=$requirement" "$signed_app"
 /usr/sbin/spctl --assess --type execute "$signed_app"
 /usr/bin/ditto -c -k --keepParent "$signed_app" "$artifact_dir/Sliccy-0.1.0.zip"
 /usr/bin/codesign -dvvv "$signed_app" 2> "$artifact_dir/signing.txt"

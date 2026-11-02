@@ -14,4 +14,3 @@ enum ScreenFailure: String, Error, LocalizedError, Sendable {
         }
     }
 }
-
