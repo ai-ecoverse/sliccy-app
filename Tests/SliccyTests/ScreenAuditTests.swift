@@ -4,6 +4,59 @@ import Testing
 @testable import Sliccy
 
 struct ScreenAuditTests {
+    @Test func idleSweepExpiresBothWritersWithoutCreatingRecords() throws {
+        let root = URL(fileURLWithPath: "/private/tmp").appending(path: "sliccy-audit-idle-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let audit = try ScreenAudit(base: root)
+        let expiry = try #require(ISO8601DateFormatter().date(from: "2026-01-31T00:00:00Z"))
+        #expect(try audit.sweep(now: expiry))
+        let app = root.appending(path: "ai.sliccy.mac/Audit")
+        let broker = root.appending(path: "slicc/audit")
+        let expired = [app.appending(path: "app-20260101-idle.jsonl"), broker.appending(path: "broker-20260101-stopped.jsonl")]
+        for file in expired {
+            try Data("{}\n".utf8).write(to: file)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600, .modificationDate: expiry], ofItemAtPath: file.path)
+        }
+        #expect(try audit.sweep(now: expiry.addingTimeInterval(-1)))
+        for file in expired { #expect(FileManager.default.fileExists(atPath: file.path)) }
+        // The shared lock defers maintenance without deleting or appending anything.
+        let quota = open(app.appending(path: "quota.lock").path, O_RDWR | O_CLOEXEC)
+        #expect(quota >= 0)
+        defer { close(quota) }
+        #expect(flock(quota, LOCK_EX | LOCK_NB) == 0)
+        #expect(try !audit.sweep(now: expiry))
+        for file in expired { #expect(FileManager.default.fileExists(atPath: file.path)) }
+        #expect(flock(quota, LOCK_UN) == 0)
+        #expect(try audit.sweep(now: expiry))
+        #expect(try audit.sweep(now: expiry.addingTimeInterval(300)))
+        #expect(try FileManager.default.contentsOfDirectory(atPath: app.path) == ["quota.lock"])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: broker.path).isEmpty)
+    }
+
+    @Test func idleSweepEnforcesCombinedQuotaOldestFirst() throws {
+        let root = URL(fileURLWithPath: "/private/tmp").appending(path: "sliccy-audit-idle-quota-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let audit = try ScreenAudit(base: root)
+        let now = try #require(ISO8601DateFormatter().date(from: "2026-01-20T00:00:00Z"))
+        #expect(try audit.sweep(now: now))
+        var files: [URL] = []
+        for index in 0..<11 {
+            let owner = index.isMultiple(of: 2) ? "broker" : "app"
+            let directory = owner == "broker" ? "slicc/audit" : "ai.sliccy.mac/Audit"
+            let file = root.appending(path: directory).appending(path: "\(owner)-20260110-\(index).jsonl")
+            let fd = open(file.path, O_CREAT | O_WRONLY | O_CLOEXEC, 0o600)
+            #expect(fd >= 0)
+            #expect(ftruncate(fd, 10 * 1024 * 1024) == 0)
+            close(fd)
+            // Earlier mtime wins over the shared bucket and determines eviction.
+            try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-15 * 86400 + Double(index))], ofItemAtPath: file.path)
+            files.append(file)
+        }
+        #expect(try audit.sweep(now: now))
+        #expect(!FileManager.default.fileExists(atPath: files[0].path))
+        for file in files.dropFirst() { #expect(FileManager.default.fileExists(atPath: file.path)) }
+    }
+
     @Test func auditIsPrivateContentFreeAndRejectsSymlinks() throws {
         let root = URL(fileURLWithPath: "/private/tmp").appending(path: "sliccy-audit-test-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])

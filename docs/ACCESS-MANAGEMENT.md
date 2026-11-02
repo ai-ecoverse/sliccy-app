@@ -48,7 +48,21 @@ source validation must pass before these components can be connected to the UI.
 The filter probe constructs real ScreenCaptureKit filters around a synthetic
 window and consumes the CLI's fixture vectors without starting a capture stream.
 It verifies construction behavior, not capture exclusion or end-to-end sharing.
-Audit files use UTC day buckets, expire after at most 30 days, and share a 100 MiB
-quota with the CLI. Appends do not extend the lifetime of old records.
+Every source or protection change ends the view session. A subsequent local grant
+must create a fresh session; its frame sequence starts again at 1. An invalidated
+output gate cannot resume or accept an updated binding.
+
+Audit files use UTC day buckets and share a 100 MiB quota with the CLI. Cleanup
+removes files aged 30 days from the earlier of their bucket start or modification
+time; appends do not extend retention. The app sweeps both app and broker journals
+at startup, every five minutes while running, and after wake, even with no active
+connection or audit events. A shared lock coordinates cleanup with both writers;
+contention defers a sweep until the next scheduled attempt. Invalid journal
+entries cause cleanup to fail and report a fixed diagnostic without record data.
+
+The app also cleans broker journals while the broker is stopped. With both
+processes stopped or the Mac asleep, no cleanup runs; the next startup or wake
+performs it. No background daemon is installed. Preview mode does not touch the
+user's journals. Audit writes continue to prune before appending.
 
 See [CLI contracts](CLI-CONTRACT.md) for released functionality and fixture versions.

@@ -6,6 +6,34 @@ struct ScreenSafetyTests {
     func binding() throws -> ScreenBinding {
         .init(link: try ScreenID.make(), session: try ScreenID.make(), source: try ScreenID.make(), grantEpoch: "1", sourceEpoch: "1", protectionEpoch: "1")
     }
+    @Test func sourceOrProtectionChangeEndsSessionAndFreshGrantRestartsFrames() throws {
+        let now = ContinuousClock.now
+        let original = try binding()
+        for protectionChange in [false, true] {
+            let gate = ScreenOutputGate()
+            try gate.renew(until: now.advanced(by: .seconds(1)), now: now)
+            try gate.activate(original, now: now)
+            #expect(try gate.nextFrame(now: now).1 == 1)
+            #expect(try gate.nextFrame(now: now).1 == 2)
+            // Epoch changes cannot replace a binding in an active session.
+            var changed = original
+            if protectionChange { changed.protectionEpoch = "2" }
+            else { changed.source = try ScreenID.make(); changed.sourceEpoch = "2" }
+            #expect(throws: ScreenFailure.leaseExpired) { try gate.activate(changed, now: now) }
+            #expect(gate.invalidate() == original)
+            #expect(throws: ScreenFailure.leaseExpired) { try gate.nextFrame(now: now) }
+            #expect(throws: ScreenFailure.leaseExpired) { try gate.activate(changed, now: now) }
+            // A new local grant uses a new session and output gate.
+            changed.session = try ScreenID.make()
+            let fresh = ScreenOutputGate()
+            try fresh.renew(until: now.advanced(by: .seconds(1)), now: now)
+            try fresh.activate(changed, now: now)
+            let frame = try fresh.nextFrame(now: now)
+            #expect(frame.0.session != original.session)
+            #expect(frame.1 == 1)
+            #expect(!fresh.allows(original, now: now))
+        }
+    }
     @Test func delayedHeartbeatCannotReviveExpiredOutput() throws {
         let now = ContinuousClock.now
         let gate = ScreenOutputGate(), binding = try binding()

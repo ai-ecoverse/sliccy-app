@@ -36,8 +36,21 @@ struct SliccyApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var shutdown: (() -> Void)?
-    func applicationWillTerminate(_ notification: Notification) { shutdown?() }
+    private var auditMaintenance: ScreenAuditMaintenance?
+    func applicationWillTerminate(_ notification: Notification) {
+        auditMaintenance?.stop()
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        shutdown?()
+    }
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if !ProcessInfo.processInfo.arguments.contains("--preview") {
+            do {
+                auditMaintenance = ScreenAuditMaintenance(audit: try ScreenAudit())
+                NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake), name: NSWorkspace.didWakeNotification, object: nil)
+            } catch {
+                Logger(subsystem: "ai.sliccy.mac", category: "Audit").error("Audit maintenance could not start")
+            }
+        }
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         Task { @MainActor in
@@ -47,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .info("Launch completed: \(windows.count) main-capable windows; visible: \(windows.filter(\.isVisible).count)")
         }
     }
+    @objc private func didWake(_ notification: Notification) { auditMaintenance?.sweepAfterWake() }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }
 

@@ -21,33 +21,49 @@ final class ScreenAudit: @unchecked Sendable {
         guard ScreenFailure(rawValue: reason) != nil || ["active", "awaiting-consent", "paused"].contains(reason),
               scope == nil || ["window", "display"].contains(scope!) else { throw ScreenFailure.audit }
         if let session { _ = try ScreenID.decode(session, bytes: 16) }
+        guard try withQuota({ app, cli in
+            try append(event, reason: reason, scope: scope, session: session, now: now, app: app, cli: cli)
+        }) else { throw ScreenFailure.audit }
+    }
+
+    /// Sweeps both writers without appending an event. False means another writer
+    /// owns the shared lock; maintenance retries on its next scheduled sweep.
+    @discardableResult
+    func sweep(now: Date = Date()) throws -> Bool {
+        try withQuota { app, cli in
+            try Self.prune(app: app, cli: cli, now: now, reserving: 0)
+        }
+    }
+
+    private func withQuota(_ body: (Int32, Int32) throws -> Void) throws -> Bool {
         lock.lock(); defer { lock.unlock() }
-        let bucket = Self.dayFormatter().string(from: now)
-        let prefix = "app-\(bucket)-"
-        if !filename.hasPrefix(prefix) { filename = "\(prefix)\(try ScreenID.make()).jsonl" }
         let app = try Self.openDirectory(appDirectory)
         defer { close(app) }
         let cli = try Self.openDirectory(cliDirectory)
         defer { close(cli) }
         let quota = try Self.openFile(app, name: "quota.lock")
         defer { close(quota) }
-        guard flock(quota, LOCK_EX | LOCK_NB) == 0 else { throw ScreenFailure.audit }
+        guard flock(quota, LOCK_EX | LOCK_NB) == 0 else {
+            if errno == EWOULDBLOCK { return false }
+            throw ScreenFailure.audit
+        }
         defer { flock(quota, LOCK_UN) }
         var held = stat(), disk = stat()
         guard fstat(quota, &held) == 0, fstatat(app, "quota.lock", &disk, AT_SYMLINK_NOFOLLOW) == 0,
               held.st_ino == disk.st_ino, held.st_dev == disk.st_dev else { throw ScreenFailure.audit }
+        try body(app, cli)
+        return true
+    }
+
+    private func append(_ event: Event, reason: String, scope: String?, session: String?, now: Date, app: Int32, cli: Int32) throws {
+        let bucket = Self.dayFormatter().string(from: now)
+        let prefix = "app-\(bucket)-"
+        if !filename.hasPrefix(prefix) { filename = "\(prefix)\(try ScreenID.make()).jsonl" }
         let formatter = ISO8601DateFormatter()
         let minute = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970 / 60) * 60)
         var data = try JSONEncoder().encode(Row(minute: formatter.string(from: minute), event: event, reason: reason, scope: scope, session: session))
         data.append(10)
-        var files = try Self.files(app, now: now) + Self.files(cli, now: now)
-        var total = files.reduce(Int64(0)) { $0 + $1.size }
-        files.sort { $0.retentionStart < $1.retentionStart }
-        for file in files where total + Int64(data.count) > 100 * 1024 * 1024 {
-            guard unlinkat(file.directory, file.name, 0) == 0 else { throw ScreenFailure.audit }
-            total -= file.size
-        }
-        guard total + Int64(data.count) <= 100 * 1024 * 1024 else { throw ScreenFailure.audit }
+        try Self.prune(app: app, cli: cli, now: now, reserving: Int64(data.count))
         var current = stat()
         if fstatat(app, filename, &current, AT_SYMLINK_NOFOLLOW) == 0, current.st_size + Int64(data.count) > 10 * 1024 * 1024 {
             filename = "\(prefix)\(try ScreenID.make()).jsonl"
@@ -63,6 +79,17 @@ final class ScreenAudit: @unchecked Sendable {
             position += written
         }
         guard fsync(file) == 0 else { throw ScreenFailure.audit }
+    }
+
+    private static func prune(app: Int32, cli: Int32, now: Date, reserving bytes: Int64) throws {
+        var files = try Self.files(app, now: now) + Self.files(cli, now: now)
+        var total = files.reduce(Int64(0)) { $0 + $1.size }
+        files.sort { $0.retentionStart < $1.retentionStart }
+        for file in files where total + bytes > 100 * 1024 * 1024 {
+            guard unlinkat(file.directory, file.name, 0) == 0 else { throw ScreenFailure.audit }
+            total -= file.size
+        }
+        guard total + bytes <= 100 * 1024 * 1024 else { throw ScreenFailure.audit }
     }
 
     private struct Entry { var directory: Int32; var name: String; var size: Int64; var retentionStart: TimeInterval }
