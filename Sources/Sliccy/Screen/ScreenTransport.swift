@@ -80,13 +80,20 @@ final class ScreenTransport: @unchecked Sendable {
 
     /// Caller has already recorded consent/intent and installed source and indicator.
     func grant(_ binding: ScreenBinding, scope: String) throws {
-        guard currentProtection() else { throw ScreenFailure.protection }
-        _ = try verifier.verifyCLI(socket: safety.fd, expectedPID: identity.pid, expectedIdentity: identity)
-        let message = try locked {
-            guard !ended else { throw ScreenFailure.stopped }
-            return try state.grant(binding, scope: scope)
+        do {
+            guard currentProtection() else { throw ScreenFailure.protection }
+            _ = try verifier.verifyCLI(socket: safety.fd, expectedPID: identity.pid, expectedIdentity: identity)
+            let message = try locked {
+                guard !ended else { throw ScreenFailure.stopped }
+                return try state.grant(binding, scope: scope)
+            }
+            try enqueue(message)
+        } catch {
+            // A refused or unqueueable grant cannot leave prior output authority
+            // alive. Invalidate and close both lanes before reporting the error.
+            fail(error as? ScreenFailure ?? .peerUntrusted)
+            throw error
         }
-        try enqueue(message)
     }
 
     /// This invalidates synchronously, before locks, encoding, audit, or network work.
