@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include "exec-lane.h"
 
 // Immutable proof-only same-PID replacement. No target arguments, capture,
 // listening sockets, filesystem access or grant generation.
@@ -70,14 +71,18 @@ int main(int argc, char **argv) {
     }
     row("helper-child-owned", NULL);
     int valid = read_exact(3, record, length) == 0;
+    row(valid ? "helper-bootstrap-record-read" : "helper-bootstrap-record-refused", NULL);
     close(3);
     for (int fd = 4; fd <= 5; fd++) {
-        int type = 0; socklen_t size = sizeof(type);
-        if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &size) || type != SOCK_STREAM) valid = 0;
-        pid_t peer = 0; size = sizeof(peer);
-        if (getsockopt(fd, SOL_LOCAL, LOCAL_PEERPID, &peer, &size) || peer != child) valid = 0;
-        uid_t uid; gid_t gid;
-        if (getpeereid(fd, &uid, &gid) || uid != getuid()) valid = 0;
+        int disconnected = 0;
+        const char *failure = inspect_exec_lane(fd, child, getuid(), &disconnected);
+        if (failure) {
+            valid = 0;
+            row(fd == 4 ? "helper-safety-refused" : "helper-frames-refused", failure);
+        } else {
+            row(fd == 4 ? "helper-safety-retained" : "helper-frames-retained",
+                disconnected ? "peer-disconnected" : "peer-matched");
+        }
     }
     SecCodeRef code = NULL; SecRequirementRef requirement = NULL;
     OSStatus role = SecCodeCopySelf(kSecCSDefaultFlags, &code);

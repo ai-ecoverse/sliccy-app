@@ -8,3 +8,5 @@ trap 'rm -rf "$probe_root"' EXIT
   -framework Security -framework CoreFoundation -o "$probe_root/socket-tests"
 /usr/bin/xcrun clang -Wall -Wextra -Werror Tests/NativeScreenFilterProbe/exec-layout-test.c -o "$probe_root/exec-layout-test"
 "$probe_root/socket-tests" "$probe_root/exec-layout-test"
+/usr/bin/xcrun clang -Wall -Wextra -Werror Tests/NativeScreenFilterProbe/exec-lane-tests.c -o "$probe_root/exec-lane-tests"
+"$probe_root/exec-lane-tests"
