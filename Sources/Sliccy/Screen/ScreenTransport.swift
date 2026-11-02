@@ -60,7 +60,7 @@ final class ScreenTransport: @unchecked Sendable {
                     let data = try safety.readSafety()
                     _ = try verifier.verifyCLI(socket: safety.fd, expectedPID: identity.pid, expectedIdentity: identity)
                     let message = try ScreenSafety.decode(data)
-                    if message.type == "revoke" { gate.invalidate(); frames.stop() }
+                    if message.type == "revoke" { quiesceOutput() }
                     let outcome: (ScreenSafety?, Event?) = try locked {
                         guard !ended else { throw ScreenFailure.stopped }
                         try inputRecords.consume(1); try inputBytes.consume(data.count + 8)
@@ -107,12 +107,9 @@ final class ScreenTransport: @unchecked Sendable {
 
     /// This invalidates synchronously, before locks, encoding, audit, or network work.
     func stop(_ reason: ScreenFailure = .stopped) {
-        gate.invalidate()
-        frames.stop() // An interrupted image record must never be continued.
+        quiesceOutput()
         do {
             let message = try locked {
-                latest = nil
-                outbound.removeAll { $0.type == "grant" }
                 guard !ended else { throw ScreenFailure.stopped }
                 return try state.revoke(reason)
             }
@@ -120,6 +117,19 @@ final class ScreenTransport: @unchecked Sendable {
             event(.revokeQueued(queuedAt))
             event(.stopped(reason))
         } catch { fail(reason) }
+    }
+
+    /// End image authority before the safety exchange. Socket lifetime and image
+    /// authority are distinct: an early frame EOF also kills the peer's safety lane.
+    func quiesceOutput() {
+        gate.invalidate()
+        // Keep even a partial record uncontinued until safety confirmation or
+        // the existing absolute deadlines close the association. EOF here would
+        // make the peer discard the safety lane before its acknowledgement.
+        locked {
+            latest = nil
+            outbound.removeAll { $0.type == "grant" }
+        }
     }
     func close() { fail(.stopped) }
 
@@ -156,7 +166,15 @@ final class ScreenTransport: @unchecked Sendable {
                 try frames.writeRecord(header: JSONEncoder().encode(next.0), body: next.1,
                     until: now.advanced(by: .seconds(2)), allowed: { [self] in gate.allows(next.0.binding) && currentProtection() })
             }
-        } catch { fail(error as? ScreenFailure ?? .peerLost) }
+        } catch {
+            if error as? ScreenFailure == .stopped, gate.isInvalidated {
+                // The terminal gate cancels this record permanently. No later
+                // frame may reuse the lane or continue the partial bytes.
+                locked { latest = nil; imageWriting = false }
+                return
+            }
+            fail(error as? ScreenFailure ?? .peerLost)
+        }
     }
     private func tick() {
         do {
@@ -194,7 +212,7 @@ final class ScreenTransport: @unchecked Sendable {
                 try locked { try state.checkHealth(); try outputRecords.consume(1); try outputBytes.consume(data.count + 8) }
                 _ = try verifier.verifyCLI(socket: safety.fd, expectedPID: identity.pid, expectedIdentity: identity)
                 try safety.writeRecord(header: data, until: .now.advanced(by: .seconds(1)), allowed: { [self] in
-                    locked { !ended && (next.type != "grant" || state.phase == .pending) }
+                    locked { !ended && (next.type != "grant" || (state.phase == .pending && !gate.isInvalidated)) }
                 })
             }
         } catch { fail(error as? ScreenFailure ?? .peerLost) }

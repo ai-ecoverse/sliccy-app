@@ -32,6 +32,39 @@ struct ScreenSocketTests {
         #expect(await work.value)
         withExtendedLifetime(reader) {}
     }
+    @Test func gateCancellationInterruptsBackpressureWithoutFrameEOF() async throws {
+        let (writer, reader) = try pair()
+        var capacity: Int32 = 1024
+        #expect(setsockopt(writer.fd, SOL_SOCKET, SO_SNDBUF, &capacity, socklen_t(MemoryLayout.size(ofValue: capacity))) == 0)
+        let gate = ScreenOutputGate(), now = ContinuousClock.now
+        let binding = ScreenBinding(link: try ScreenID.make(), session: try ScreenID.make(), source: try ScreenID.make(),
+            grantEpoch: "1", sourceEpoch: "1", protectionEpoch: "1")
+        try gate.renew(until: now.advanced(by: .seconds(10)), now: now)
+        try gate.activate(binding, now: now)
+        let work = Task.detached { () -> ScreenFailure? in
+            do {
+                try writer.writeRecord(header: Data(#"{"type":"frame"}"#.utf8), body: Data(repeating: 0, count: 2_097_152),
+                    until: .now.advanced(by: .seconds(1)), allowed: { gate.allows(binding) })
+                return nil
+            } catch { return error as? ScreenFailure }
+        }
+        // Wait for the record to begin, then stop without draining the receiver.
+        var descriptor = pollfd(fd: reader.fd, events: Int16(POLLIN), revents: 0)
+        #expect(poll(&descriptor, 1, 500) == 1)
+        gate.invalidate()
+        #expect(await work.value == .stopped) // Must cancel, not run into record timeout.
+        var bytes = [UInt8](repeating: 0, count: 8192)
+        var received = 0
+        var last: Int
+        repeat {
+            last = recv(reader.fd, &bytes, bytes.count, MSG_DONTWAIT)
+            if last > 0 { received += last }
+        } while last > 0
+        #expect(received > 0 && received < 2_097_152)
+        #expect(last == -1) // Partial record retained, never continued and no EOF.
+        #expect(errno == EAGAIN || errno == EWOULDBLOCK)
+        writer.stop()
+    }
     @Test func malformedAndPartialHelloCannotWaitIndefinitely() throws {
         let (writer, reader) = try pair()
         let oversized = ScreenSocket.prefix(4097)

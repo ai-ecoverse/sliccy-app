@@ -10,6 +10,8 @@ final class ScreenOutputGate: @unchecked Sendable {
     private var stopped = false
     private var frameSeq: UInt64 = 0
 
+    var isInvalidated: Bool { lock.lock(); defer { lock.unlock() }; return stopped }
+
     func renew(until: ContinuousClock.Instant, now: ContinuousClock.Instant = .now) throws {
         lock.lock(); defer { lock.unlock() }
         guard !stopped, until > now else { throw ScreenFailure.leaseExpired }

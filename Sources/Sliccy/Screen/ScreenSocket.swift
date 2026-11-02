@@ -79,7 +79,7 @@ final class ScreenSocket: @unchecked Sendable {
         var offset = 0
         while offset < data.count {
             guard allowed() else { throw ScreenFailure.stopped }
-            try wait(Int16(POLLOUT), until: until)
+            try wait(Int16(POLLOUT), until: until, allowed: allowed)
             guard allowed() else { throw ScreenFailure.stopped }
             let written = data.withUnsafeBytes { send(fd, $0.baseAddress!.advanced(by: offset), min(65536, data.count - offset), 0) }
             if written < 0 && [EINTR, EAGAIN].contains(errno) { continue }
@@ -87,8 +87,9 @@ final class ScreenSocket: @unchecked Sendable {
             offset += written
         }
     }
-    private func wait(_ event: Int16, until: ContinuousClock.Instant) throws {
+    private func wait(_ event: Int16, until: ContinuousClock.Instant, allowed: () -> Bool = { true }) throws {
         while ContinuousClock.now < until {
+            guard allowed() else { throw ScreenFailure.stopped }
             var descriptor = pollfd(fd: fd, events: event, revents: 0)
             let result = poll(&descriptor, 1, 25)
             if result < 0 && errno == EINTR { continue }
