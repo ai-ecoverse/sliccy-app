@@ -52,5 +52,21 @@ int main(int argc, char **argv) {
     char response[4]; assert(read(output, response, 4) == 4 && !memcmp(response, "PASS", 4)); close(output);
     int status = 0; assert(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
     close(sent); close(pair[0]); close(pair[1]);
+    if (argc == 2) {
+        pid_t parent = fork(); assert(parent >= 0);
+        if (!parent) {
+            alarm(4);
+            pid_t owned = fork(); assert(owned >= 0);
+            if (!owned) { alarm(5); pause(); _exit(0); }
+            int safety[2], frames[2];
+            assert(socketpair(AF_UNIX, SOCK_STREAM, 0, safety) == 0);
+            assert(socketpair(AF_UNIX, SOCK_STREAM, 0, frames) == 0);
+            int result = sliccy_screen_proof_exec(argv[1], owned, safety[0], frames[0], "test", 4, 42);
+            (void)kill(owned, SIGKILL); (void)waitpid(owned, NULL, 0);
+            fprintf(stderr, "Unexpected SETEXEC return %d\n", result); _exit(1);
+        }
+        assert(waitpid(parent, &status, 0) == parent && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    }
     puts("PASS: ancillary rights refused and closed; suspended child inherits only stdio/bootstrap and explicit environment");
+    if (argc == 2) puts("PASS: atomic same-PID exec retains only fixed lanes/bootstrap and actual child ownership/reap");
 }

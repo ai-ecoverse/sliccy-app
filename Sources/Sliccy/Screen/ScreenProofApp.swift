@@ -1,6 +1,8 @@
 #if SLICCY_NATIVE_SCREEN_PROOF
 import AppKit
 import Darwin
+import Security
+import ScreenSystem
 
 /// Diagnostic-only app entry: no workspace, user defaults, capture or grant caller.
 @MainActor
@@ -60,6 +62,12 @@ final class ScreenProofSession: @unchecked Sendable {
     private var reaped = false
     private var result: ScreenFailure?
     private var stopAt: ContinuousClock.Instant?
+    private var proofCase = ScreenProofCase.base
+    private var linked = false
+    private var caseStarted = false
+    private var lifecycleStop = false
+    private var authenticatedIdentity: ScreenAuditIdentity?
+    private var gateInvalidatedBeforeReap = false
 
     init(show: @escaping @Sendable (ScreenStopRelay) -> Void, completed: @escaping @Sendable (Int32) -> Void) {
         self.show = show; self.completed = completed
@@ -73,7 +81,8 @@ final class ScreenProofSession: @unchecked Sendable {
     }
 
     private func connect() throws {
-        guard ProcessInfo.processInfo.arguments.count == 2 else { throw ScreenFailure.incompatible }
+        let selected = try ScreenProofCase.parse(Array(ProcessInfo.processInfo.arguments.dropFirst()))
+        locked { proofCase = selected }
         let join = try Self.readJoin()
         var template = Array("/private/tmp/sliccy-proof.XXXXXXXX".utf8CString)
         guard mkdtemp(&template) != nil else { throw ScreenFailure.audit }
@@ -93,10 +102,11 @@ final class ScreenProofSession: @unchecked Sendable {
             guard !closing else { return false }
             self.child = child; return true
         }) else { child.stop(); return }
-        report("child-started")
+        report("child-started", pid: selected == .base ? nil : child.pid)
         let pair = try handshake.authenticate(pid: child.pid, until: child.deadline, verifier: verifier,
             policy: policy, childAlive: { child.isAlive })
         report("lanes-authenticated")
+        locked { authenticatedIdentity = pair.identity }
         let transport = ScreenTransport(pair: pair, verifier: verifier, noCapture: true, currentProtection: { false },
             event: { [weak self] in self?.event($0) })
         guard locked({ () -> Bool in
@@ -114,7 +124,7 @@ final class ScreenProofSession: @unchecked Sendable {
         transport.start()
         show(relay)
         queue.asyncAfter(deadline: .now() + 30) { [weak self] in
-            guard let self, !self.locked({ self.closing || self.stopping }) else { return }
+            guard let self, self.locked({ self.proofCase == .base && !self.closing && !self.stopping }) else { return }
             self.report("automatic-stop")
             relay.invoke(.stopped)
         }
@@ -123,9 +133,28 @@ final class ScreenProofSession: @unchecked Sendable {
     private func event(_ event: ScreenTransport.Event) {
         switch event {
         case .ready:
-            locked { ready = true }; report("heartbeat-ready")
+            locked { ready = true }; report("heartbeat-ready"); runCaseIfReady()
+        case .proofControlSent(let at):
+            report("exec-control-sent", at: at)
+        case .proofControlEchoed(let at):
+            report("exec-control-echoed", at: at)
+            let transport = locked { self.transport }
+            transport?.proofExecAfterFreshControl { [self] safety, frames, record, deadline in
+                guard let child = locked({ self.child }), child.isAlive else { throw ScreenFailure.peerLost }
+                let helper = Bundle.main.bundleURL.appending(path: "Contents/Helpers/ScreenProofExecHelper")
+                try Self.verifyExecHelper(helper)
+                guard ContinuousClock.now < deadline else { throw ScreenFailure.stalled }
+                report("parent-exec-requested", pid: getpid())
+                let elapsed = startTime.duration(to: .now).components
+                let nanos = UInt64(elapsed.seconds) * 1_000_000_000 + UInt64(elapsed.attoseconds / 1_000_000_000)
+                let result = record.withUnsafeBytes {
+                    sliccy_screen_proof_exec(helper.path, child.pid, safety, frames, $0.baseAddress, record.count, nanos)
+                }
+                report("parent-exec-failed")
+                if result != 0 { throw ScreenFailure.peerLost }
+            }
         case .link:
-            report("synthetic-link-observed")
+            locked { linked = true }; report("synthetic-link-observed"); runCaseIfReady()
         case .granted:
             close(.protection) // No diagnostic code may request a grant.
         case .revokeQueued(let at):
@@ -136,6 +165,30 @@ final class ScreenProofSession: @unchecked Sendable {
         case .stopped(let reason):
             // stop() reports its local action before the matching peer ack.
             if !locked({ stopping }) || reason != .stopped { close(reason) }
+        }
+    }
+    private func runCaseIfReady() {
+        let selected: ScreenProofCase? = locked {
+            guard ready, linked, !caseStarted, !closing, proofCase != .base else { return nil }
+            caseStarted = true
+            return proofCase
+        }
+        guard let selected else { return }
+        queue.async { [self] in
+            guard let transport = locked({ transport }) else { close(.peerLost); return }
+            switch selected {
+            case .base: return
+            case .parentExec:
+                transport.proofBeginExecControl()
+            case .lifecycle:
+                guard let identity = locked({ authenticatedIdentity }),
+                      (try? ScreenPeerVerifier.verify(identity: identity, identifier: "ai.sliccy.slicc")) != nil
+                else { close(.peerUntrusted); return }
+                report("lifecycle-live-token-accepted")
+                let child = locked { () -> ScreenChild? in lifecycleStop = true; return self.child }
+                report("lifecycle-stop-requested")
+                child?.stop()
+            }
         }
     }
     func close(_ failure: ScreenFailure?) {
@@ -159,6 +212,14 @@ final class ScreenProofSession: @unchecked Sendable {
         } else { finish(failure) }
     }
     private func childLost() {
+        let activeTransport = locked { transport }
+        activeTransport?.quiesceOutput()
+        let invalid = activeTransport?.gate.isInvalidated == true
+        let extended = locked { () -> Bool in
+            gateInvalidatedBeforeReap = invalid && !reaped
+            return proofCase != .base
+        }
+        if extended { report("child-gate-invalidated", reason: invalid ? "invalidated" : "no-transport") }
         report("child-authority-invalidated")
         // The exit monitor reaps next. Keep ownership until that callback.
         let active = locked { () -> Bool in
@@ -168,14 +229,25 @@ final class ScreenProofSession: @unchecked Sendable {
             if child == nil { result = .peerLost; return false }
             return !closing
         }
-        if active { close(.peerLost) }
+        if active { close(locked { lifecycleStop && gateInvalidatedBeforeReap ? nil : .peerLost }) }
     }
     private func childReaped(_ status: Int32) {
         report("child-exit-reaped")
-        let failure = locked { () -> ScreenFailure? in
+        var failure = locked { () -> ScreenFailure? in
             reaped = true
             if !closing { closing = true; result = .peerLost }
             return result
+        }
+        if locked({ proofCase == .lifecycle && lifecycleStop }) {
+            if let identity = locked({ authenticatedIdentity }), locked({ gateInvalidatedBeforeReap }) {
+                do {
+                    _ = try ScreenPeerVerifier.verify(identity: identity, identifier: "ai.sliccy.slicc")
+                    report("stale-token-accepted")
+                    failure = .peerUntrusted
+                } catch {
+                    report("stale-token-refused")
+                }
+            } else { failure = .peerUntrusted }
         }
         finish(failure)
     }
@@ -188,15 +260,19 @@ final class ScreenProofSession: @unchecked Sendable {
         guard outcome.0 else { return }
         // root may be nil when stdin validation fails.
         if let cleanup = outcome.1 { try? FileManager.default.removeItem(at: cleanup) }
-        report("terminal", reason: failure?.rawValue ?? "ipc-only-complete")
+        let success = locked { proofCase == .lifecycle ? "lifecycle-only-complete" : "ipc-only-complete" }
+        report("terminal", reason: failure?.rawValue ?? success)
         completed(failure == nil ? 0 : 1)
     }
-    private func report(_ stage: String, at: ContinuousClock.Instant = .now, duration: Duration? = nil, reason: String? = nil) {
+    private func report(_ stage: String, at: ContinuousClock.Instant = .now, duration: Duration? = nil, reason: String? = nil, pid: pid_t? = nil) {
         func milliseconds(_ duration: Duration) -> Double {
             let value = duration.components
             return Double(value.seconds) * 1000 + Double(value.attoseconds) / 1e15
         }
         var row: [String: Any] = ["schema": 1, "stage": stage, "elapsedMs": milliseconds(startTime.duration(to: at)), "capture": false]
+        let selected = locked { proofCase }
+        if selected != .base { row["schema"] = 2; row["case"] = selected.rawValue }
+        if let pid { row["pid"] = pid }
         if let duration { row["durationMs"] = milliseconds(duration) }
         if let reason { row["reason"] = reason }
         outputLock.lock(); defer { outputLock.unlock() }
@@ -205,6 +281,16 @@ final class ScreenProofSession: @unchecked Sendable {
         }
     }
     private func locked<T>(_ body: () -> T) -> T { lock.lock(); defer { lock.unlock() }; return body() }
+
+    private static func verifyExecHelper(_ url: URL) throws {
+        try ScreenPeerVerifier.verifySelf()
+        var code: SecStaticCode?, requirement: SecRequirement?
+        let rule = "anchor apple generic and identifier \"ai.sliccy.proof-helper\" and certificate leaf[subject.OU] = \"S8LB56P782\""
+        guard SecStaticCodeCreateWithPath(url as CFURL, [], &code) == errSecSuccess, let code,
+              SecRequirementCreateWithString(rule as CFString, [], &requirement) == errSecSuccess, let requirement,
+              SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess
+        else { throw ScreenFailure.peerUntrusted }
+    }
 
     static func validateJoin(_ raw: String) throws -> String {
         guard raw.utf8.count <= 4096, !raw.contains("\n"), !raw.contains("\r"),

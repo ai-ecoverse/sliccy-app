@@ -18,6 +18,8 @@ OSStatus sliccy_screen_dynamic_status(SecCodeRef code, uint32_t *status) {
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
+#include <arpa/inet.h>
+#include <libkern/OSByteOrder.h>
 
 ssize_t sliccy_screen_recv(int fd, void *buffer, size_t size) {
     union { struct cmsghdr aligned; unsigned char bytes[CMSG_SPACE(sizeof(int) * 256)]; } control;
@@ -96,5 +98,63 @@ cleanup:
         if (out[i] >= 0) close(out[i]);
         if (boot[i] >= 0) close(boot[i]);
     }
+    return failure;
+}
+
+int sliccy_screen_proof_exec(const char *helper, pid_t child, int safety, int frames,
+                            const void *record, size_t size, uint64_t elapsed_ns) {
+    if (!helper || child <= 0 || size == 0 || size > 4104) return EINVAL;
+    int boot[2] = {-1,-1}, s = -1, f = -1, failure = 0, ar = 0, pr = 0;
+    posix_spawn_file_actions_t actions;
+    posix_spawnattr_t attr;
+    if ((failure = private_pipe(boot))) goto done;
+    // Stage above the fixed destination range so file actions cannot alias.
+    s = fcntl(safety, F_DUPFD_CLOEXEC, 10);
+    f = fcntl(frames, F_DUPFD_CLOEXEC, 10);
+    int reader = fcntl(boot[0], F_DUPFD_CLOEXEC, 10);
+    close(boot[0]); boot[0] = reader;
+    if (s < 0 || f < 0 || reader < 0) { failure = errno; goto done; }
+    unsigned char buffer[24 + 4104];
+    uint32_t words[4] = { htonl(0x53505831), htonl((uint32_t)getpid()), htonl((uint32_t)child), htonl((uint32_t)size) };
+    uint64_t elapsed = OSSwapHostToBigInt64(elapsed_ns);
+    memcpy(buffer, words, 16); memcpy(buffer + 16, &elapsed, 8); memcpy(buffer + 24, record, size);
+    size_t offset = 0;
+    while (offset < 24 + size) {
+        ssize_t n = write(boot[1], buffer + offset, 24 + size - offset);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) { failure = errno ? errno : EIO; goto done; }
+        offset += (size_t)n;
+    }
+    close(boot[1]); boot[1] = -1;
+    if ((failure = posix_spawn_file_actions_init(&actions))) goto done;
+    ar = 1;
+    if ((failure = posix_spawnattr_init(&attr))) goto done;
+    pr = 1;
+    if ((failure = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC | POSIX_SPAWN_CLOEXEC_DEFAULT)) ||
+        (failure = posix_spawn_file_actions_addinherit_np(&actions, STDOUT_FILENO)) ||
+        (failure = posix_spawn_file_actions_addinherit_np(&actions, STDERR_FILENO)) ||
+        (failure = posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0)) ||
+        (failure = posix_spawn_file_actions_adddup2(&actions, boot[0], 3)) ||
+        (failure = posix_spawn_file_actions_adddup2(&actions, s, 4)) ||
+        (failure = posix_spawn_file_actions_adddup2(&actions, f, 5))) goto done;
+    char *const args[] = { (char *)helper, NULL };
+    char *const env[] = { "PATH=/usr/bin:/bin", "LANG=en_US.UTF-8", NULL };
+    // Darwin SETEXEC consumes file-action sources after its close-on-exec pass.
+    // Only these staged copies lose CLOEXEC; CLOEXEC_DEFAULT closes them after
+    // dup2. The component test asserts exactly descriptors 0...5 survive.
+    if (fcntl(boot[0], F_SETFD, 0) || fcntl(s, F_SETFD, 0) || fcntl(f, F_SETFD, 0)) {
+        failure = errno; goto done;
+    }
+    pid_t same = 0;
+    failure = posix_spawn(&same, helper, &actions, &attr, args, env);
+    // SETEXEC never returns on success.
+    if (!failure) failure = EIO;
+done:
+    if (ar) posix_spawn_file_actions_destroy(&actions);
+    if (pr) posix_spawnattr_destroy(&attr);
+    if (s >= 0) close(s);
+    if (f >= 0) close(f);
+    if (boot[0] >= 0) close(boot[0]);
+    if (boot[1] >= 0) close(boot[1]);
     return failure;
 }

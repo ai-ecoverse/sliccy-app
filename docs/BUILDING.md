@@ -38,7 +38,7 @@ validation and supported source scopes remain separate conditions in the app.
 ## Connection diagnostic build
 
 The guarded signing workflow also produces a separate `Sliccy-IPC-Proof` artifact
-(version 0.1.0, build 2). Only that compile-time variant accepts `--screen-proof`.
+(version 0.1.0, build 3). Only that compile-time variant accepts `--screen-proof`.
 It reads a synthetic loopback join URL from stdin, launches the exact bundled
 v1.58.1 CLI with isolated settings, and exercises the native connection and Stop
 path. It refuses grants and image submission and starts no capture stream.
@@ -46,3 +46,11 @@ Its Stop Test panel and keyboard shortcut use the same stop relay as sharing.
 The ordinary app retains disabled native screen authority. Diagnostic output
 reports connection stages and elapsed times; it does not establish capture
 exclusion or active-capture stop latency. Signed bundles are assembled only by CI.
+
+The proof variant also supports fixed `--case parent-exec` and `--case lifecycle`
+options after `--screen-proof`. The first uses a separate CI-signed helper to
+replace the app process and clean up its inherited child. That helper is never
+included in ordinary builds and has a different signing identifier. The second
+checks child invalidation and stale identity refusal after reaping. Case results
+use schema 2; the original no-capture diagnostic keeps schema 1. These diagnostic
+paths do not request screen permission or enable image grants.

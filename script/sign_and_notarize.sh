@@ -43,6 +43,16 @@ cat > "$artifact_dir/entitlements.plist" <<'PLIST'
 <plist version="1.0"><dict/></plist>
 PLIST
 identity="Developer ID Application: Lars Trieloff ($APPLE_TEAM_ID)"
+helper="$signed_app/Contents/Helpers/ScreenProofExecHelper"
+if [[ -e "$helper" ]]; then
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 3 ]] || { echo 'Unexpected diagnostic helper.' >&2; exit 2; }
+  /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" \
+    --identifier ai.sliccy.proof-helper --entitlements "$artifact_dir/entitlements.plist" "$helper"
+  /usr/bin/codesign --verify --strict -R '=anchor apple generic and identifier "ai.sliccy.proof-helper" and certificate leaf[subject.OU] = "S8LB56P782"' "$helper"
+  if /usr/bin/codesign --verify --strict -R '=identifier "ai.sliccy.mac"' "$helper" >/dev/null 2>&1; then
+    echo 'Diagnostic helper must not have app peer identity.' >&2; exit 2
+  fi
+fi
 /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" \
   --entitlements "$artifact_dir/entitlements.plist" "$signed_app"
 # Preserve the upstream CLI signature and exact artifact bytes; never re-sign it.
@@ -68,5 +78,8 @@ fi
 /usr/sbin/spctl --assess --type execute "$signed_app"
 /usr/bin/ditto -c -k --keepParent "$signed_app" "$artifact_dir/Sliccy-0.1.0.zip"
 /usr/bin/codesign -dvvv "$signed_app" 2> "$artifact_dir/signing.txt"
+if [[ -e "$helper" ]]; then
+  /usr/bin/codesign -dvvv "$helper" 2>> "$artifact_dir/signing.txt"
+fi
 (cd "$artifact_dir" && /usr/bin/shasum -a 256 Sliccy-0.1.0.zip > SHA256SUMS)
 printf 'Verified signed app: %s\n' "$signed_app"

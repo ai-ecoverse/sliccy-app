@@ -17,7 +17,7 @@ if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 ]]; then
   [[ "$MODE" == --build && "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == ai-ecoverse/sliccy-app && "${GITHUB_EVENT_NAME:-}" == push && "${GITHUB_REF:-}" == refs/heads/main ]] || { echo 'Build the diagnostic bundle through upstream main CI.' >&2; exit 2; }
   SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/native-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF)
   APP_BUNDLE="$ROOT_DIR/dist-proof/$APP_NAME.app"
-  BUILD_NUMBER=2
+  BUILD_NUMBER=3
 fi
 SWIFT="${SLICCY_SWIFT:-$(/usr/bin/xcrun --find swift)}"
 cd "$ROOT_DIR"
@@ -30,6 +30,14 @@ fi
 BUILD_DIR="$("$SWIFT" build "${SWIFT_FLAGS[@]}" --show-bin-path)"
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
 cp "$BUILD_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 ]]; then
+  mkdir -p "$APP_BUNDLE/Contents/Helpers"
+  /usr/bin/xcrun clang -Wall -Wextra -Werror Tests/NativeScreenFilterProbe/exec-helper.c \
+    -framework Security -framework CoreFoundation -o "$APP_BUNDLE/Contents/Helpers/ScreenProofExecHelper"
+  /usr/bin/codesign --force --sign - --identifier ai.sliccy.proof-helper "$APP_BUNDLE/Contents/Helpers/ScreenProofExecHelper"
+else
+  [[ ! -e "$APP_BUNDLE/Contents/Helpers/ScreenProofExecHelper" ]] || { echo 'Diagnostic helper must not be in a production bundle.' >&2; exit 2; }
+fi
 if [[ -x "$ROOT_DIR/.build/tools/slicc" ]]; then
   mkdir -p "$APP_BUNDLE/Contents/Resources"
   cp "$ROOT_DIR/.build/tools/slicc" "$APP_BUNDLE/Contents/Resources/slicc"

@@ -26,6 +26,16 @@ struct ScreenProofTests {
     }
 
 #if SLICCY_NATIVE_SCREEN_PROOF
+    @Test func onlyFixedDiagnosticCasesCanBeSelected() throws {
+        #expect(try ScreenProofCase.parse(["--screen-proof"]) == .base)
+        #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "parent-exec"]) == .parentExec)
+        #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "lifecycle"]) == .lifecycle)
+        for bad in [[String](), ["--screen-proof", "--case", "/bin/sh"],
+                    ["--screen-proof", "--case", "base"], ["--screen-proof", "--pid", "1"],
+                    ["--screen-proof", "--case", "parent-exec", "--path", "/tmp/helper"]] {
+            #expect(throws: ScreenFailure.incompatible) { try ScreenProofCase.parse(bad) }
+        }
+    }
     @Test func diagnosticJoinIsLoopbackOnlyAndRefusesDebugPorts() throws {
         let valid = "http://127.0.0.1:32456/join/test.secret"
         #expect(try ScreenProofSession.validateJoin(valid) == valid)

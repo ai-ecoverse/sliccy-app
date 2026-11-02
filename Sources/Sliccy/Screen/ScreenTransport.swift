@@ -1,4 +1,7 @@
 import Foundation
+#if SLICCY_NATIVE_SCREEN_PROOF
+import Darwin
+#endif
 
 /// Paired private lanes. Every callback is off the UI thread; the owner supplies a
 /// current source/indicator check. Authentication and the child lifetime are owned
@@ -6,6 +9,10 @@ import Foundation
 final class ScreenTransport: @unchecked Sendable {
     enum Event: Sendable {
         case ready
+#if SLICCY_NATIVE_SCREEN_PROOF
+        case proofControlSent(ContinuousClock.Instant)
+        case proofControlEchoed(ContinuousClock.Instant)
+#endif
         case revocationConfirmed
         case revokeQueued(ContinuousClock.Instant)
         case link(String, ScreenRecipient, ScreenBrowserEvidence)
@@ -34,6 +41,12 @@ final class ScreenTransport: @unchecked Sendable {
     private var controlWriting = false
     private var timer: DispatchSourceTimer?
     private var nextHeartbeat = ContinuousClock.now
+#if SLICCY_NATIVE_SCREEN_PROOF
+    private var proofPaused = false
+    private var proofControlSeq: UInt64?
+    private var proofControlSentAt: ContinuousClock.Instant?
+    private var proofControlEchoedAt: ContinuousClock.Instant?
+#endif
     private let currentProtection: @Sendable () -> Bool
     private let noCapture: Bool
     private let event: @Sendable (Event) -> Void
@@ -76,6 +89,14 @@ final class ScreenTransport: @unchecked Sendable {
                             try gate.activate(binding)
                             return (reply, .granted(binding))
                         }
+#if SLICCY_NATIVE_SCREEN_PROOF
+                        if message.type == "heartbeat", let sequence = proofControlSeq,
+                           proofControlSentAt != nil, proofControlEchoedAt == nil, state.echoed >= sequence {
+                            let now = ContinuousClock.now
+                            proofControlEchoedAt = now
+                            return (reply, .proofControlEchoed(now))
+                        }
+#endif
                         if !wasReady, state.ready { return (reply, .ready) }
                         if message.type == "revoked" { return (reply, .revocationConfirmed) }
                         return (reply, message.type == "revoke" ? .stopped(ScreenFailure(rawValue: message.reason ?? "") ?? .stopped) : nil)
@@ -178,29 +199,36 @@ final class ScreenTransport: @unchecked Sendable {
     }
     private func tick() {
         do {
-            let heartbeat = try locked { () -> ScreenSafety? in
-                guard !ended else { return nil }
+            let start = try locked { () -> Bool in
+                guard !ended else { return false }
                 try state.checkHealth()
+#if SLICCY_NATIVE_SCREEN_PROOF
+                if proofPaused { return false }
+#endif
                 if state.phase == .active || state.phase == .pending {
                     guard currentProtection() else { throw ScreenFailure.protection }
                 }
-                guard state.received > 0, ContinuousClock.now >= nextHeartbeat else { return nil }
+                guard state.received > 0, ContinuousClock.now >= nextHeartbeat else { return false }
                 nextHeartbeat = .now.advanced(by: .milliseconds(500))
-                return try state.heartbeat()
+                return try appendLocked(state.heartbeat()).0
             }
-            if let heartbeat { try enqueue(heartbeat) }
+            if start { outputQueue.async { [self] in writeControl() } }
         } catch { fail(error as? ScreenFailure ?? .leaseExpired) }
     }
     @discardableResult
     private func enqueue(_ message: ScreenSafety) throws -> ContinuousClock.Instant {
-        let (start, queuedAt) = try locked {
-            guard !ended, outbound.count < 16 else { throw ScreenFailure.resourceLimit }
-            outbound.append(message)
-            if controlWriting { return (false, ContinuousClock.now) }
-            controlWriting = true; return (true, ContinuousClock.now)
-        }
+        let (start, queuedAt) = try locked { try appendLocked(message) }
         if start { outputQueue.async { [self] in writeControl() } }
         return queuedAt
+    }
+    /// Caller holds lock: heartbeat sequence assignment and queue admission must
+    /// be atomic even when a diagnostic control is requested between timer ticks.
+    private func appendLocked(_ message: ScreenSafety) throws -> (Bool, ContinuousClock.Instant) {
+        guard !ended, outbound.count < 16 else { throw ScreenFailure.resourceLimit }
+        outbound.append(message)
+        if controlWriting { return (false, .now) }
+        controlWriting = true
+        return (true, .now)
     }
     private func writeControl() {
         do {
@@ -211,9 +239,19 @@ final class ScreenTransport: @unchecked Sendable {
                 let data = try next.data()
                 try locked { try state.checkHealth(); try outputRecords.consume(1); try outputBytes.consume(data.count + 8) }
                 _ = try verifier.verifyCLI(socket: safety.fd, expectedPID: identity.pid, expectedIdentity: identity)
+#if SLICCY_NATIVE_SCREEN_PROOF
+                let proofSent: ContinuousClock.Instant? = locked {
+                    guard next.type == "heartbeat", next.seq.flatMap(UInt64.init) == proofControlSeq,
+                          proofControlSeq != nil else { return nil }
+                    let now = ContinuousClock.now; proofControlSentAt = now; return now
+                }
+#endif
                 try safety.writeRecord(header: data, until: .now.advanced(by: .seconds(1)), allowed: { [self] in
                     locked { !ended && (next.type != "grant" || (state.phase == .pending && !gate.isInvalidated)) }
                 })
+#if SLICCY_NATIVE_SCREEN_PROOF
+                if let proofSent { event(.proofControlSent(proofSent)) }
+#endif
             }
         } catch { fail(error as? ScreenFailure ?? .peerLost) }
     }
@@ -229,6 +267,46 @@ final class ScreenTransport: @unchecked Sendable {
     private func locked<T>(_ body: () throws -> T) rethrows -> T {
         lock.lock(); defer { lock.unlock() }; return try body()
     }
+
+#if SLICCY_NATIVE_SCREEN_PROOF
+    func proofBeginExecControl() {
+        outputQueue.async { [self] in
+            do {
+                let start = try locked {
+                    guard noCapture, !ended, state.ready, !imageWriting, state.phase == .linked,
+                          !proofPaused else { throw ScreenFailure.incompatible }
+                    proofPaused = true
+                    let message = try state.heartbeat()
+                    proofControlSeq = state.sent
+                    return try appendLocked(message).0
+                }
+                if start { outputQueue.async { [self] in writeControl() } }
+            } catch { fail(error as? ScreenFailure ?? .peerLost) }
+        }
+    }
+
+    /// The fixed diagnostic caller receives only the established lanes and a
+    /// current heartbeat record; this API is absent from ordinary app builds.
+    func proofExecAfterFreshControl(action: @escaping @Sendable (Int32, Int32, Data, ContinuousClock.Instant) throws -> Void) {
+        outputQueue.async { [self] in
+            do {
+                let (heartbeat, deadline) = try locked {
+                    let now = ContinuousClock.now
+                    guard noCapture, !ended, proofPaused, state.ready, !imageWriting,
+                          state.phase == .linked, !controlWriting, outbound.isEmpty,
+                          let sent = proofControlSentAt, let echoed = proofControlEchoedAt,
+                          sent.duration(to: now) <= .milliseconds(750), echoed.duration(to: now) <= .milliseconds(100)
+                    else { throw ScreenFailure.stalled }
+                    return (try state.heartbeat(), sent.advanced(by: .milliseconds(750)))
+                }
+                let data = try heartbeat.data()
+                let record = ScreenSocket.prefix(data.count) + data + ScreenSocket.prefix(0)
+                try action(safety.fd, frames.fd, record, deadline)
+                throw ScreenFailure.peerLost // A successful same-PID exec never returns.
+            } catch { fail(error as? ScreenFailure ?? .peerLost) }
+        }
+    }
+#endif
 }
 
 struct ScreenRate {
