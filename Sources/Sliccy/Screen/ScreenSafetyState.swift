@@ -89,10 +89,12 @@ struct ScreenSafetyState {
         binding = proposed; grantRequest = message.request; phase = .pending
         return message
     }
-    mutating func revoke(_ reason: ScreenFailure, now: ContinuousClock.Instant = .now) throws -> ScreenSafety {
+    mutating func revoke(_ reason: ScreenFailure, now: ContinuousClock.Instant = .now) throws -> ScreenSafety? {
+        if let revokeUntil, now < revokeUntil { return nil }
+        let request = try ScreenID.make()
         phase = .revoked
+        revokeRequest = request; revokeUntil = now.advanced(by: .milliseconds(1500))
         var message = base("revoke")
-        if revokeRequest == nil { revokeRequest = try ScreenID.make(); revokeUntil = now.advanced(by: .milliseconds(1500)) }
         message.request = revokeRequest; message.link = link; message.session = binding?.session; message.reason = reason.rawValue
         return message
     }

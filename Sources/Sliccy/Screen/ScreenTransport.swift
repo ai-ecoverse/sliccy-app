@@ -39,7 +39,7 @@ final class ScreenTransport: @unchecked Sendable {
     private var inputBytes = ScreenRate(capacity: 65536, rate: 65536)
     private var outputRecords = ScreenRate(capacity: 16, rate: 16)
     private var outputBytes = ScreenRate(capacity: 65536, rate: 65536)
-    private let outputQueue = DispatchQueue(label: "ai.sliccy.screen.safety-write", qos: .userInteractive)
+    private let outputQueue: DispatchQueue
     private let imageQueue = DispatchQueue(label: "ai.sliccy.screen.frames", qos: .userInitiated)
     private var imageWriting = false
     private var controlWriting = false
@@ -99,12 +99,13 @@ final class ScreenTransport: @unchecked Sendable {
 
     init(pair: ScreenHandshake.Pair, verifier: ScreenPeerVerifier,
          noCapture: Bool = false,
+         controlQueue: DispatchQueue = DispatchQueue(label: "ai.sliccy.screen.safety-write", qos: .userInteractive),
          currentProtection: @escaping @Sendable () -> Bool,
          event: @escaping @Sendable (Event) -> Void) {
         safety = pair.safety; frames = pair.frames; identity = pair.identity; self.verifier = verifier
         state = ScreenSafetyState(launch: pair.launch, connection: pair.connection, now: pair.authenticatedAt, readyDeadline: pair.readyDeadline)
         self.currentProtection = currentProtection; self.event = event
-        self.noCapture = noCapture
+        self.noCapture = noCapture; outputQueue = controlQueue
     }
     func start() {
 #if SLICCY_CAPTURE_RUNNER_PROOF
@@ -205,13 +206,15 @@ final class ScreenTransport: @unchecked Sendable {
 
     /// This invalidates synchronously, before locks, encoding, audit, or network work.
     func stop(_ reason: ScreenFailure = .stopped) {
-        quiesceOutput()
+        let invalidation = quiesceOutput()
         do {
-            let message = try locked {
+            let admission = try locked { () throws -> (Bool, ContinuousClock.Instant)? in
                 guard !ended else { throw ScreenFailure.stopped }
-                return try state.revoke(reason)
+                guard let message = try state.revoke(reason, now: invalidation.0) else { return nil }
+                return try appendLocked(message)
             }
-            let queuedAt = try enqueue(message)
+            guard let (start, queuedAt) = admission else { return }
+            if start { outputQueue.async { [self] in writeControl() } }
             event(.revokeQueued(queuedAt))
             event(.stopped(reason))
         } catch { fail(reason) }
