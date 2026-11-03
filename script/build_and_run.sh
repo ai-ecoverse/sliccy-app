@@ -43,7 +43,8 @@ if [[ "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 ]]; then
     proof_slices+=("$proof_bin/$APP_NAME")
   done
   /usr/bin/lipo -create "${proof_slices[@]}" -output "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
-  /usr/bin/lipo -verify_arch arm64 x86_64 "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+  proof_archs="$(/usr/bin/lipo -archs "$APP_BUNDLE/Contents/MacOS/$APP_NAME")"
+  [[ "$proof_archs" == 'arm64 x86_64' || "$proof_archs" == 'x86_64 arm64' ]] || { echo 'Unexpected universal architecture set.' >&2; exit 2; }
 else
   "$SWIFT" build "${SWIFT_FLAGS[@]}" --product "$APP_NAME"
   BUILD_DIR="$("$SWIFT" build "${SWIFT_FLAGS[@]}" --show-bin-path)"
