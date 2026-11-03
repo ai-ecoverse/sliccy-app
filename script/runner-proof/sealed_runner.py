@@ -29,9 +29,9 @@ APP_SOURCE = '357b7f7cc7ef8ae2fd4570efd468c95f58deba41'
 APP_ZIP_SHA = 'bda51456eca9214cfb7941549897505b87b54643aa59fbd7033271c3aa659de0'
 APP_MANIFEST_SHA = '40d769fdcdb9b8ccc4dc000e92c118445518c3d8e835f36f97c91d0034be398f'
 INPUTS = {
-    'capture-driver-handoff.json': '637748bf3543e561c7d66423df6d413de569b9ce89f14046922e7affb8a3c127',
-    'capture-driver.tar.gz': 'd00e592b70e8272e441c0ab4159e636287d3aeb23185e19eae5d005574c41c62',
-    'capture-driver-files.json': '8ed094018ef9d9bc203c31cc32c15910f19b2c46f147ab5a11d9345d957ceeb1',
+    'capture-driver-handoff.json': 'd7f196fdbed604582438e76f2520868f4c078cfb22bd224d42cf02d1ef074ee3',
+    'capture-driver.tar.gz': '61bef34d8cb852268e36e4e84bb8485956c4c331dfb1111ef4c0272065b3f9c9',
+    'capture-driver-files.json': '931130ccceaa8e334b09fba9320b87eb2f938c616977f4ed638fa4c1359a9fb8',
     'slicc-v1.59.0.tar.gz': '8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9',
 }
 PREFIX = 'ai-ecoverse-slicc-cli-cea8ec1'
@@ -83,7 +83,7 @@ def extract_sources(inputs, destination):
         'caseTotalSeconds': 45, 'caseExecutionSeconds': 40, 'caseCaptureSeconds': 10}:
         raise ValueError('driver contract')
     expected = metadata['files']
-    if len(expected) != 45 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
+    if len(expected) != 46 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
         raise ValueError('driver file set')
     package = destination / 'test/nativeproof'
     package.mkdir(mode=0o700)
