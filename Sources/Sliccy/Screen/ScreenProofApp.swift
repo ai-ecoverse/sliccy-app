@@ -177,6 +177,9 @@ final class ScreenProofSession: @unchecked Sendable {
 
     private func event(_ event: ScreenTransport.Event) {
         switch event {
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        case .proofSourceAdmitted, .proofNativeAdmitted: break
+#endif
         case .ready:
             locked { ready = true }; report("heartbeat-ready"); runCaseIfReady()
         case .proofControlSent(let at):

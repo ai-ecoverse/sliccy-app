@@ -1,0 +1,152 @@
+#if SLICCY_CAPTURE_RUNNER_PROOF
+import Foundation
+import Darwin
+import Security
+
+final class ScreenRunnerOwnedProcess: @unchecked Sendable {
+    let pid: pid_t
+    let executable: URL
+    let identifier: String
+    private let lock = NSLock()
+    private var reaped = false, invalid = false
+    private var input: Int32 = -1
+    private var monitor: DispatchSourceProcess?
+    private let exited = DispatchSemaphore(value: 0)
+    private let ended: @Sendable (pid_t, Bool) -> Void
+    private let staticHash: Data
+    var isAlive: Bool { lock.lock(); defer { lock.unlock() }; return !invalid && !reaped }
+
+    static func surface(home: URL, ended: @escaping @Sendable (pid_t, Bool) -> Void) throws -> ScreenRunnerOwnedProcess {
+        _ = try ScreenRunnerHost.require()
+        let app = Bundle.main.bundleURL.appending(path: "Contents/Helpers/ScreenProofSurface.app")
+        return try ScreenRunnerOwnedProcess(executable: app.appending(path: "Contents/MacOS/ScreenProofSurface"),
+            identifier: "ai.sliccy.proof-helper", team: "S8LB56P782", arguments: [], home: home, ended: ended)
+    }
+    static func chrome(window: ScreenRunnerBrowserWindow, join: String, home: URL,
+                       ended: @escaping @Sendable (pid_t, Bool) -> Void) throws -> ScreenRunnerOwnedProcess {
+        _ = try ScreenRunnerHost.require()
+        let page = try window.page(join: join), rect = window.rect
+        return try ScreenRunnerOwnedProcess(executable: URL(fileURLWithPath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+            identifier: "com.google.Chrome", team: nil,
+            arguments: ["--user-data-dir=" + home.appending(path: "config/chrome-" + window.profile).path,
+                        "--no-first-run", "--no-default-browser-check", "--disable-background-networking",
+                        "--disable-component-update", "--disable-sync", "--disable-default-apps",
+                        "--window-position=\(Int(rect.minX)),\(Int(rect.minY))", "--window-size=288,224", "--app=" + page.absoluteString],
+            home: home, ended: ended)
+    }
+    static func authorization(home: URL, ended: @escaping @Sendable (pid_t, Bool) -> Void) throws -> ScreenRunnerOwnedProcess {
+        guard try ScreenRunnerHost.require() == .authorizationExclusion else { throw ScreenFailure.protection }
+        return try ScreenRunnerOwnedProcess(executable: URL(fileURLWithPath: "/usr/bin/osascript"),
+            identifier: "com.apple.osascript", team: nil,
+            arguments: ["-e", "do shell script \"/usr/bin/true\" with administrator privileges"], home: home, ended: ended)
+    }
+    private init(executable: URL, identifier: String, team: String?, arguments: [String], home: URL,
+                 ended: @escaping @Sendable (pid_t, Bool) -> Void) throws {
+        self.executable = executable; self.identifier = identifier; self.ended = ended
+        var code: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(executable as CFURL, [], &code) == errSecSuccess, let code else { throw ScreenFailure.peerUntrusted }
+        let rule = try Self.rule(identifier: identifier, team: team)
+        guard SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate), rule) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
+        var info: CFDictionary?
+        guard SecCodeCopySigningInformation(code, [], &info) == errSecSuccess,
+              let hash = (info as? [String: Any])?[kSecCodeInfoUnique as String] as? Data else { throw ScreenFailure.peerUntrusted }
+        staticHash = hash
+        var actions: posix_spawn_file_actions_t?, attributes: posix_spawnattr_t?
+        guard posix_spawn_file_actions_init(&actions) == 0 else { throw ScreenFailure.peerLost }
+        defer { posix_spawn_file_actions_destroy(&actions) }
+        guard posix_spawnattr_init(&attributes) == 0 else { throw ScreenFailure.peerLost }
+        defer { posix_spawnattr_destroy(&attributes) }
+        guard posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_START_SUSPENDED)) == 0 else { throw ScreenFailure.peerLost }
+        var pipeFD: [Int32] = [-1, -1]
+        guard pipe(&pipeFD) == 0 else { throw ScreenFailure.peerLost }
+        var retainInput = false
+        defer { close(pipeFD[0]); if !retainInput { close(pipeFD[1]) } }
+        guard fcntl(pipeFD[0], F_SETFD, FD_CLOEXEC) == 0, fcntl(pipeFD[1], F_SETFD, FD_CLOEXEC) == 0,
+              posix_spawn_file_actions_adddup2(&actions, pipeFD[0], STDIN_FILENO) == 0 else { throw ScreenFailure.peerLost }
+        for fd in 1...2 {
+            guard posix_spawn_file_actions_addopen(&actions, Int32(fd), "/dev/null", O_WRONLY, 0) == 0 else { throw ScreenFailure.peerLost }
+        }
+        let processHome = home.appending(path: identifier == "ai.sliccy.proof-helper" ? "config/surface-home" : "config/browser-home")
+        try FileManager.default.createDirectory(at: processHome, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let argv = ([executable.path] + arguments).map { strdup($0) } + [nil]
+        let environment = (["PATH=/usr/bin:/bin", "HOME=" + processHome.path, "TMPDIR=" + home.appending(path: "tmp").path + "/", "LANG=C"] + ScreenRunnerHost.assertions.sorted { $0.key < $1.key }.map { $0.key + "=" + $0.value }).map { strdup($0) } + [nil]
+        defer { for p in argv + environment { free(p) } }
+        var child: pid_t = 0
+        let result = argv.withUnsafeBufferPointer { a in environment.withUnsafeBufferPointer { e in
+            posix_spawn(&child, executable.path, &actions, &attributes, a.baseAddress!, e.baseAddress!)
+        } }
+        guard result == 0, child > 0 else { throw ScreenFailure.peerLost }
+        pid = child; input = pipeFD[1]; retainInput = true
+        let monitor = DispatchSource.makeProcessSource(identifier: child, eventMask: [.exit, .exec], queue: DispatchQueue(label: "ai.sliccy.runner.surface-life"))
+        self.monitor = monitor
+        let registered = DispatchSemaphore(value: 0)
+        monitor.setRegistrationHandler { registered.signal() }
+        monitor.setEventHandler { [weak self, weak monitor] in
+            guard let self else { return }
+            self.lock.lock()
+            if monitor?.data.contains(.exec) == true { self.invalid = true; if !self.reaped { _ = kill(self.pid, SIGKILL) } }
+            if monitor?.data.contains(.exit) == true, !self.reaped {
+                self.invalid = true
+                var status: Int32 = 0, result: pid_t
+                repeat { result = waitpid(self.pid, &status, 0) } while result < 0 && errno == EINTR
+                self.reaped = result == self.pid
+                let reaped = self.reaped
+                self.lock.unlock(); monitor?.cancel()
+                if reaped { self.exited.signal() }
+                self.ended(self.pid, reaped)
+                return
+            }
+            self.lock.unlock()
+        }
+        monitor.resume()
+        guard registered.wait(timeout: .now() + 1) == .success else { stop(); throw ScreenFailure.stalled }
+        guard kill(pid, SIGCONT) == 0 else { stop(); throw ScreenFailure.peerLost }
+    }
+    private static func rule(identifier: String, team: String?) throws -> SecRequirement {
+        var value: SecRequirement?
+        var text = "anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and identifier \"\(identifier)\""
+        if identifier == "com.apple.osascript" { text = "anchor apple and identifier \"com.apple.osascript\"" }
+        if let team { text += " and certificate leaf[subject.OU] = \"\(team)\"" }
+        guard SecRequirementCreateWithString(text as CFString, [], &value) == errSecSuccess, let value else { throw ScreenFailure.peerUntrusted }
+        return value
+    }
+    func verifyLive() throws {
+        lock.lock(); defer { lock.unlock() }
+        guard !invalid, !reaped else { throw ScreenFailure.peerLost }
+        var guest: SecCode?
+        guard SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributePid as String: pid] as CFDictionary, [], &guest) == errSecSuccess,
+              let guest, SecCodeCheckValidity(guest, [], try Self.rule(identifier: identifier, team: identifier == "ai.sliccy.proof-helper" ? "S8LB56P782" : nil)) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
+        var staticCode: SecStaticCode?
+        guard SecCodeCopyStaticCode(guest, [], &staticCode) == errSecSuccess, let staticCode,
+              SecStaticCodeCheckValidity(staticCode, SecCSFlags(rawValue: kSecCSStrictValidate), try Self.rule(identifier: identifier, team: identifier == "ai.sliccy.proof-helper" ? "S8LB56P782" : nil)) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
+        var info: CFDictionary?
+        guard SecCodeCopySigningInformation(staticCode, [], &info) == errSecSuccess,
+              let values = info as? [String: Any], values[kSecCodeInfoUnique as String] as? Data == staticHash,
+              (values[kSecCodeInfoMainExecutable as String] as? URL)?.standardizedFileURL == executable.standardizedFileURL else { throw ScreenFailure.peerUntrusted }
+    }
+    func stop() {
+        lock.lock(); invalid = true
+        if input >= 0 { close(input); input = -1 }
+        if !reaped { _ = kill(pid, SIGTERM) }
+        lock.unlock()
+    }
+    func stopAndReap(until: DispatchTime) throws {
+        stop()
+        if !hasReaped, exited.wait(timeout: min(until, .now() + 1)) != .success {
+            lock.lock(); if !reaped { _ = kill(pid, SIGKILL) }; lock.unlock()
+            if !hasReaped, exited.wait(timeout: until) != .success { throw ScreenFailure.stalled }
+        }
+        guard hasReaped else { throw ScreenFailure.stalled }
+    }
+    deinit {
+        monitor?.cancel()
+        if input >= 0 { close(input) }
+        var status: Int32 = 0
+        if waitpid(pid, &status, WNOHANG) == 0 {
+            _ = kill(pid, SIGKILL)
+            while waitpid(pid, &status, 0) < 0 && errno == EINTR {}
+        }
+    }
+    var hasReaped: Bool { lock.lock(); defer { lock.unlock() }; return reaped }
+}
+#endif

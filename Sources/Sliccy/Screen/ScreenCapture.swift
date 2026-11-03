@@ -10,6 +10,7 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
     private struct Sample { let buffer: CVPixelBuffer; let captured: ContinuousClock.Instant; let monoMs: String }
     private let lock = NSLock()
     private var stream: SCStream?
+    private var stopTask: Task<Bool, Never>?
     private var pending: Sample?
     private var encoding = false
     private var stopped = false
@@ -25,9 +26,19 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
          output: @escaping @Sendable (Image) throws -> Void, failure: @escaping @Sendable (ScreenFailure) -> Void) {
         self.gate = gate; self.binding = binding; self.protection = protection; self.output = output; self.failure = failure
     }
-    func start(filter: SCContentFilter, scope: String, width: Int, height: Int) async throws {
+    @MainActor func start(filter: SCContentFilter, scope: String, width: Int, height: Int) async throws {
         guard ScreenReleasePolicy.identityProofApproved, ScreenReleasePolicy.provenScopes.contains(scope),
               protection(), gate.allows(binding), CGPreflightScreenCaptureAccess() else { throw ScreenFailure.protection }
+        try await startStream(filter: filter, width: width, height: height)
+    }
+#if SLICCY_CAPTURE_RUNNER_PROOF
+    @MainActor func startProof(source: ScreenRunnerCaptureSource) async throws {
+        _ = try ScreenRunnerHost.require()
+        guard protection(), gate.allows(binding), CGPreflightScreenCaptureAccess() else { throw ScreenFailure.protection }
+        try await startStream(filter: source.filter, width: source.width, height: source.height)
+    }
+#endif
+    @MainActor private func startStream(filter: SCContentFilter, width: Int, height: Int) async throws {
         let capture = SCStream(filter: filter, configuration: try ScreenFilterBuilder.configuration(width: width, height: height), delegate: self)
         try capture.addStreamOutput(self, type: .screen, sampleHandlerQueue: samples)
         try setStream(capture)
@@ -49,10 +60,18 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
         lock.lock()
         let notify = !stopped; stopped = true; pending = nil
         let capture = stream; stream = nil
+        if let capture { stopTask = Task { do { try await capture.stopCapture(); return true } catch { return false } } }
         lock.unlock()
         if notify { failure(reason) }
-        if let capture { Task { try? await capture.stopCapture() } }
     }
+#if SLICCY_CAPTURE_RUNNER_PROOF
+    func proofAwaitStopped() async -> Bool {
+        await stopJob()?.value ?? false
+    }
+    private func stopJob() -> Task<Bool, Never>? {
+        lock.lock(); defer { lock.unlock() }; return stopTask
+    }
+#endif
     func stream(_ stream: SCStream, didStopWithError error: any Error) { stop(.sourceChanged) }
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
         guard type == .screen, isAllowed, sampleBuffer.isValid,

@@ -9,6 +9,10 @@ import Darwin
 final class ScreenTransport: @unchecked Sendable {
     enum Event: Sendable {
         case ready
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        case proofSourceAdmitted(String, String, ContinuousClock.Instant)
+        case proofNativeAdmitted(String, ContinuousClock.Instant)
+#endif
 #if SLICCY_NATIVE_SCREEN_PROOF
         case proofControlSent(ContinuousClock.Instant)
         case proofControlEchoed(ContinuousClock.Instant)
@@ -47,6 +51,28 @@ final class ScreenTransport: @unchecked Sendable {
     private var proofControlSentAt: ContinuousClock.Instant?
     private var proofControlEchoedAt: ContinuousClock.Instant?
 #endif
+#if SLICCY_CAPTURE_RUNNER_PROOF
+    private var proofReverseReplies = ScreenProofReverseReplies()
+    func proofSubmitCaptured(_ image: ScreenCapture.Image) throws {
+        let (binding, sequence, at) = try gate.admitFrame()
+        event(.proofSourceAdmitted(String(sequence), image.monoMs, at))
+        let header = try locked { () throws -> ScreenFrameHeader in
+            guard !ended, !noCapture, state.phase == .active, state.binding == binding, currentProtection() else { throw ScreenFailure.protection }
+            return ScreenFrameHeader(binding: binding, frameSeq: String(sequence), capturedMonoMs: image.monoMs,
+                width: image.width, height: image.height, launch: state.launch, connection: state.connection)
+        }
+        try submit(header, jpeg: image.jpeg, captured: image.captured)
+    }
+    func proofGrantCaptured(scope: String) throws {
+        let link = try locked { () throws -> String in
+            guard !noCapture, currentProtection(), let link = state.link else { throw ScreenFailure.protection }; return link
+        }
+        try grant(ScreenBinding(link: link, session: ScreenID.make(), source: ScreenID.make(), grantEpoch: "1", sourceEpoch: "1", protectionEpoch: "1"), scope: scope)
+    }
+    func proofDrainReverseReplies() -> (notices: [ScreenProofReverseReplies.Notice], complete: Bool, invalid: Bool) {
+        locked { (proofReverseReplies.drain(), proofReverseReplies.complete, proofReverseReplies.invalid) }
+    }
+#endif
     private let currentProtection: @Sendable () -> Bool
     private let noCapture: Bool
     private let event: @Sendable (Event) -> Void
@@ -73,13 +99,16 @@ final class ScreenTransport: @unchecked Sendable {
                     let data = try safety.readSafety()
                     _ = try verifier.verifyCLI(socket: safety.fd, expectedPID: identity.pid, expectedIdentity: identity)
                     let message = try ScreenSafety.decode(data)
-                    if message.type == "revoke" { quiesceOutput() }
+                    let invalidation = message.type == "revoke" ? quiesceOutput() : nil
                     let outcome: (ScreenSafety?, Event?) = try locked {
                         guard !ended else { throw ScreenFailure.stopped }
                         try inputRecords.consume(1); try inputBytes.consume(data.count + 8)
                         let previous = state.phase
                         let wasReady = state.ready
                         let reply = try state.receive(message)
+#if SLICCY_CAPTURE_RUNNER_PROOF
+                        if message.type == "revoke" { proofReverseReplies.record(.received, request: message.request, invalidation: invalidation) }
+#endif
                         if message.type == "heartbeat", state.phase != .revoked { try gate.renew(until: state.healthUntil) }
                         if message.type == "link", let link = state.link, let recipient = state.recipient, let evidence = state.evidence {
                             return (reply, .link(link, recipient, evidence))
@@ -142,8 +171,11 @@ final class ScreenTransport: @unchecked Sendable {
 
     /// End image authority before the safety exchange. Socket lifetime and image
     /// authority are distinct: an early frame EOF also kills the peer's safety lane.
-    func quiesceOutput() {
+    @discardableResult
+    func quiesceOutput() -> (ContinuousClock.Instant, ContinuousClock.Instant) {
+        let began = ContinuousClock.now
         gate.invalidate()
+        let invalidated = ContinuousClock.now
         // Keep even a partial record uncontinued until safety confirmation or
         // the existing absolute deadlines close the association. EOF here would
         // make the peer discard the safety lane before its acknowledgement.
@@ -151,6 +183,7 @@ final class ScreenTransport: @unchecked Sendable {
             latest = nil
             outbound.removeAll { $0.type == "grant" }
         }
+        return (began, invalidated)
     }
     func close() { fail(.stopped) }
 
@@ -161,14 +194,20 @@ final class ScreenTransport: @unchecked Sendable {
               header.width <= 4_000_000 / header.height,
               gate.allows(header.binding), captured <= .now,
               captured.duration(to: .now) <= .milliseconds(500) else { throw ScreenFailure.stopped }
-        let start = try locked {
+        let admission = try locked {
             guard !ended, state.phase == .active, state.binding == header.binding,
                   header.launch == state.launch, header.connection == state.connection else { throw ScreenFailure.stopped }
-            latest = (header, jpeg, captured)
-            if imageWriting { return false }
-            imageWriting = true; return true
+            return try gate.withAdmission(header.binding) { () -> (Bool, ContinuousClock.Instant) in
+                latest = (header, jpeg, captured)
+                let at = ContinuousClock.now
+                if imageWriting { return (false, at) }
+                imageWriting = true; return (true, at)
+            }
         }
-        if start { imageQueue.async { [self] in writeImages() } }
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        event(.proofNativeAdmitted(header.frameSeq, admission.1))
+#endif
+        if admission.0 { imageQueue.async { [self] in writeImages() } }
     }
     private func writeImages() {
         do {
@@ -226,6 +265,9 @@ final class ScreenTransport: @unchecked Sendable {
     private func appendLocked(_ message: ScreenSafety) throws -> (Bool, ContinuousClock.Instant) {
         guard !ended, outbound.count < 16 else { throw ScreenFailure.resourceLimit }
         outbound.append(message)
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        if message.type == "revoked" { proofReverseReplies.record(.enqueued, request: message.request) }
+#endif
         if controlWriting { return (false, .now) }
         controlWriting = true
         return (true, .now)
@@ -249,6 +291,9 @@ final class ScreenTransport: @unchecked Sendable {
                 try safety.writeRecord(header: data, until: .now.advanced(by: .seconds(1)), allowed: { [self] in
                     locked { !ended && (next.type != "grant" || (state.phase == .pending && !gate.isInvalidated)) }
                 })
+#if SLICCY_CAPTURE_RUNNER_PROOF
+                if next.type == "revoked" { locked { proofReverseReplies.record(.written, request: next.request) } }
+#endif
 #if SLICCY_NATIVE_SCREEN_PROOF
                 if let proofSent { event(.proofControlSent(proofSent)) }
 #endif

@@ -13,7 +13,7 @@ BUNDLE_ID="ai.sliccy.mac"
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
 SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build")
 BUILD_NUMBER=1
-if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 || "${SLICCY_SNAPSHOT_PROOF:-0}" == 1 || "${SLICCY_HOSTED_PID_PROOF:-0}" == 1 ]]; then
+if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 || "${SLICCY_SNAPSHOT_PROOF:-0}" == 1 || "${SLICCY_HOSTED_PID_PROOF:-0}" == 1 || "${SLICCY_CAPTURE_RUNNER_PROOF:-0}" == 1 ]]; then
   [[ "$MODE" == --build && "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == ai-ecoverse/sliccy-app && "${GITHUB_EVENT_NAME:-}" == push && "${GITHUB_REF:-}" == refs/heads/main ]] || { echo 'Build the diagnostic bundle through upstream main CI.' >&2; exit 2; }
   SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/native-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF)
   APP_BUNDLE="$ROOT_DIR/dist-proof/$APP_NAME.app"
@@ -33,6 +33,12 @@ if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF
     SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/hosted-pid-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_HOSTED_PID_PROOF)
     APP_BUNDLE="$ROOT_DIR/dist-hosted-pid-proof/$APP_NAME.app"
     BUILD_NUMBER=10
+  fi
+  if [[ "${SLICCY_CAPTURE_RUNNER_PROOF:-0}" == 1 ]]; then
+    [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" != 1 && "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" != 1 && "${SLICCY_SNAPSHOT_PROOF:-0}" != 1 && "${SLICCY_HOSTED_PID_PROOF:-0}" != 1 && "$(uname -m)" == arm64 ]] || { echo 'Capture fixture requires its separate arm64 variant.' >&2; exit 2; }
+    SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/capture-runner-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_CAPTURE_RUNNER_PROOF)
+    APP_BUNDLE="$ROOT_DIR/dist-capture-proof/$APP_NAME.app"
+    BUILD_NUMBER=11
   fi
 fi
 SWIFT="${SLICCY_SWIFT:-$(/usr/bin/xcrun --find swift)}"
@@ -72,6 +78,22 @@ if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 && "${SLICCY_UNIVERSAL_SLICE_PROOF
   for helper_name in ScreenProofExecHelper ScreenProofHandoffHelper; do
     /usr/bin/codesign --force --sign - --identifier ai.sliccy.proof-helper "$APP_BUNDLE/Contents/Helpers/$helper_name"
   done
+elif [[ "${SLICCY_CAPTURE_RUNNER_PROOF:-0}" == 1 ]]; then
+  surface_app="$APP_BUNDLE/Contents/Helpers/ScreenProofSurface.app"
+  [[ ! -e "$APP_BUNDLE/Contents/Helpers" ]] || { echo 'Use a fresh capture fixture bundle.' >&2; exit 2; }
+  mkdir -p "$surface_app/Contents/MacOS"
+  /usr/bin/xcrun swiftc -parse-as-library -target arm64-apple-macos27.0 Tests/NativeCaptureSurface/surface-app.swift -o "$surface_app/Contents/MacOS/ScreenProofSurface"
+  /usr/bin/python3 - "$surface_app/Contents/Info.plist" <<'PYPLIST'
+import plistlib
+import sys
+with open(sys.argv[1], 'xb') as output:
+    plistlib.dump({'CFBundleIdentifier': 'ai.sliccy.proof-helper', 'CFBundleExecutable': 'ScreenProofSurface',
+                  'CFBundleName': 'ScreenProofSurface', 'CFBundlePackageType': 'APPL',
+                  'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '11',
+                  'LSMinimumSystemVersion': '27.0', 'NSPrincipalClass': 'NSApplication',
+                  'NSHighResolutionCapable': True, 'LSUIElement': True}, output)
+PYPLIST
+  /usr/bin/codesign --force --sign - --identifier ai.sliccy.proof-helper "$surface_app"
 else
   [[ ! -e "$APP_BUNDLE/Contents/Helpers" ]] || { echo 'Diagnostic helper must not be in a production bundle.' >&2; exit 2; }
 fi

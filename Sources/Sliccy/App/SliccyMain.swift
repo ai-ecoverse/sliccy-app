@@ -4,7 +4,9 @@ import SwiftUI
 @main
 enum SliccyMain {
     @MainActor static func main() {
-#if SLICCY_HOSTED_PID_PROOF
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        ScreenRunnerProofApp.run()
+#elseif SLICCY_HOSTED_PID_PROOF
         ScreenHostedPIDProofApp.run()
 #elseif SLICCY_SNAPSHOT_PROOF
         guard (try? ScreenSnapshotCase.parse(Array(ProcessInfo.processInfo.arguments.dropFirst()))) != nil else { exit(2) }

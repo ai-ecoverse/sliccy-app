@@ -55,6 +55,16 @@ if [[ -e "$helper" ]]; then
   fi
 fi
 done
+surface_app="$signed_app/Contents/Helpers/ScreenProofSurface.app"
+if [[ -e "$surface_app" ]]; then
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 11 ]] || { echo 'Unexpected synthetic surface bundle.' >&2; exit 2; }
+  /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" \
+    --identifier ai.sliccy.proof-helper --entitlements "$artifact_dir/entitlements.plist" "$surface_app"
+  /usr/bin/codesign --verify --deep --strict -R '=anchor apple generic and identifier "ai.sliccy.proof-helper" and certificate leaf[subject.OU] = "S8LB56P782"' "$surface_app"
+  if /usr/bin/codesign --verify --strict -R '=identifier "ai.sliccy.mac"' "$surface_app" >/dev/null 2>&1; then
+    echo 'Synthetic surface must not have app peer identity.' >&2; exit 2
+  fi
+fi
 /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" \
   --entitlements "$artifact_dir/entitlements.plist" "$signed_app"
 # Preserve the upstream CLI signature and exact artifact bytes; never re-sign it.
@@ -65,6 +75,9 @@ if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 8 ]];
 fi
 if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 10 ]]; then
   python3 "$(dirname "$0")/hosted_pid_manifest.py" "$signed_app" "$artifact_dir/hosted-pid-manifest.json"
+fi
+if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 11 ]]; then
+  python3 "$(dirname "$0")/capture_manifest.py" "$signed_app" "$artifact_dir/capture-manifest.json"
 fi
 requirement='anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[subject.OU] = "S8LB56P782" and identifier "ai.sliccy.mac"'
 /usr/bin/codesign --verify --deep --strict -R "=$requirement" "$signed_app"

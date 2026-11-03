@@ -3,15 +3,19 @@ import Carbon
 
 /// Shared, synchronous stop target for the local button, hotkey and OS monitors.
 final class ScreenStopRelay: @unchecked Sendable {
+    enum Origin: Sendable { case button, hotkey, other }
     let gate: ScreenOutputGate
     private let stop: @Sendable (ScreenFailure) -> Void
+    private let entered: @Sendable (Origin, ContinuousClock.Instant) -> Void
     private let observed: @Sendable (ContinuousClock.Instant, ContinuousClock.Instant) -> Void
-    init(gate: ScreenOutputGate, observed: @escaping @Sendable (ContinuousClock.Instant, ContinuousClock.Instant) -> Void = { _, _ in },
-         stop: @escaping @Sendable (ScreenFailure) -> Void) { self.gate = gate; self.stop = stop; self.observed = observed }
-    func invoke(_ reason: ScreenFailure) {
+    init(gate: ScreenOutputGate, entered: @escaping @Sendable (Origin, ContinuousClock.Instant) -> Void = { _, _ in }, observed: @escaping @Sendable (ContinuousClock.Instant, ContinuousClock.Instant) -> Void = { _, _ in },
+         stop: @escaping @Sendable (ScreenFailure) -> Void) { self.gate = gate; self.stop = stop; self.observed = observed; self.entered = entered }
+    func invoke(_ reason: ScreenFailure, origin: Origin = .other) {
         let start = ContinuousClock.now
         gate.invalidate()
-        observed(start, .now)
+        let invalidated = ContinuousClock.now
+        entered(origin, start)
+        observed(start, invalidated)
         stop(reason)
     }
 }
@@ -41,6 +45,7 @@ final class ScreenIndicator: NSObject, NSWindowDelegate {
     private let relay: ScreenStopRelay
     private let panel: NSPanel
     private var status: NSStatusItem?
+    private var stopButton: NSButton?
     private var shortcut: EventHotKeyRef?
     private var handler: EventHandlerRef?
     private var timer: Timer?
@@ -58,6 +63,7 @@ final class ScreenIndicator: NSObject, NSWindowDelegate {
         let text = NSTextField(labelWithString: diagnostic ? "Local connection test · No screen access\nStops automatically after 30 seconds" : "\(scope) · View only\n\(recipient.prefix(64))")
         text.font = .systemFont(ofSize: 12)
         let button = NSButton(title: diagnostic ? "Stop Test" : "Stop Sharing", target: self, action: #selector(stopPressed))
+        stopButton = button
         button.bezelStyle = .rounded
         let stack = NSStackView(views: [text, button]); stack.orientation = .horizontal; stack.spacing = 18
         stack.edgeInsets = NSEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
@@ -70,7 +76,7 @@ final class ScreenIndicator: NSObject, NSWindowDelegate {
         let pointer = Unmanaged.passUnretained(relay).toOpaque()
         guard InstallEventHandler(GetApplicationEventTarget(), { _, _, context in
             guard let context else { return OSStatus(eventNotHandledErr) }
-            Unmanaged<ScreenStopRelay>.fromOpaque(context).takeUnretainedValue().invoke(.stopped)
+            Unmanaged<ScreenStopRelay>.fromOpaque(context).takeUnretainedValue().invoke(.stopped, origin: .hotkey)
             return noErr
         }, 1, &type, pointer, &handler) == noErr else { throw ScreenFailure.shortcut }
         let identity = EventHotKeyID(signature: 0x534C4359, id: 1)
@@ -98,7 +104,19 @@ final class ScreenIndicator: NSObject, NSWindowDelegate {
             }
         }
     }
-    @objc private func stopPressed() { relay.invoke(.stopped) }
+    @objc private func stopPressed() { relay.invoke(.stopped, origin: .button) }
+#if SLICCY_CAPTURE_RUNNER_PROOF
+    func proofPlace() throws {
+        _ = try ScreenRunnerHost.require()
+        guard let screen = NSScreen.screens.first(where: { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == CGMainDisplayID() }),
+              screen.frame.width >= 1024, screen.frame.height >= 768 else { throw ScreenFailure.protection }
+        panel.setFrame(NSRect(x: screen.frame.minX + 64, y: screen.frame.maxY - 512 - 128, width: 320, height: 128), display: true)
+    }
+    func proofPressStop() throws {
+        guard panel.isVisible, health.check(), let stopButton else { throw ScreenFailure.indicator }
+        stopButton.performClick(nil)
+    }
+#endif
     func windowShouldClose(_ sender: NSWindow) -> Bool { relay.invoke(.stopped); return true }
     func dismiss() {
         relay.gate.invalidate(); health.invalidate()

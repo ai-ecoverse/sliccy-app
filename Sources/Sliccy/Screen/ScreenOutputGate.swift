@@ -43,9 +43,18 @@ final class ScreenOutputGate: @unchecked Sendable {
         return binding == candidate && healthUntil.map { now < $0 } == true
     }
     func nextFrame(now: ContinuousClock.Instant = .now) throws -> (ScreenBinding, UInt64) {
+        let result = try admitFrame(now: now)
+        return (result.0, result.1)
+    }
+    func withAdmission<T>(_ candidate: ScreenBinding, _ body: () throws -> T) throws -> T {
+        lock.lock(); defer { lock.unlock() }
+        guard !stopped, binding == candidate, let healthUntil, ContinuousClock.now < healthUntil else { throw ScreenFailure.stopped }
+        return try body()
+    }
+    func admitFrame(now: ContinuousClock.Instant = .now) throws -> (ScreenBinding, UInt64, ContinuousClock.Instant) {
         lock.lock(); defer { lock.unlock() }
         guard let binding, let healthUntil, now < healthUntil, frameSeq < UInt64.max else { throw ScreenFailure.leaseExpired }
         frameSeq += 1
-        return (binding, frameSeq)
+        return (binding, frameSeq, .now)
     }
 }
