@@ -13,7 +13,7 @@ BUNDLE_ID="ai.sliccy.mac"
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
 SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build")
 BUILD_NUMBER=1
-if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 ]]; then
+if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 || "${SLICCY_SNAPSHOT_PROOF:-0}" == 1 ]]; then
   [[ "$MODE" == --build && "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == ai-ecoverse/sliccy-app && "${GITHUB_EVENT_NAME:-}" == push && "${GITHUB_REF:-}" == refs/heads/main ]] || { echo 'Build the diagnostic bundle through upstream main CI.' >&2; exit 2; }
   SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/native-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF)
   APP_BUNDLE="$ROOT_DIR/dist-proof/$APP_NAME.app"
@@ -21,6 +21,12 @@ if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF
   if [[ "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 ]]; then
     APP_BUNDLE="$ROOT_DIR/dist-universal-proof/$APP_NAME.app"
     BUILD_NUMBER=7
+  fi
+  if [[ "${SLICCY_SNAPSHOT_PROOF:-0}" == 1 ]]; then
+    [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" != 1 && "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" != 1 && "$(uname -m)" == arm64 ]] || { echo 'Snapshot fixture requires its separate arm64 variant.' >&2; exit 2; }
+    SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/snapshot-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_SNAPSHOT_PROOF)
+    APP_BUNDLE="$ROOT_DIR/dist-snapshot-proof/$APP_NAME.app"
+    BUILD_NUMBER=8
   fi
 fi
 SWIFT="${SLICCY_SWIFT:-$(/usr/bin/xcrun --find swift)}"
@@ -50,7 +56,7 @@ else
   BUILD_DIR="$("$SWIFT" build "${SWIFT_FLAGS[@]}" --show-bin-path)"
   cp "$BUILD_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 fi
-if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 && "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" != 1 ]]; then
+if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 && "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" != 1 && "${SLICCY_SNAPSHOT_PROOF:-0}" != 1 ]]; then
   mkdir -p "$APP_BUNDLE/Contents/Helpers"
   /usr/bin/xcrun clang -Wall -Wextra -Werror Tests/NativeScreenFilterProbe/exec-helper.c \
     -framework Security -framework CoreFoundation -o "$APP_BUNDLE/Contents/Helpers/ScreenProofExecHelper"
@@ -68,6 +74,11 @@ if [[ -x "$ROOT_DIR/.build/tools/slicc" ]]; then
   cp "$ROOT_DIR/.build/tools/slicc" "$APP_BUNDLE/Contents/Resources/slicc"
   # Preserve the upstream Developer ID signature and CodeDirectory identity.
   /usr/bin/codesign --verify --strict "$APP_BUNDLE/Contents/Resources/slicc"
+fi
+if [[ "${SLICCY_SNAPSHOT_PROOF:-0}" == 1 ]]; then
+  [[ -f "$ROOT_DIR/.build/tools/slicc-snapshot-amd64" ]] || { echo 'Fixed snapshot resource missing.' >&2; exit 2; }
+  cp "$ROOT_DIR/.build/tools/slicc-snapshot-amd64" "$APP_BUNDLE/Contents/Resources/slicc-snapshot-amd64"
+  /usr/bin/codesign --verify --strict "$APP_BUNDLE/Contents/Resources/slicc-snapshot-amd64"
 fi
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

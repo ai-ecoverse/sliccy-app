@@ -16,14 +16,42 @@ final class ScreenChild: @unchecked Sendable {
     private let reaped: @Sendable (Int32) -> Void
     var isAlive: Bool { lock.lock(); defer { lock.unlock() }; return live }
 
-    init(executable: String, join: String, bootstrap: Data, policy: ScreenLaunchPolicy = .production,
+    convenience init(executable: String, join: String, bootstrap: Data, policy: ScreenLaunchPolicy = .production,
          proofOutput: (@Sendable (Data?) -> Void)? = nil,
          reaped: @escaping @Sendable (Int32) -> Void = { _ in },
          lost: @escaping @Sendable () -> Void) throws {
+        guard executable == Bundle.main.bundleURL.appending(path: "Contents/Resources/slicc").path else { throw ScreenFailure.incompatible }
+        try self.init(source: .bundled, join: join, bootstrap: bootstrap, policy: policy,
+                      proofOutput: proofOutput, reaped: reaped, lost: lost)
+    }
+    private enum Source {
+        case bundled
+#if SLICCY_SNAPSHOT_PROOF
+        case snapshot(ScreenSnapshotSubject)
+#endif
+    }
+#if SLICCY_SNAPSHOT_PROOF
+    static func snapshot(subject: ScreenSnapshotSubject, join: String, bootstrap: Data,
+                         reaped: @escaping @Sendable (Int32) -> Void,
+                         lost: @escaping @Sendable () -> Void) throws -> ScreenChild {
+        try ScreenChild(source: .snapshot(subject), join: join, bootstrap: bootstrap,
+                        policy: .universalAppProof(root: subject.root), proofOutput: nil, reaped: reaped, lost: lost)
+    }
+#endif
+    private init(source: Source, join: String, bootstrap: Data, policy: ScreenLaunchPolicy,
+                 proofOutput: (@Sendable (Data?) -> Void)?,
+                 reaped: @escaping @Sendable (Int32) -> Void,
+                 lost: @escaping @Sendable () -> Void) throws {
         guard policy.allowsIPC else { throw ScreenFailure.peerUntrusted }
         try ScreenPeerVerifier.verifySelf()
-        guard executable == Bundle.main.bundleURL.appending(path: "Contents/Resources/slicc").path,
-              !join.contains("\n"), !join.contains("\r"), join.utf8.count <= 4096 else { throw ScreenFailure.incompatible }
+        guard !join.contains("\n"), !join.contains("\r"), join.utf8.count <= 4096 else { throw ScreenFailure.incompatible }
+        let executable: String
+        switch source {
+        case .bundled: executable = Bundle.main.bundleURL.appending(path: "Contents/Resources/slicc").path
+#if SLICCY_SNAPSHOT_PROOF
+        case .snapshot(let subject): executable = try subject.claimLaunchPath()
+#endif
+        }
         self.lost = lost
         self.reaped = reaped
         var arguments = [executable, "-", "follow", "--json", "--native-screen"]
