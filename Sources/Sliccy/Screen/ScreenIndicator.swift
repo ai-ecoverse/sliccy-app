@@ -3,18 +3,28 @@ import Carbon
 
 /// Shared, synchronous stop target for the local button, hotkey and OS monitors.
 final class ScreenStopRelay: @unchecked Sendable {
-    enum Origin: Sendable { case button, hotkey, other }
+    enum Origin: String, CaseIterable, Sendable {
+        case button, hotkey, other
+        case workspaceLaunch = "workspace-launch", workspaceTerminate = "workspace-terminate"
+        case willSleep = "will-sleep", sessionInactive = "session-inactive", spaceChange = "space-change"
+        case displayChange = "display-change", indicator, windowClose = "window-close"
+        case sourceMonitor = "source-monitor", captureFailure = "capture-failure", captureLimit = "capture-limit"
+        case watchdog, cancelled, inventory, launcher, nativeChild = "native-child", remote, fixture, diagnostic
+    }
     let gate: ScreenOutputGate
     private let stop: @Sendable (ScreenFailure) -> Void
     private let entered: @Sendable (Origin, ContinuousClock.Instant) -> Void
     private let observed: @Sendable (ContinuousClock.Instant, ContinuousClock.Instant) -> Void
+    private let cause: @Sendable (ScreenFailure, Origin, ContinuousClock.Instant) -> Void
     init(gate: ScreenOutputGate, entered: @escaping @Sendable (Origin, ContinuousClock.Instant) -> Void = { _, _ in }, observed: @escaping @Sendable (ContinuousClock.Instant, ContinuousClock.Instant) -> Void = { _, _ in },
-         stop: @escaping @Sendable (ScreenFailure) -> Void) { self.gate = gate; self.stop = stop; self.observed = observed; self.entered = entered }
+         cause: @escaping @Sendable (ScreenFailure, Origin, ContinuousClock.Instant) -> Void = { _, _, _ in },
+         stop: @escaping @Sendable (ScreenFailure) -> Void) { self.gate = gate; self.stop = stop; self.observed = observed; self.entered = entered; self.cause = cause }
     func invoke(_ reason: ScreenFailure, origin: Origin = .other) {
         let start = ContinuousClock.now
         gate.invalidate()
         let invalidated = ContinuousClock.now
         stop(reason)
+        cause(reason, origin, start)
         entered(origin, start)
         observed(start, invalidated)
     }
@@ -90,17 +100,19 @@ final class ScreenIndicator: NSObject, NSWindowDelegate {
         panel.orderFrontRegardless()
         health.renew(visible: panel.isVisible)
         let center = NSWorkspace.shared.notificationCenter
-        for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification,
-                     NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didLaunchApplicationNotification,
-                     NSWorkspace.didTerminateApplicationNotification] {
-            observers.append(center.addObserver(forName: name, object: nil, queue: nil) { [relay] _ in relay.invoke(.sourceChanged) })
+        let changes: [(Notification.Name, ScreenStopRelay.Origin)] = [
+            (NSWorkspace.willSleepNotification, .willSleep), (NSWorkspace.sessionDidResignActiveNotification, .sessionInactive),
+            (NSWorkspace.activeSpaceDidChangeNotification, .spaceChange), (NSWorkspace.didLaunchApplicationNotification, .workspaceLaunch),
+            (NSWorkspace.didTerminateApplicationNotification, .workspaceTerminate)]
+        for (name, origin) in changes {
+            observers.append(center.addObserver(forName: name, object: nil, queue: nil) { [relay] _ in relay.invoke(.sourceChanged, origin: origin) })
         }
-        observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: nil) { [relay] _ in relay.invoke(.sourceChanged) })
+        observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: nil) { [relay] _ in relay.invoke(.sourceChanged, origin: .displayChange) })
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.health.renew(visible: self.panel.isVisible && self.panel.isOnActiveSpace && self.status?.isVisible == true)
-                if !self.health.check() { self.relay.invoke(.indicator) }
+                if !self.health.check() { self.relay.invoke(.indicator, origin: .indicator) }
             }
         }
     }
@@ -117,7 +129,7 @@ final class ScreenIndicator: NSObject, NSWindowDelegate {
         stopButton.performClick(nil)
     }
 #endif
-    func windowShouldClose(_ sender: NSWindow) -> Bool { relay.invoke(.stopped); return true }
+    func windowShouldClose(_ sender: NSWindow) -> Bool { relay.invoke(.stopped, origin: .windowClose); return true }
     func dismiss() {
         relay.gate.invalidate(); health.invalidate()
         timer?.invalidate(); timer = nil

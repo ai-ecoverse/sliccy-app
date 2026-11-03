@@ -12,6 +12,8 @@ struct ScreenSafetyState {
     private(set) var binding: ScreenBinding?
     private(set) var grantRequest: String?
     private(set) var revokeRequest: String?
+    private(set) var revokeStartedAt: ContinuousClock.Instant?
+    private(set) var revokeOrdinal = 0
     private(set) var peerRevokeRequest: String?
     private(set) var sent: UInt64 = 0
     private(set) var received: UInt64 = 0
@@ -61,7 +63,7 @@ struct ScreenSafetyState {
             guard sent > 0, phase == .paired || (phase == .revoked && revokeUntil == nil),
                   let newLink = message.link else { throw ScreenFailure.incompatible }
             link = newLink; recipient = message.recipient; evidence = message.browserEvidence
-            binding = nil; grantRequest = nil; revokeRequest = nil; peerRevokeRequest = nil; phase = .linked
+            binding = nil; grantRequest = nil; revokeRequest = nil; revokeStartedAt = nil; peerRevokeRequest = nil; phase = .linked
         case "granted":
             guard message.request == grantRequest, message.binding == binding else { throw ScreenFailure.incompatible }
             if phase == .revoked { return nil } // A stopped pending grant stays stopped.
@@ -91,7 +93,9 @@ struct ScreenSafetyState {
     }
     mutating func revoke(_ reason: ScreenFailure, now: ContinuousClock.Instant = .now) throws -> ScreenSafety? {
         if let revokeUntil, now < revokeUntil { return nil }
+        guard revokeOrdinal < Int.max else { throw ScreenFailure.resourceLimit }
         let request = try ScreenID.make()
+        revokeStartedAt = now; revokeOrdinal += 1
         phase = .revoked
         revokeRequest = request; revokeUntil = now.advanced(by: .milliseconds(1500))
         var message = base("revoke")

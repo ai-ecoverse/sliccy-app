@@ -17,8 +17,8 @@ final class ScreenTransport: @unchecked Sendable {
         case proofControlSent(ContinuousClock.Instant)
         case proofControlEchoed(ContinuousClock.Instant)
 #endif
-        case revocationConfirmed
-        case revokeQueued(ContinuousClock.Instant)
+        case revocationConfirmed(ContinuousClock.Instant, ContinuousClock.Instant, Int)
+        case revokeQueued(ContinuousClock.Instant, ContinuousClock.Instant, Int)
         case link(String, ScreenRecipient, ScreenBrowserEvidence)
         case granted(ScreenBinding)
         case stopped(ScreenFailure)
@@ -165,7 +165,10 @@ final class ScreenTransport: @unchecked Sendable {
                         }
 #endif
                         if !wasReady, state.ready { return (reply, .ready) }
-                        if message.type == "revoked" { return (reply, .revocationConfirmed) }
+                        if message.type == "revoked" {
+                            guard let began = state.revokeStartedAt else { throw ScreenFailure.incompatible }
+                            return (reply, .revocationConfirmed(.now, began, state.revokeOrdinal))
+                        }
                         return (reply, message.type == "revoke" ? .stopped(ScreenFailure(rawValue: message.reason ?? "") ?? .stopped) : nil)
                     }
                     if let reply = outcome.0 { try enqueue(reply) }
@@ -208,14 +211,16 @@ final class ScreenTransport: @unchecked Sendable {
     func stop(_ reason: ScreenFailure = .stopped) {
         let invalidation = quiesceOutput()
         do {
-            let admission = try locked { () throws -> (Bool, ContinuousClock.Instant)? in
+            let admission = try locked { () throws -> (Bool, ContinuousClock.Instant, Int)? in
                 guard !ended else { throw ScreenFailure.stopped }
                 guard let message = try state.revoke(reason, now: invalidation.0) else { return nil }
-                return try appendLocked(message)
+                outbound.removeAll { $0.type == "revoke" }
+                let queued = try appendLocked(message)
+                return (queued.0, queued.1, state.revokeOrdinal)
             }
-            guard let (start, queuedAt) = admission else { return }
+            guard let (start, queuedAt, ordinal) = admission else { return }
             if start { outputQueue.async { [self] in writeControl() } }
-            event(.revokeQueued(queuedAt))
+            event(.revokeQueued(queuedAt, invalidation.0, ordinal))
             event(.stopped(reason))
         } catch { fail(reason) }
     }

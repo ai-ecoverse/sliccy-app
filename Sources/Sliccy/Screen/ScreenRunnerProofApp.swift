@@ -29,6 +29,7 @@ final class ScreenRunnerSession {
     private let selected: ScreenRunnerCase
     private let journal: ScreenRunnerJournal
     private let diagnosticAbort: ScreenRunnerDiagnosticAbort
+    private let causes: ScreenRunnerCauseLedger
     private var connection: ScreenRunnerConnection?
     private var indicator: ScreenIndicator?
     private var relay: ScreenStopRelay?
@@ -47,12 +48,17 @@ final class ScreenRunnerSession {
     init() throws {
         selected = try ScreenRunnerHost.require()
         let abort = ScreenRunnerDiagnosticAbort(); diagnosticAbort = abort
-        journal = try ScreenRunnerJournal(selected, authorityFailed: { abort.fail() })
+        let output = try ScreenRunnerJournal(selected, authorityFailed: { abort.fail() })
+        journal = output
+        causes = ScreenRunnerCauseLedger { notice in
+            output.emit("first-cause", ["kind": notice.kind.rawValue, "reason": notice.reason.value,
+                "phase": notice.phase.rawValue, "origin": notice.origin.rawValue], at: notice.at)
+        }
     }
-    func cancel() { cancelled = true; relay?.invoke(.stopped); connection?.health.invalidate() }
+    func cancel(origin: ScreenStopRelay.Origin = .cancelled) { cancelled = true; relay?.invoke(.stopped, origin: origin); connection?.health.invalidate() }
     func run() async {
         var outcome = "failed", reason = "fixed-failure", exitCode: Int32 = 1
-        let watchdog = Task { try? await Task.sleep(for: .seconds(40)); if !Task.isCancelled { cancel() } }
+        let watchdog = Task { try? await Task.sleep(for: .seconds(40)); if !Task.isCancelled { cancel(origin: .watchdog) } }
         defer { watchdog.cancel() }
         do {
             try ScreenPeerVerifier.verifySelf()
@@ -60,6 +66,7 @@ final class ScreenRunnerSession {
             journal.emit("runner-preflight", ["screenCapture": screen, "listenEvent": listen, "postEvent": post, "hosted": true, "osMajor": 27, "architecture": "arm64"])
             try check()
             guard screen, selected != .hotkeyStop || (listen && post), NSScreen.main != nil else { reason = "permission-unavailable"; exitCode = 2; throw ScreenFailure.permission }
+            causes.advance(.preparing)
             let join = try await Task.detached { try ScreenProofSession.readJoin() }.value
             let home = try prepareHome()
             audit = try ScreenAudit(base: home.appending(path: "Library/Application Support"))
@@ -86,7 +93,12 @@ final class ScreenRunnerSession {
                 owned.append(("authorization-requester", requester)); authorization = requester
                 journal.emit("surface-launcher-started", ["label": "authorization-requester", "pid": requester.pid])
             }
-            let connection = ScreenRunnerConnection { [weak self] event in Task { @MainActor in self?.consume(event) } }
+            let causes = self.causes
+            let connection = ScreenRunnerConnection { [weak self, causes] event in
+                if case .transport(.revokeQueued(_, let began, _)) = event { causes.noteStop(at: began) }
+                if case .lost = event { causes.record(.childLoss, reason: .screen(.peerLost), origin: .nativeChild) }
+                Task { @MainActor in self?.consume(event) }
+            }
             self.connection = connection
             diagnosticAbort.register { connection.abortDiagnostic() }
             try check()
@@ -94,23 +106,28 @@ final class ScreenRunnerSession {
             guard let transport = connection.transport else { throw ScreenFailure.peerLost }
             let journal = self.journal
             let relay = ScreenStopRelay(gate: transport.gate, entered: { origin, at in
-                if origin != .other { journal.emit("stop-handler-entered", ["trigger": origin == .button ? "button" : "hotkey"], at: at) }
+                if origin == .button || origin == .hotkey { journal.emit("stop-handler-entered", ["trigger": origin == .button ? "button" : "hotkey"], at: at) }
             }, observed: { start, invalidated in
                 journal.gateInvalidated(start: start, end: invalidated)
+            }, cause: { reason, origin, at in
+                causes.record(.stop, reason: .screen(reason), origin: origin, at: at)
             }, stop: { reason in transport.stop(reason) })
             self.relay = relay
             indicator = try ScreenIndicator(recipient: "Synthetic runner peer", scope: "Owned synthetic surface", relay: relay)
             guard let indicator else { throw ScreenFailure.indicator }
             try indicator.proofPlace()
+            causes.advance(.inventory)
             var inventory: ScreenRunnerInventory?
+            var inventoryIssue: ScreenRunnerInventoryIssue = .unknown
             let inventoryDeadline = ContinuousClock.now.advanced(by: .seconds(5))
             while inventory == nil, ContinuousClock.now < inventoryDeadline {
                 try check()
-                inventory = try? await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization)
+                do { inventory = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization) }
+                catch { inventoryIssue = error as? ScreenRunnerInventoryIssue ?? .unknown }
                 if inventory == nil { try await Task.sleep(for: .milliseconds(50)) }
             }
             guard let inventory else {
-                reportInventoryUnavailable()
+                reportInventoryUnavailable(inventoryIssue)
                 reason = "surface-unavailable"; exitCode = 2; throw ScreenFailure.protection
             }
             if selected.needsBrowser { journal.emit("surface-process", ["label": "app", "pid": getpid(), "bundleIdentifier": "ai.sliccy.mac"]) }
@@ -120,10 +137,11 @@ final class ScreenRunnerSession {
             report(inventory)
             journal.emit("surfaces-ready", ["counts": ["processes": Set(inventory.windows.compactMap { $0.value.owningApplication?.processID }).count, "windows": inventory.windows.count]])
             try await marker("runner-surfaces-observed", timeout: .seconds(5))
+            causes.advance(.consent)
             try audit?.record(.consent, reason: "active", scope: selected.scope, session: nil)
             let refreshed: ScreenRunnerInventory
             do { refreshed = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization) }
-            catch { reportInventoryUnavailable(); throw error }
+            catch { reportInventoryUnavailable(error as? ScreenRunnerInventoryIssue ?? .unknown); throw error }
             guard inventory.fingerprint == refreshed.fingerprint else { throw ScreenFailure.sourceChanged }
             journal.emit("surfaces-confirmed")
             let source = try ScreenRunnerCaptureSource.make(inventory: refreshed, selected: selected) { refusal in
@@ -145,12 +163,13 @@ final class ScreenRunnerSession {
                         connection.health.renewSource()
                     } catch {
                         guard let self, !Task.isCancelled, !self.cleaning, !self.stopping else { return }
-                        self.failure = .sourceChanged; self.relay?.invoke(.sourceChanged)
-                        self.reportInventoryUnavailable(); return
+                        self.failure = .sourceChanged; self.relay?.invoke(.sourceChanged, origin: .sourceMonitor)
+                        self.reportInventoryUnavailable(error as? ScreenRunnerInventoryIssue ?? .sourceChanged); return
                     }
                 }
             }
             try await until(.seconds(3)) { self.ready && self.linked }
+            causes.advance(.granting)
             try audit?.record(.grantIntent, reason: "active", scope: selected.scope, session: nil)
             journal.emit("grant-requested"); try transport.proofGrantCaptured(scope: selected.scope)
             try await until(.milliseconds(1500)) { self.granted }
@@ -158,15 +177,18 @@ final class ScreenRunnerSession {
             try audit?.record(.grant, reason: "active", scope: selected.scope, session: binding.session)
             let capture = ScreenCapture(gate: transport.gate, binding: binding, protection: { connection.health.check() },
                 output: { image in try transport.proofSubmitCaptured(image) }, failure: { [weak self] reason in
-                    Task { @MainActor in if let self, !self.stopping && !self.cleaning { self.failure = reason; self.relay?.invoke(reason) } }
+                    Task { @MainActor in if let self, !self.stopping && !self.cleaning { self.failure = reason; self.relay?.invoke(reason, origin: .captureFailure) } }
                 })
             self.capture = capture
             diagnosticAbort.register { capture.stop(.stalled) }
             try check()
-            let limit = ScreenRunnerCaptureLimit { [transport, capture] in
+            let limit = ScreenRunnerCaptureLimit { [transport, capture, causes] in
+                let at = ContinuousClock.now
                 transport.stop(.stalled); capture.stop(.stalled)
+                causes.record(.stop, reason: .screen(.stalled), origin: .captureLimit, at: at)
             }
             captureLimit = limit; limit.arm()
+            causes.advance(.capturing)
             try await capture.startProof(source: source); captureStarted = true; journal.emit("capture-started")
             let captureDeadline = ContinuousClock.now.advanced(by: .seconds(10))
             try await marker("runner-baseline", timeout: .seconds(5)); try check(); journal.emit("baseline-confirmed")
@@ -188,15 +210,18 @@ final class ScreenRunnerSession {
             try audit?.record(.stop, reason: "stopped", scope: selected.scope, session: binding.session)
             outcome = "complete"; reason = "complete"; exitCode = 0
         } catch {
+            causes.record(.failure, reason: .error(error), origin: .fixture)
             if inventoryUnavailable { reason = "surface-unavailable"; exitCode = 2 }
             if exitCode == 2 { outcome = "failed-to-demonstrate" }
             if cancelled { outcome = "failed"; reason = "interrupted"; exitCode = 1 }
         }
+        causes.advance(.cleanup)
         cleaning = true; sourceMonitor?.cancel(); captureLimit?.cancel(); connection?.health.invalidate(); capture?.stop(.stopped)
         indicator?.dismiss()
         var cleaned = true
         if let transport = connection?.transport {
-            let deadline = stopAt?.advanced(by: .milliseconds(1500)) ?? .now
+            let starts = [stopAt, causes.firstStopAt].compactMap { $0 }
+            let deadline = starts.min()?.advanced(by: .milliseconds(1500)) ?? .now
             let snapshot = await Task.detached { transport.proofFinalClose(until: deadline) }.value
             reportReverse(snapshot.notices)
             journal.emit("reverse-ledger-closed", ["requests": snapshot.requests, "written": snapshot.written,
@@ -205,6 +230,7 @@ final class ScreenRunnerSession {
                 "transportWasOpen": snapshot.cutoff.transportWasOpen, "invalid": snapshot.invalid,
                 "workersSettled": snapshot.workersSettled, "complete": snapshot.succeeded], at: snapshot.cutoff.at)
             if outcome == "complete" && (!snapshot.succeeded || failure != nil || (selected == .reciprocalRevoke && snapshot.requests == 0)) {
+                causes.record(.failure, reason: .screen(.incompatible), origin: .remote)
                 outcome = "failed"; reason = "reverse-incomplete"; exitCode = 1
             }
         } else if outcome == "complete" {
@@ -213,25 +239,28 @@ final class ScreenRunnerSession {
         if let connection {
             do {
                 if let pid = try await Task.detached(operation: { try connection.stopAndReap() }).value { reportNativeReap(pid) }
-            } catch { cleaned = false }
+            } catch { cleaned = false; causes.record(.failure, reason: .error(error), origin: .nativeChild) }
         }
         drainReverse()
         for (_, process) in owned { process.stop() }
         let cleanupRemaining = max(0, 45 - ScreenRunnerJournal.ms(journal.began.duration(to: .now)) / 1000)
         let cleanupDeadline = DispatchTime.now() + cleanupRemaining
         for (label, process) in owned {
-            do { try await Task.detached { try process.stopAndReap(until: min(cleanupDeadline, .now() + 3)) }.value } catch { cleaned = false }
+            do { try await Task.detached { try process.stopAndReap(until: min(cleanupDeadline, .now() + 3)) }.value } catch { cleaned = false; causes.record(.failure, reason: .error(error), origin: .launcher) }
             if process.hasReaped { reportReap(pid: process.pid, label: label) }
         }
-        if !removeHome() { cleaned = false }
+        if !removeHome() { cleaned = false; causes.record(.failure, reason: .screen(.audit), origin: .fixture) }
         if !cleaned || journal.began.duration(to: .now) > .seconds(45) || journal.failed { outcome = "failed"; reason = "cleanup-failed"; exitCode = 1 }
         if journal.failed { outcome = "failed-to-demonstrate"; reason = "diagnostic-loss"; exitCode = 2 }
+        if outcome != "complete" { causes.record(.failure, reason: journal.failed ? .screen(.resourceLimit) : .screen(.stalled), origin: journal.failed ? .diagnostic : .fixture) }
+        causes.advance(.finished)
         let delivered = journal.emit("terminal", ["outcome": outcome, "reason": reason])
         Darwin.exit(delivered && !journal.failed ? exitCode : 2)
     }
-    private func reportInventoryUnavailable() {
+    private func reportInventoryUnavailable(_ issue: ScreenRunnerInventoryIssue) {
         guard !inventoryUnavailable else { return }
         inventoryUnavailable = true
+        causes.record(.inventory, reason: .inventory(issue), origin: .inventory)
         journal.emit("surface-unavailable", ["label": "inventory", "reason": "unresolved-owner"])
     }
     private var reportedReaps = Set<pid_t>()
@@ -259,11 +288,14 @@ final class ScreenRunnerSession {
             case .ready: ready = true; journal.emit("heartbeat-ready")
             case .link: linked = true; journal.emit("synthetic-link-observed")
             case .granted(let binding): granted = true; currentBinding = binding; journal.emit("native-granted")
-            case .revocationConfirmed:
+            case .revocationConfirmed(let at, let began, let ordinal):
                 ownAck = true
-                journal.emit("native-ack", ["durationMs": stopAt.map { ScreenRunnerJournal.ms($0.duration(to: .now)) } ?? -1])
-            case .revokeQueued(let queuedAt): journal.emit("revoke-queued", at: queuedAt)
+                journal.emit("native-ack", ["durationMs": ScreenRunnerJournal.ms(began.duration(to: at)), "revokeOrdinal": ordinal], at: at)
+            case .revokeQueued(let queuedAt, let began, let ordinal):
+                journal.emit("revoke-queued", ["revokeOrdinal": ordinal, "stopBeganElapsedMs": ScreenRunnerJournal.ms(journal.began.duration(to: began))], at: queuedAt)
             case .stopped(let reason):
+                if reason != .stopped && !cleaning { causes.record(.failure, reason: .screen(reason), origin: .nativeChild) }
+                causes.advance(cleaning ? .cleanup : .stopping)
                 if !stopping { stopping = true; captureLimit?.cancel(); capture?.stop(.stopped) }
                 if reason != .stopped && !cleaning { failure = reason }
             case .proofSourceAdmitted(let seq, let mono, let at): journal.emit("source-admitted", ["frameSeq": seq, "capturedMonoMs": mono], at: at)
@@ -286,6 +318,8 @@ final class ScreenRunnerSession {
                 stopAt = notice.at; journal.emit("stop-requested", ["trigger": "remote"], at: notice.at)
             }
             if notice.stage == .received {
+                causes.noteStop(at: notice.at)
+                causes.record(.stop, reason: .screen(.stopped), origin: .remote, at: notice.at)
                 guard let invalidation = notice.invalidation else { failure = .incompatible; continue }
                 journal.gateInvalidated(start: invalidation.0, end: invalidation.1)
             }
@@ -296,8 +330,9 @@ final class ScreenRunnerSession {
     private func surfaceEnded(_ label: String) -> @Sendable (pid_t, Bool) -> Void {
         { [weak self] pid, reaped in Task { @MainActor in
             guard let self else { return }
+            self.causes.record(.launcherReap, reason: reaped ? .reaped : .unreaped, origin: .launcher)
             if reaped { self.reportReap(pid: pid, label: label) }
-            if !self.cleaning, self.captureStarted, self.primaries.contains(where: { $0.pid == pid }) { self.failure = .sourceChanged; self.relay?.invoke(.sourceChanged) }
+            if !self.cleaning, self.captureStarted, self.primaries.contains(where: { $0.pid == pid }) { self.failure = .sourceChanged; self.relay?.invoke(.sourceChanged, origin: .launcher) }
         } }
     }
     private func check() throws {

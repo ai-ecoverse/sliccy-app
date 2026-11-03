@@ -54,6 +54,7 @@ struct ScreenRevocationTests {
         let duplicate = try state.revoke(.stopped, now: retryAt)
         #expect(duplicate == nil)
         #expect(state.revokeRequest == first.request)
+        #expect(state.revokeStartedAt == now && state.revokeOrdinal == 1)
         #expect(throws: ScreenFailure.incompatible) { try state.grant(binding, scope: "window", now: retryAt) }
         #expect(throws: ScreenFailure.incompatible) { try state.receive(link, now: retryAt) }
         var wrongAck = state.base("revoked"); wrongAck.request = try ScreenID.make()
@@ -84,6 +85,7 @@ struct ScreenRevocationTests {
             let secondValue = try state.revoke(.sourceChanged, now: next)
             let second = try #require(secondValue)
             #expect(first.request != second.request && state.phase == .revoked)
+            #expect(state.revokeStartedAt == next && state.revokeOrdinal == 2)
             #expect(throws: ScreenFailure.incompatible) { try state.receive(ack, now: next) }
             heartbeat.seq = "4"
             _ = try state.receive(heartbeat, now: next.advanced(by: .milliseconds(900)))

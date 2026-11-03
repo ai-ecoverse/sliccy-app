@@ -242,7 +242,7 @@ final class ScreenProofSession: @unchecked Sendable {
                     }
                 } catch { close(.incompatible) }
             }
-        case .revokeQueued(let at):
+        case .revokeQueued(let at, _, _):
             report("revoke-queued", at: at)
         case .revocationConfirmed:
             report("native-ack", duration: locked { stopAt?.duration(to: .now) })
