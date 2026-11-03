@@ -16,7 +16,7 @@ class HostedManifestTests(unittest.TestCase):
         app = Path(root) / 'Sliccy.app'
         for name in ['MacOS', 'Resources']:
             (app / 'Contents' / name).mkdir(parents=True)
-        (app / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': 'ai.sliccy.mac', 'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '9'}))
+        (app / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': 'ai.sliccy.mac', 'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '10'}))
         (app / 'Contents/Resources/slicc').write_bytes(b'non-executed fixture')
         return app
 
@@ -31,7 +31,7 @@ class HostedManifestTests(unittest.TestCase):
     def test_closed_artifact_contract_and_unexecuted_subject(self):
         with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {'GITHUB_SHA': 'a' * 40}), patch.object(subject, 'signature', side_effect=self.signature), patch.object(subject, 'checked', side_effect=self.checked):
             record = subject.manifest(self.fixture(root))
-            self.assertEqual(record['build'], '9')
+            self.assertEqual(record['build'], '10')
             self.assertEqual(record['case'], 'pid-reuse-hosted')
             self.assertEqual(set(record['resources']), {'slicc'})
             self.assertFalse(record['capture'])

@@ -40,7 +40,7 @@ final class ScreenHostedPIDProofSession: @unchecked Sendable {
     func cancel() { let owned = state { cancelled = true; return active }; owned?.cancel() }
     func start() {
         DispatchQueue(label: "ai.sliccy.proof.hosted-pid").async { [self] in run() }
-        DispatchQueue.global().asyncAfter(deadline: .now() + 645) { [weak self] in self?.cancel() }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 945) { [weak self] in self?.cancel() }
     }
     private func run() {
         var reason = "fixed-failure", code: Int32 = 1
@@ -88,7 +88,7 @@ final class ScreenHostedPIDProofSession: @unchecked Sendable {
             } else { reason = "pid-reuse-not-observed"; code = 2 }
         } catch { if isCancelled { reason = "interrupted" }; code = 1 }
         if !cleanup() { reason = "cleanup-failed"; code = 1 }
-        if began.duration(to: .now) > .seconds(650) { reason = "time-budget-exceeded"; code = 1 }
+        if began.duration(to: .now) > .seconds(950) { reason = "time-budget-exceeded"; code = 1 }
         emit("terminal", ["reason": reason, "outcome": code == 0 ? "complete" : code == 2 ? "failed-to-demonstrate" : "failed"])
         outputLock.lock(); let failed = outputFailed; outputLock.unlock()
         complete(failed ? 1 : code)
@@ -109,14 +109,15 @@ final class ScreenHostedPIDProofSession: @unchecked Sendable {
     private func cycle(original: pid_t) throws -> ContinuousClock.Instant? {
         let initial = try ScreenHostedPIDSpawn.CPU.read()
         var budget = ScreenHostedPIDBudget(original: original, started: .now, selfCPU: initial.process, childrenCPU: initial.children)
-        emit("cycler-started", ["maximumSeconds": 600])
+        emit("cycler-started", ["maximumSeconds": 900, "maximumWraps": 2, "approachDistance": 2000])
         var lastProgress = budget.started, maximumDebt = Duration.zero
         var operation = "cpu-accounting-failed"
         func fields(_ sample: ScreenHostedPIDSpawn.CPU, _ now: ContinuousClock.Instant) -> [String: Any] {
             let cpu = budget.cpu(selfCPU: sample.process, childrenCPU: sample.children), wall = budget.started.duration(to: now)
             maximumDebt = max(maximumDebt, budget.maximumTransientDebt, cpu - wall, .zero)
             return ["count": budget.reaped, "spawned": budget.spawned, "reaped": budget.reaped,
-                    "cpuMs": Self.ms(cpu), "wallMs": Self.ms(wall), "maximumDebtMs": Self.ms(maximumDebt)]
+                    "cpuMs": Self.ms(cpu), "wallMs": Self.ms(wall), "maximumDebtMs": Self.ms(maximumDebt), "wraps": budget.wraps,
+                    "closestBelow": budget.closestBelow as Any? ?? NSNull(), "closestAbove": budget.closestAbove as Any? ?? NSNull()]
         }
         do {
         while true {
@@ -127,7 +128,7 @@ final class ScreenHostedPIDProofSession: @unchecked Sendable {
             switch decision {
             case .stop(let reason):
                 var row = fields(sample, now); row["reason"] = reason.rawValue; emit("cycler-ended", row)
-                if reason == .timeLimit { return nil }
+                if reason == .timeLimit || reason == .wrapLimit { return nil }
                 throw ScreenFailure.incompatible
             case .attemptCLI:
                 var row = fields(sample, now); row["reason"] = "near-target"; emit("cycler-ended", row)
@@ -145,11 +146,18 @@ final class ScreenHostedPIDProofSession: @unchecked Sendable {
                 }
                 operation = "spawn-failed"
                 let pid = try ScreenHostedPIDSpawn.spawn(); outstandingCycler = pid; cyclerSpawned += 1
-                operation = "lifecycle-failed"; try budget.didSpawnCycler()
+                operation = "lifecycle-failed"; try budget.didSpawnCycler(pid: pid)
                 operation = "reap-failed"
-                let result = try ScreenHostedPIDSpawn.reap(pid, deadline: budget.deadline, cancelled: { self.isCancelled }, cleanupDeadline: began.advanced(by: .seconds(650)))
+                let result = try ScreenHostedPIDSpawn.reap(pid, deadline: budget.deadline, cancelled: { self.isCancelled }, cleanupDeadline: began.advanced(by: .seconds(950)))
                 outstandingCycler = nil; cyclerReaped += 1
-                operation = "lifecycle-failed"; try budget.didReapCycler(pid: pid)
+                operation = "lifecycle-failed"
+                let observations = try budget.didReapCycler(pid: pid)
+                for value in observations {
+                    emit("cycler-" + value.kind.rawValue, ["wrap": value.wrap,
+                        "previousPID": value.previousPID as Any? ?? NSNull(), "returnedPID": value.returnedPID,
+                        "distance": value.distance, "closestBelow": value.closestBelow as Any? ?? NSNull(),
+                        "closestAbove": value.closestAbove as Any? ?? NSNull(), "count": budget.reaped])
+                }
                 if result.interrupted, !isCancelled, ContinuousClock.now >= budget.deadline {
                     let final = try ScreenHostedPIDSpawn.CPU.read(), at = ContinuousClock.now
                     var row = fields(final, at)
@@ -198,7 +206,7 @@ final class ScreenHostedPIDProofSession: @unchecked Sendable {
     private func cleanup() -> Bool {
         do {
             if let pid = outstandingCycler {
-                _ = try ScreenHostedPIDSpawn.reap(pid, deadline: .now, cancelled: { true }, cleanupDeadline: began.advanced(by: .seconds(650))); outstandingCycler = nil; cyclerReaped += 1
+                _ = try ScreenHostedPIDSpawn.reap(pid, deadline: .now, cancelled: { true }, cleanupDeadline: began.advanced(by: .seconds(950))); outstandingCycler = nil; cyclerReaped += 1
             }
             let owned = state { active }; try owned?.stopAndReap(); state { active = nil }
             if let root {
