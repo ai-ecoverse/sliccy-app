@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 import plistlib
+import re
 import sys
 import tempfile
 import unittest
@@ -58,3 +59,22 @@ class HostedManifestTests(unittest.TestCase):
                 with self.assertRaises(ValueError): subject.manifest(app)
             with patch.object(subject, 'signature', side_effect=self.signature), patch.object(subject, 'checked', return_value=(plistlib.dumps({'com.apple.security.get-task-allow': True}), b'')):
                 with self.assertRaises(ValueError): subject.manifest(app)
+
+    def test_build10_packaging_selects_fixed_hosted_manifest_without_execution(self):
+        root = Path(__file__).resolve().parents[2]
+        lines = (root / 'script/sign_and_notarize.sh').read_text().splitlines()
+        matches = [index for index, line in enumerate(lines) if '/hosted_pid_manifest.py"' in line]
+        self.assertEqual(len(matches), 1)
+        index = matches[0]
+        self.assertEqual(lines[index], '  python3 "$(dirname "$0")/hosted_pid_manifest.py" "$signed_app" "$artifact_dir/hosted-pid-manifest.json"')
+        self.assertEqual(lines[index + 1], 'fi')
+        expected_prefix = 'if [[ "$(/usr/libexec/PlistBuddy -c \'Print :CFBundleVersion\' "$plist")" == '
+        condition = lines[index - 1]
+        self.assertTrue(condition.startswith(expected_prefix))
+        version = re.fullmatch(r'([0-9]+) \]\]; then', condition[len(expected_prefix):])
+        self.assertIsNotNone(version)
+        selected = [build for build in ('7', '8', '9', '10') if build == version.group(1)]
+        self.assertEqual(selected, ['10'])
+        build_script = (root / 'script/build_and_run.sh').read_text()
+        hosted = build_script.split('if [[ "${SLICCY_HOSTED_PID_PROOF:-0}" == 1 ]]; then', 1)[1].split('elif', 1)[0]
+        self.assertIn('BUILD_NUMBER=10', hosted)
