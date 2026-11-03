@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "branch": "proof/runner-capture-v1",
+  "artifactRun": "41582910616",
+  "artifactSource": "d93cc688e8aed3f1f35cde87735083d5f6b7191d",
+  "files": {
+    ".github/workflows/runner-proof.yml": "8300505fc6dad4184f2394dfc1b3cb5648f5d870761cb60f250f47be9e6760cd",
+    "script/runner-proof/sealed_universal.py": "c2ef300919808e20e30e8a79fb234fbec67a8894f2ea2595e46cfe637bc949d4",
+    "script/runner-proof/mac_rosetta_preflight.py": "37b4b625a54cee0fba074909c22f553ffc57dce2b2f0402d3a03cb2fe1c8cff1",
+    "script/runner-proof/universal_manifest.py": "37afcfde3ff6a30268fb2c17714b9349cb871044985eec9d86db47aa6fcc8e0f",
+    "script/runner-proof/inputs/universal-driver.tar.gz": "075b6406be321e95c2c613841ee76dfab3db3635e89c05480106e35b6440e4fe",
+    "script/runner-proof/inputs/universal-driver-files.json": "aa35ee8d0b780d36c1ee7fe5d00189d32154b248a3ae9877a50ff6c3f03ec4e4",
+    "script/runner-proof/inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
+  }
+}
