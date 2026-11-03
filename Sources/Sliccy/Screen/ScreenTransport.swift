@@ -208,21 +208,25 @@ final class ScreenTransport: @unchecked Sendable {
     }
 
     /// This invalidates synchronously, before locks, encoding, audit, or network work.
-    func stop(_ reason: ScreenFailure = .stopped) {
+    func stop(_ reason: ScreenFailure = .stopped) { stopAfterInvalidation(reason, at: nil) }
+#if DEBUG
+    func testStop(_ reason: ScreenFailure, at: ContinuousClock.Instant) { stopAfterInvalidation(reason, at: at) }
+#endif
+    private func stopAfterInvalidation(_ reason: ScreenFailure, at instant: ContinuousClock.Instant?) {
         let invalidation = quiesceOutput()
+        let began = instant ?? invalidation.0
         do {
             let admission = try locked { () throws -> (Bool, ContinuousClock.Instant, Int)? in
                 guard !ended else { throw ScreenFailure.stopped }
-                guard let message = try state.revoke(reason, now: invalidation.0) else { return nil }
-                outbound.removeAll { $0.type == "revoke" }
+                guard let message = try state.revoke(reason, now: began) else { return nil }
                 let queued = try appendLocked(message)
                 return (queued.0, queued.1, state.revokeOrdinal)
             }
             guard let (start, queuedAt, ordinal) = admission else { return }
             if start { outputQueue.async { [self] in writeControl() } }
-            event(.revokeQueued(queuedAt, invalidation.0, ordinal))
+            event(.revokeQueued(queuedAt, began, ordinal))
             event(.stopped(reason))
-        } catch { fail(reason) }
+        } catch { fail(error as? ScreenFailure ?? reason) }
     }
 
     /// End image authority before the safety exchange. Socket lifetime and image

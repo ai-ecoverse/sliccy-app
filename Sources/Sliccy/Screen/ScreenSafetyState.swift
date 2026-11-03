@@ -92,7 +92,9 @@ struct ScreenSafetyState {
         return message
     }
     mutating func revoke(_ reason: ScreenFailure, now: ContinuousClock.Instant = .now) throws -> ScreenSafety? {
-        if let revokeUntil, now < revokeUntil { return nil }
+        if let revokeUntil, now >= revokeUntil { throw ScreenFailure.stalled }
+        try checkHealth(now: now)
+        if revokeUntil != nil { return nil }
         guard revokeOrdinal < Int.max else { throw ScreenFailure.resourceLimit }
         let request = try ScreenID.make()
         revokeStartedAt = now; revokeOrdinal += 1
