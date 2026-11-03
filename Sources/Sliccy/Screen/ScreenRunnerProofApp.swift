@@ -3,34 +3,6 @@ import AppKit
 import Carbon
 import Darwin
 
-final class ScreenRunnerJournal: @unchecked Sendable {
-    let began = ContinuousClock.now
-    private let lock = NSLock()
-    private let selected: ScreenRunnerCase
-    private var bytes = 0, gateReported = false
-    private var writeFailed = false
-    var failed: Bool { lock.lock(); defer { lock.unlock() }; return writeFailed }
-    init(_ selected: ScreenRunnerCase) { self.selected = selected }
-    func emit(_ stage: String, _ fields: [String: Any] = [:], at: ContinuousClock.Instant = .now) {
-        lock.lock(); defer { lock.unlock() }
-        guard !writeFailed else { return }
-        var row: [String: Any] = ["schema": 3, "case": selected.rawValue, "capture": true, "stage": stage, "elapsedMs": Self.ms(began.duration(to: .now)), "eventElapsedMs": Self.ms(began.duration(to: at))]
-        fields.forEach { row[$0.key] = $0.value }
-        do {
-            var data = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys]); data.append(10)
-            guard data.count <= 4096, bytes + data.count <= 524288 else { throw ScreenFailure.resourceLimit }
-            bytes += data.count; try FileHandle.standardOutput.write(contentsOf: data)
-        } catch { writeFailed = true }
-    }
-    func gateInvalidated(start: ContinuousClock.Instant, end: ContinuousClock.Instant) {
-        lock.lock(); let first = !gateReported; gateReported = true; lock.unlock()
-        if first { emit("local-gate-invalidated", ["durationMs": Self.ms(start.duration(to: end))], at: end) }
-    }
-    static func ms(_ duration: Duration) -> Double {
-        let value = duration.components; return Double(value.seconds) * 1000 + Double(value.attoseconds) / 1e15
-    }
-}
-
 @MainActor
 final class ScreenRunnerProofApp: NSObject, NSApplicationDelegate {
     private var session: ScreenRunnerSession?
@@ -56,6 +28,7 @@ final class ScreenRunnerProofApp: NSObject, NSApplicationDelegate {
 final class ScreenRunnerSession {
     private let selected: ScreenRunnerCase
     private let journal: ScreenRunnerJournal
+    private let diagnosticAbort: ScreenRunnerDiagnosticAbort
     private var connection: ScreenRunnerConnection?
     private var indicator: ScreenIndicator?
     private var relay: ScreenStopRelay?
@@ -71,7 +44,11 @@ final class ScreenRunnerSession {
     private var root: URL?, rootFD: Int32 = -1, rootStat = stat()
     private var reverseComplete = false, reverseSeen = false
     private var audit: ScreenAudit?
-    init() throws { selected = try ScreenRunnerHost.require(); journal = ScreenRunnerJournal(selected) }
+    init() throws {
+        selected = try ScreenRunnerHost.require()
+        let abort = ScreenRunnerDiagnosticAbort(); diagnosticAbort = abort
+        journal = try ScreenRunnerJournal(selected, authorityFailed: { abort.fail() })
+    }
     func cancel() { cancelled = true; relay?.invoke(.stopped); connection?.health.invalidate() }
     func run() async {
         var outcome = "failed", reason = "fixed-failure", exitCode: Int32 = 1
@@ -81,6 +58,7 @@ final class ScreenRunnerSession {
             try ScreenPeerVerifier.verifySelf()
             let screen = CGPreflightScreenCaptureAccess(), listen = CGPreflightListenEventAccess(), post = CGPreflightPostEventAccess()
             journal.emit("runner-preflight", ["screenCapture": screen, "listenEvent": listen, "postEvent": post, "hosted": true, "osMajor": 27, "architecture": "arm64"])
+            try check()
             guard screen, selected != .hotkeyStop || (listen && post), NSScreen.main != nil else { reason = "permission-unavailable"; exitCode = 2; throw ScreenFailure.permission }
             let join = try await Task.detached { try ScreenProofSession.readJoin() }.value
             let home = try prepareHome()
@@ -110,6 +88,8 @@ final class ScreenRunnerSession {
             }
             let connection = ScreenRunnerConnection { [weak self] event in Task { @MainActor in self?.consume(event) } }
             self.connection = connection
+            diagnosticAbort.register { connection.abortDiagnostic() }
+            try check()
             try await Task.detached { try connection.open(root: home, join: join) }.value
             guard let transport = connection.transport else { throw ScreenFailure.peerLost }
             let journal = self.journal
@@ -178,6 +158,8 @@ final class ScreenRunnerSession {
                     Task { @MainActor in if let self, !self.stopping && !self.cleaning { self.failure = reason; self.relay?.invoke(reason) } }
                 })
             self.capture = capture
+            diagnosticAbort.register { capture.stop(.stalled) }
+            try check()
             let limit = ScreenRunnerCaptureLimit { [transport, capture] in
                 transport.stop(.stalled); capture.stop(.stalled)
             }
@@ -222,7 +204,9 @@ final class ScreenRunnerSession {
         }
         if !removeHome() { cleaned = false }
         if !cleaned || journal.began.duration(to: .now) > .seconds(45) || journal.failed { outcome = "failed"; reason = "cleanup-failed"; exitCode = 1 }
-        journal.emit("terminal", ["outcome": outcome, "reason": reason]); Darwin.exit(exitCode)
+        if journal.failed { outcome = "failed-to-demonstrate"; reason = "diagnostic-loss"; exitCode = 2 }
+        let delivered = journal.emit("terminal", ["outcome": outcome, "reason": reason])
+        Darwin.exit(delivered && !journal.failed ? exitCode : 2)
     }
     private var reportedReaps = Set<pid_t>()
     private var nativeStarted: pid_t?, nativeReaped: pid_t?, nativeReapReported = false

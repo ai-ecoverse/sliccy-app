@@ -34,6 +34,8 @@ final class ScreenRunnerConnection: @unchecked Sendable {
     init(event: @escaping @Sendable (Event) -> Void) { self.event = event }
     var transport: ScreenTransport? { lock.lock(); defer { lock.unlock() }; return link }
     func open(root: URL, join: String) throws {
+        lock.lock(); let allowed = !stopped; lock.unlock()
+        guard allowed else { throw ScreenFailure.stopped }
         let policy = ScreenLaunchPolicy.universalAppProof(root: root), verifier = ScreenPeerVerifier(approvedHashes: policy.hashes)
         let handshake = try ScreenHandshake()
         let owned = try ScreenChild(executable: Bundle.main.bundleURL.appending(path: "Contents/Resources/slicc").path,
@@ -59,6 +61,11 @@ final class ScreenRunnerConnection: @unchecked Sendable {
     private func childReaped() {
         lock.lock(); reaped = true; let pid = child?.pid; lock.unlock()
         didReap.signal(); if let pid { event(.reaped(pid)) }
+    }
+    func abortDiagnostic() {
+        health.invalidate()
+        lock.lock(); stopped = true; let transport = link, owned = child; lock.unlock()
+        transport?.close(); owned?.stop()
     }
     @discardableResult func stopAndReap() throws -> pid_t? {
         health.invalidate()

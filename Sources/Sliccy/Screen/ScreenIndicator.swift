@@ -14,9 +14,9 @@ final class ScreenStopRelay: @unchecked Sendable {
         let start = ContinuousClock.now
         gate.invalidate()
         let invalidated = ContinuousClock.now
+        stop(reason)
         entered(origin, start)
         observed(start, invalidated)
-        stop(reason)
     }
 }
 

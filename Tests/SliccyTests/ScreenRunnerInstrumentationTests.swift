@@ -97,6 +97,25 @@ struct ScreenRunnerInstrumentationTests {
         expired.arm(); expired.expire(); expired.expire(); expired.cancel()
         #expect(second.count == 1)
     }
+    @Test func mandatoryStopPrecedesBlockedObserver() {
+        for blockEntered in [true, false] {
+            let gate = ScreenOutputGate()
+            let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+            let stopped = DispatchSemaphore(value: 0), finished = DispatchSemaphore(value: 0)
+            let block: @Sendable () -> Void = {
+                entered.signal()
+                _ = release.wait(timeout: .now() + 2)
+            }
+            let relay = ScreenStopRelay(gate: gate, entered: { _, _ in if blockEntered { block() } },
+                observed: { _, _ in if !blockEntered { block() } }, stop: { _ in stopped.signal() })
+            DispatchQueue.global().async { relay.invoke(.stopped, origin: .button); finished.signal() }
+            #expect(entered.wait(timeout: .now() + 1) == .success)
+            #expect(gate.isInvalidated)
+            #expect(stopped.wait(timeout: .now() + .milliseconds(100)) == .success)
+            release.signal()
+            #expect(finished.wait(timeout: .now() + 1) == .success)
+        }
+    }
     @Test func stopCallbacksObserveAlreadyInvalidatedGateAndActualOrigin() {
         let gate = ScreenOutputGate()
         let relay = ScreenStopRelay(gate: gate, entered: { origin, _ in
