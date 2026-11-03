@@ -41,7 +41,9 @@ class WrapperTests(unittest.TestCase):
             for name in manifest['files']:
                 out = repo / name; out.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(BASE / name, out)
             shutil.copy2(BASE / 'script/runner-proof/capture-reviewed-sources.json', repo / 'script/runner-proof/capture-reviewed-sources.json')
-            (repo / 'script/runner-proof/capture_tcc.py').write_text('changed')
+            target = repo / 'script/runner-proof/capture_tcc.py'
+            target.chmod(0o600)
+            target.write_text('changed')
             with self.assertRaises(ValueError): subject.validate_source_manifest(repo)
 
     def exercise_suite(self, exit_code):
