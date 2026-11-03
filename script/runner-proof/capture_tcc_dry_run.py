@@ -66,6 +66,14 @@ class ReadOnlyValidation(tcc.ScopedGrants):
         self.stage = stage
         self.save('entered')
 
+    def enter_database(self, db, stage):
+        if db not in self.paths:
+            raise ValueError('dry-run database stage target')
+        role = 'system' if db == tcc.SYSTEM else 'user'
+        self.facts['currentDatabase'] = db
+        self.facts['currentDatabaseRole'] = role
+        self.enter(role + '-' + stage)
+
     def read_query(self, db, sql):
         if db not in self.paths or sql not in READS:
             raise ValueError('dry-run SQL refused')
@@ -77,7 +85,7 @@ class ReadOnlyValidation(tcc.ScopedGrants):
         return rows
 
     def database_facts(self, db):
-        self.enter('database-metadata')
+        self.enter_database(db, 'database-metadata')
         values = self.facts['databases'].setdefault(db, {})
         raw = super().command(['/usr/bin/sudo', '-n', '/usr/bin/stat', '-f', '%p %u %g %z %i', db]).decode().strip()
         fields = raw.split()
@@ -90,7 +98,7 @@ class ReadOnlyValidation(tcc.ScopedGrants):
         self.save('observed')
         for label, sql in [('tables', "SELECT name,type FROM sqlite_master WHERE type='table' ORDER BY name LIMIT 65;"),
                            ('userVersion', 'PRAGMA user_version;'), ('schemaVersion', 'PRAGMA schema_version;')]:
-            self.enter('database-' + label)
+            self.enter_database(db, 'database-' + label)
             values[label] = self.read_query(db, sql)
             self.save('observed')
 
@@ -99,16 +107,16 @@ class ReadOnlyValidation(tcc.ScopedGrants):
             raise ValueError('dry-run query target')
         if sql == 'PRAGMA table_info(access);':
             self.database_facts(db)
-            self.enter('access-schema-read')
+            self.enter_database(db, 'access-schema-read')
             rows = self.read_query(db, sql)
             self.facts['databases'][db]['accessColumns'] = rows
-            self.enter('access-schema-validation')
+            self.enter_database(db, 'access-schema-validation')
             return rows
         if sql == 'SELECT service FROM access WHERE ' + tcc.predicates() + ';':
-            self.enter('existing-permission-read')
+            self.enter_database(db, 'existing-permission-read')
             rows = self.read_query(db, sql)
             self.facts['databases'][db]['existingAppServices'] = rows
-            self.enter('existing-permission-validation')
+            self.enter_database(db, 'existing-permission-validation')
             return rows
         raise ValueError('dry-run write refused')
 
@@ -133,7 +141,10 @@ class ReadOnlyValidation(tcc.ScopedGrants):
                 self.facts['currentDatabase'] = db
         if stage is None:
             raise ValueError('dry-run command refused')
-        self.enter(stage)
+        if stage in ('database-regular-file', 'database-no-symlink'):
+            self.enter_database(self.facts['currentDatabase'], stage)
+        else:
+            self.enter(stage)
         result = super().command(args)
         if stage == 'requirement-compile':
             self.enter('requirement-shape')

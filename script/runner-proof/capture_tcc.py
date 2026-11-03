@@ -14,6 +14,7 @@ COLUMNS = ('service', 'client', 'client_type', 'auth_value', 'auth_reason', 'aut
            'policy_id', 'indirect_object_identifier_type', 'indirect_object_identifier',
            'indirect_object_code_identity', 'flags', 'last_modified', 'pid', 'pid_version',
            'boot_uuid', 'last_reminded')
+EXTRA_COLUMNS = ('one_time_reprompt_eligible', 'reminder_count')
 SYSTEM = '/Library/Application Support/com.apple.TCC/TCC.db'
 USER_BASE = '/private/var/containers/Data/ProtectedSystem'
 
@@ -35,13 +36,27 @@ def user_database(candidates, active):
 
 
 def schema_supported(rows):
-    if len(rows) != len(COLUMNS) or {r['name'] for r in rows} != set(COLUMNS):
-        raise ValueError('TCC schema')
-    types = {r['name']: r['type'].upper() for r in rows}
-    for name in COLUMNS:
+    if not isinstance(rows, list) or any(not isinstance(row, dict) or not isinstance(row.get('name'), str) for row in rows):
+        raise ValueError('TCC schema row metadata')
+    names = tuple(row['name'] for row in rows)
+    if names not in (COLUMNS, COLUMNS + EXTRA_COLUMNS):
+        unexpected = [name for name in names if name not in COLUMNS + EXTRA_COLUMNS]
+        missing = [name for name in COLUMNS if name not in names]
+        raise ValueError('TCC schema layout: unexpected=' + repr(unexpected) + '; missing=' + repr(missing) + '; observed order=' + repr(names))
+    for index, row in enumerate(rows):
+        name = row['name']
+        if type(row.get('cid')) is not int or row['cid'] != index:
+            raise ValueError('TCC column position: ' + name)
         expected = 'TEXT' if name in ('service', 'client', 'indirect_object_identifier', 'boot_uuid') else 'BLOB' if name in ('csreq', 'indirect_object_code_identity') else 'INTEGER'
-        if types[name] != expected:
-            raise ValueError('TCC column type')
+        if not isinstance(row.get('type'), str) or row['type'].upper() != expected:
+            raise ValueError('TCC column type: ' + name)
+        if name in EXTRA_COLUMNS:
+            if row.get('notnull') == 1 and row.get('dflt_value') is None:
+                raise ValueError('TCC omitted NOT NULL column without default: ' + name)
+            constraint = (row.get('notnull'), row.get('dflt_value'), row.get('pk'))
+            observed = (0, None, 0) if name == EXTRA_COLUMNS[0] else (1, '0', 0)
+            if constraint != observed or type(row.get('notnull')) is not int or type(row.get('pk')) is not int:
+                raise ValueError('TCC column constraints: ' + name)
 
 
 def compiled_requirement(data):

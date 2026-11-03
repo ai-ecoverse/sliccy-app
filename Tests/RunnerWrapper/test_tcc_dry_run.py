@@ -52,11 +52,14 @@ class DryRunTests(unittest.TestCase):
                     self.assertIn('-readonly', args)
                     sql = args[-1]
                     self.assertIn(sql, diagnostic.READS)
-                    if sql == 'PRAGMA table_info(access);': return json.dumps(COLUMNS if columns is None else columns).encode()
+                    if sql == 'PRAGMA table_info(access);':
+                        selected = COLUMNS if columns is None else columns.get(args[-2], COLUMNS) if isinstance(columns, dict) else columns
+                        return json.dumps(selected).encode()
                     if sql == 'PRAGMA user_version;': return b'[{"user_version":29}]'
                     if sql == 'PRAGMA schema_version;': return b'[{"schema_version":3}]'
                     if sql.startswith('SELECT name,type'): return b'[{"name":"access","type":"table"}]'
-                    return b'[{"service":"kTCCServiceScreenCapture"}]' if preexisting else b'[]'
+                    exists = preexisting.get(args[-2], False) if isinstance(preexisting, dict) else preexisting
+                    return b'[{"service":"kTCCServiceScreenCapture"}]' if exists else b'[]'
                 return b''
             with patch.dict(os.environ, HOST), patch.object(tcc.placement, 'require_host'), patch.object(tcc.ScopedGrants, 'command', side_effect=command):
                 result = obj.run(root / 'Sliccy.app')
@@ -81,8 +84,9 @@ class DryRunTests(unittest.TestCase):
     def test_exact_schema_failure_retains_actual_columns_and_message(self):
         result, record, _ = self.exercise(columns=COLUMNS[:-1])
         self.assertFalse(result)
-        self.assertEqual(record['events'][-1]['stage'], 'access-schema-validation')
-        self.assertEqual(record['events'][-1]['exception'], {'class': 'ValueError', 'message': 'TCC schema'})
+        self.assertEqual(record['events'][-1]['stage'], 'system-access-schema-validation')
+        self.assertEqual(record['events'][-1]['exception']['class'], 'ValueError')
+        self.assertIn("missing=['last_reminded']", record['events'][-1]['exception']['message'])
         self.assertEqual(record['facts']['databases'][tcc.SYSTEM]['accessColumns'], COLUMNS[:-1])
 
     def test_column_type_and_preexisting_checks_unchanged(self):
@@ -90,11 +94,96 @@ class DryRunTests(unittest.TestCase):
         columns[0]['type'] = 'INTEGER'
         result, record, _ = self.exercise(columns=columns)
         self.assertFalse(result)
-        self.assertEqual(record['events'][-1]['exception']['message'], 'TCC column type')
+        self.assertEqual(record['events'][-1]['exception']['message'], 'TCC column type: service')
         result, record, _ = self.exercise(preexisting=True)
         self.assertFalse(result)
-        self.assertEqual(record['events'][-1]['stage'], 'existing-permission-validation')
+        self.assertEqual(record['events'][-1]['stage'], 'system-existing-permission-validation')
         self.assertEqual(record['events'][-1]['exception']['message'], 'preexisting app permission')
+
+    def test_observed_19_column_system_and_17_column_user_both_validate(self):
+        observed = json.loads((BASE / 'Tests/RunnerWrapper/fixtures/tcc-system-27.0.1.json').read_text())['columns']
+        result, record, _ = self.exercise(columns={tcc.SYSTEM: observed, USER: COLUMNS})
+        self.assertTrue(result)
+        stages = [r['stage'] for r in record['events']]
+        for role in ('system', 'user'):
+            self.assertIn(role + '-access-schema-validation', stages)
+            self.assertIn(role + '-existing-permission-validation', stages)
+        self.assertEqual(record['facts']['databases'][tcc.SYSTEM]['accessColumns'], observed)
+        self.assertEqual(record['facts']['databases'][USER]['accessColumns'], COLUMNS)
+
+    def test_user_schema_or_existing_permission_failure_is_named(self):
+        observed = json.loads((BASE / 'Tests/RunnerWrapper/fixtures/tcc-system-27.0.1.json').read_text())['columns']
+        unknown = [dict(r) for r in COLUMNS] + [{'cid': 17, 'name': 'unknown_user_column', 'type': 'INTEGER'}]
+        result, record, _ = self.exercise(columns={tcc.SYSTEM: observed, USER: unknown})
+        self.assertFalse(result)
+        self.assertEqual(record['events'][-1]['stage'], 'user-access-schema-validation')
+        self.assertIn("unexpected=['unknown_user_column']", record['events'][-1]['exception']['message'])
+        self.assertEqual(record['facts']['currentDatabaseRole'], 'user')
+        result, record, _ = self.exercise(columns={tcc.SYSTEM: observed}, preexisting={USER: True})
+        self.assertFalse(result)
+        self.assertEqual(record['events'][-1]['stage'], 'user-existing-permission-validation')
+        self.assertEqual(record['events'][-1]['exception']['message'], 'preexisting app permission')
+
+    def test_only_exact_ordered_17_or_19_layouts_accepted(self):
+        observed = json.loads((BASE / 'Tests/RunnerWrapper/fixtures/tcc-system-27.0.1.json').read_text())['columns']
+        tcc.schema_supported(observed)
+        tcc.schema_supported(observed[:17])
+        swapped = [dict(r) for r in observed]
+        swapped[17], swapped[18] = swapped[18], swapped[17]
+        reordered = [dict(r) for r in observed[:17]]
+        reordered[0], reordered[1] = reordered[1], reordered[0]
+        for rows in (observed[:18], observed + [dict(observed[-1])], swapped, reordered):
+            with self.assertRaisesRegex(ValueError, 'TCC schema layout:'):
+                tcc.schema_supported(rows)
+        wrong_cid = [dict(r) for r in observed]
+        wrong_cid[18]['cid'] = 17
+        with self.assertRaisesRegex(ValueError, 'position: reminder_count'):
+            tcc.schema_supported(wrong_cid)
+
+    def test_extra_columns_never_get_guessed_values(self):
+        observed = json.loads((BASE / 'Tests/RunnerWrapper/fixtures/tcc-system-27.0.1.json').read_text())['columns']
+        for index in (17, 18):
+            rows = [dict(r) for r in observed]
+            rows[index]['notnull'] = 1
+            rows[index]['dflt_value'] = None
+            with self.assertRaisesRegex(ValueError, 'NOT NULL column without default: ' + rows[index]['name']):
+                tcc.schema_supported(rows)
+            rows = [dict(r) for r in observed]
+            rows[index]['type'] = 'TEXT'
+            with self.assertRaisesRegex(ValueError, 'column type: ' + rows[index]['name']):
+                tcc.schema_supported(rows)
+        rows = [dict(r) for r in observed]
+        rows[18]['dflt_value'] = '1'
+        with self.assertRaisesRegex(ValueError, 'column constraints: reminder_count'):
+            tcc.schema_supported(rows)
+
+    def test_explicit_insert_omits_extras_and_scoped_cleanup_preserves_other_rows(self):
+        with contextlib.closing(sqlite3.connect(':memory:')) as db, tempfile.TemporaryDirectory() as tmp:
+            db.execute('CREATE TABLE access (' + ','.join(r['name'] + ' ' + r['type'] for r in COLUMNS) + ',one_time_reprompt_eligible INTEGER,reminder_count INTEGER NOT NULL DEFAULT 0)')
+            layout = [dict(zip(['cid', 'name', 'type', 'notnull', 'dflt_value', 'pk'], row)) for row in db.execute('PRAGMA table_info(access)')]
+            tcc.schema_supported(layout)
+            req = struct.pack('>IIII', 0xfade0c00, 16, 1, 1).hex()
+            sql = tcc.insert_sql(req, 123)
+            self.assertIn('INSERT INTO access (' + ','.join(tcc.COLUMNS) + ')', sql)
+            self.assertNotIn('one_time_reprompt_eligible', sql)
+            self.assertNotIn('reminder_count', sql)
+            db.executescript(sql)
+            self.assertEqual(db.execute('SELECT one_time_reprompt_eligible,reminder_count FROM access').fetchall(), [(None, 0)] * 3)
+            db.execute("INSERT INTO access(service,client) VALUES ('kTCCServiceScreenCapture','unrelated')")
+            db.execute("INSERT INTO access(service,client) VALUES ('unrelated-service','ai.sliccy.mac')")
+            grant = tcc.ScopedGrants(Path(tmp), Path(tmp), {}, time.monotonic() + 10)
+            grant.touched = ['owned-memory']; grant.hex = req
+            commands = []
+            def query(path, statement, cleanup=False):
+                self.assertEqual(path, 'owned-memory'); self.assertTrue(cleanup)
+                commands.append(statement)
+                cursor = db.execute(statement)
+                return cursor.fetchall()
+            with patch.object(grant, 'query', side_effect=query): grant.remove()
+            self.assertEqual(db.execute('SELECT client FROM access ORDER BY client').fetchall(), [('ai.sliccy.mac',), ('unrelated',)])
+            deletion = next(q for q in commands if q.startswith('DELETE'))
+            for name in ('client=', 'client_type=', 'service IN', 'csreq='):
+                self.assertIn(name, deletion)
 
     def test_requirement_failure_reports_shape_without_fixing_header(self):
         result, record, calls = self.exercise(requirement=struct.pack('>IIII', 0xfade0c00, 16, 3, 1))
@@ -109,7 +198,7 @@ class DryRunTests(unittest.TestCase):
         result, record, _ = self.exercise(command_error=('/usr/bin/stat', error))
         self.assertFalse(result)
         row = record['events'][-1]
-        self.assertEqual(row['stage'], 'database-metadata')
+        self.assertEqual(row['stage'], 'system-database-metadata')
         self.assertEqual(row['exception']['class'], 'CalledProcessError')
         self.assertEqual(row['exception']['stderr'], 'read permission denied')
 

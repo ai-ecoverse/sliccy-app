@@ -8,7 +8,7 @@
     "script/runner-proof/capture_evidence.py": "25d3a6ecc7da56ad030d5914321903b1f7588d0af0e6e0f01c4ef6d34406c0fe",
     "script/runner-proof/capture_manifest.py": "bfc4ae44e202310bfbc33b2e6cfe7474e6e9cf7dc91be7861f4baa605ac48cc6",
     "script/runner-proof/capture_setup_support.py": "1f000a0fa59ea26b1b90cbc2419b63217ba790073a6bb1cfd8afd02fd91b7ff5",
-    "script/runner-proof/capture_tcc.py": "fdf2b6e33001c38f789cbe7dccbc59c2e2a8b67938ce8bd5626e922d13febf94",
+    "script/runner-proof/capture_tcc.py": "b9fc8930c3e40da76f7ff05d879a0c2baa758f84d7f0a75464d21df81ee51635",
     "script/runner-proof/inputs/capture-driver-files.json": "931130ccceaa8e334b09fba9320b87eb2f938c616977f4ed638fa4c1359a9fb8",
     "script/runner-proof/inputs/capture-driver-handoff.json": "d7f196fdbed604582438e76f2520868f4c078cfb22bd224d42cf02d1ef074ee3",
     "script/runner-proof/inputs/capture-driver.tar.gz": "61bef34d8cb852268e36e4e84bb8485956c4c331dfb1111ef4c0272065b3f9c9",

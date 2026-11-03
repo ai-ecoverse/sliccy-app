@@ -1,0 +1,159 @@
+{
+  "schema": 1,
+  "macOS": "27.0.1",
+  "database": "system",
+  "columns": [
+    {
+      "cid": 0,
+      "name": "service",
+      "type": "TEXT",
+      "notnull": 1,
+      "dflt_value": null,
+      "pk": 1
+    },
+    {
+      "cid": 1,
+      "name": "client",
+      "type": "TEXT",
+      "notnull": 1,
+      "dflt_value": null,
+      "pk": 2
+    },
+    {
+      "cid": 2,
+      "name": "client_type",
+      "type": "INTEGER",
+      "notnull": 1,
+      "dflt_value": null,
+      "pk": 3
+    },
+    {
+      "cid": 3,
+      "name": "auth_value",
+      "type": "INTEGER",
+      "notnull": 1,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 4,
+      "name": "auth_reason",
+      "type": "INTEGER",
+      "notnull": 1,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 5,
+      "name": "auth_version",
+      "type": "INTEGER",
+      "notnull": 1,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 6,
+      "name": "csreq",
+      "type": "BLOB",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 7,
+      "name": "policy_id",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 8,
+      "name": "indirect_object_identifier_type",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 9,
+      "name": "indirect_object_identifier",
+      "type": "TEXT",
+      "notnull": 1,
+      "dflt_value": "'UNUSED'",
+      "pk": 4
+    },
+    {
+      "cid": 10,
+      "name": "indirect_object_code_identity",
+      "type": "BLOB",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 11,
+      "name": "flags",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 12,
+      "name": "last_modified",
+      "type": "INTEGER",
+      "notnull": 1,
+      "dflt_value": "CAST(strftime('%s','now') AS INTEGER)",
+      "pk": 0
+    },
+    {
+      "cid": 13,
+      "name": "pid",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 14,
+      "name": "pid_version",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 15,
+      "name": "boot_uuid",
+      "type": "TEXT",
+      "notnull": 1,
+      "dflt_value": "'UNUSED'",
+      "pk": 0
+    },
+    {
+      "cid": 16,
+      "name": "last_reminded",
+      "type": "INTEGER",
+      "notnull": 1,
+      "dflt_value": "CAST(strftime('%s','now') AS INTEGER)",
+      "pk": 0
+    },
+    {
+      "cid": 17,
+      "name": "one_time_reprompt_eligible",
+      "type": "INTEGER",
+      "notnull": 0,
+      "dflt_value": null,
+      "pk": 0
+    },
+    {
+      "cid": 18,
+      "name": "reminder_count",
+      "type": "INTEGER",
+      "notnull": 1,
+      "dflt_value": "0",
+      "pk": 0
+    }
+  ]
+}
