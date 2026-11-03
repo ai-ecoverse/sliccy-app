@@ -12,11 +12,11 @@ enum ScreenLaunchPolicy: Sendable {
         case .production: return ScreenReleasePolicy.cliCodeDirectoryHashes
 #if SLICCY_NATIVE_SCREEN_PROOF
         case .noCaptureProof:
-            // Exact checksum-verified v1.58.1 release slices; diagnostic IPC only.
+            // Exact checksum-verified v1.59.0 release slices; diagnostic IPC only.
 #if arch(arm64)
-            let hex = "40a9f2c7726af1ba71b6f59ae57818d689daf209"
+            let hex = "5da1a3199bd3f895bce2e53023c28ca1c33d249e"
 #elseif arch(x86_64)
-            let hex = "02078e8cfda6780e06b2c07bb1dacdd422ce430a"
+            let hex = "bf246edfa276fa4242db674e139a872270633673"
 #else
             return []
 #endif

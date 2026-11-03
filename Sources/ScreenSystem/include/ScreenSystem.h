@@ -14,4 +14,6 @@ int sliccy_screen_proof_exec(const char *helper, pid_t child, int safety, int fr
 // Diagnostic caller only: one nonblocking sendmsg of the supplied safety record
 // carrying a fixed /dev/null descriptor. Never retries a partial record.
 int sliccy_screen_proof_ancillary(int safety, const void *record, size_t size);
+int sliccy_screen_proof_helper_spawn(const char *helper, pid_t *pid, int *channel, int *output);
+int sliccy_screen_proof_handoff(int channel, int safety, pid_t cli, const void *record, size_t size);
 #endif

@@ -177,3 +177,55 @@ int sliccy_screen_proof_ancillary(int safety, const void *record, size_t size) {
     close(sentinel);
     return result;
 }
+
+int sliccy_screen_proof_helper_spawn(const char *helper, pid_t *pid, int *channel, int *output) {
+    int pair[2] = {-1,-1}, out[2] = {-1,-1}, staged = -1, nullfd = -1;
+    int failure = 0, ar = 0, pr = 0;
+    posix_spawn_file_actions_t actions; posix_spawnattr_t attr;
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, pair)) return errno;
+    staged = fcntl(pair[1], F_DUPFD_CLOEXEC, 10);
+    if (staged < 0 || fcntl(pair[0], F_SETFD, FD_CLOEXEC)) { failure = errno; goto done; }
+    close(pair[1]); pair[1] = -1;
+    if ((failure = private_pipe(out))) goto done;
+    nullfd = open("/dev/null", O_RDWR | O_CLOEXEC);
+    if (nullfd < 0) { failure = errno; goto done; }
+    if ((failure = posix_spawn_file_actions_init(&actions))) goto done;
+    ar = 1;
+    if ((failure = posix_spawnattr_init(&attr))) goto done;
+    pr = 1;
+    sigset_t empty, defaults; sigemptyset(&empty); sigfillset(&defaults);
+    if ((failure = posix_spawnattr_setsigmask(&attr, &empty)) ||
+        (failure = posix_spawnattr_setsigdefault(&attr, &defaults)) ||
+        (failure = posix_spawnattr_setflags(&attr, POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_START_SUSPENDED | POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF)) ||
+        (failure = posix_spawn_file_actions_adddup2(&actions, nullfd, 0)) ||
+        (failure = posix_spawn_file_actions_adddup2(&actions, out[1], 1)) ||
+        (failure = posix_spawn_file_actions_adddup2(&actions, nullfd, 2)) ||
+        (failure = posix_spawn_file_actions_adddup2(&actions, staged, 3))) goto done;
+    char *const args[] = {(char *)helper, NULL};
+    char *const env[] = {"PATH=/usr/bin:/bin", "LANG=en_US.UTF-8", NULL};
+    failure = posix_spawn(pid, helper, &actions, &attr, args, env);
+    if (!failure) { *channel = pair[0]; pair[0] = -1; *output = out[0]; out[0] = -1; }
+done:
+    if (ar) posix_spawn_file_actions_destroy(&actions);
+    if (pr) posix_spawnattr_destroy(&attr);
+    if (staged >= 0) close(staged);
+    if (nullfd >= 0) close(nullfd);
+    for (int i = 0; i < 2; i++) { if (pair[i] >= 0) close(pair[i]); if (out[i] >= 0) close(out[i]); }
+    return failure;
+}
+
+int sliccy_screen_proof_handoff(int channel, int safety, pid_t cli, const void *record, size_t size) {
+    if (!record || !size || size > 4104 || cli <= 0) return EINVAL;
+    unsigned char buffer[12 + 4104];
+    uint32_t header[3] = {htonl(0x484e4431), htonl((uint32_t)cli), htonl((uint32_t)size)};
+    memcpy(buffer, header, 12); memcpy(buffer + 12, record, size);
+    union { struct cmsghdr alignment; unsigned char bytes[CMSG_SPACE(sizeof(int))]; } control = {0};
+    struct iovec iov = {.iov_base = buffer, .iov_len = size + 12};
+    struct msghdr message = {0}; message.msg_iov = &iov; message.msg_iovlen = 1;
+    message.msg_control = control.bytes; message.msg_controllen = sizeof(control.bytes);
+    struct cmsghdr *rights = CMSG_FIRSTHDR(&message);
+    rights->cmsg_level = SOL_SOCKET; rights->cmsg_type = SCM_RIGHTS; rights->cmsg_len = CMSG_LEN(sizeof(int));
+    memcpy(CMSG_DATA(rights), &safety, sizeof(safety));
+    ssize_t sent = sendmsg(channel, &message, MSG_DONTWAIT);
+    return sent == (ssize_t)(size + 12) ? 0 : (sent < 0 ? errno : EIO);
+}

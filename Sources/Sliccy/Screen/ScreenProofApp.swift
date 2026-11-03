@@ -70,6 +70,20 @@ final class ScreenProofSession: @unchecked Sendable {
     private var gateInvalidatedBeforeReap = false
     private var ancillaryObservation: ScreenAncillaryObservation?
     private var ancillaryCompleted = false
+    private var observer = ScreenProofObserver()
+    private var observerEnded = false
+    private var observerFailureReported = false
+    private var observerBaseline = false
+    private var observerRefusal = false
+    private var observerComplete = false
+    private var helper: ScreenProofHelper?
+    private var helperEnded = false
+    private var helperGood = false
+    private var helperWritten = false
+    private var handoffAt: ContinuousClock.Instant?
+    private var handoffDeadline: ContinuousClock.Instant?
+    private var handoffLoss: ContinuousClock.Instant?
+    private var handoffCompleted = false
 
     init(show: @escaping @Sendable (ScreenStopRelay) -> Void, completed: @escaping @Sendable (Int32) -> Void) {
         self.show = show; self.completed = completed
@@ -96,8 +110,11 @@ final class ScreenProofSession: @unchecked Sendable {
         let policy = ScreenLaunchPolicy.noCaptureProof(root: root)
         let verifier = ScreenPeerVerifier(approvedHashes: policy.hashes)
         let handshake = try ScreenHandshake()
+        let proofOutput: (@Sendable (Data?) -> Void)?
+        if selected == .safetyHandoff { proofOutput = { [weak self] data in self?.consumeObserver(data) } }
+        else { proofOutput = nil }
         let child = try ScreenChild(executable: Bundle.main.bundleURL.appending(path: "Contents/Resources/slicc").path,
-            join: join, bootstrap: handshake.bootstrapRecord(), policy: policy,
+            join: join, bootstrap: handshake.bootstrapRecord(), policy: policy, proofOutput: proofOutput,
             reaped: { [weak self] status in self?.childReaped(status) },
             lost: { [weak self] in self?.childLost() })
         guard locked({ () -> Bool in
@@ -137,14 +154,18 @@ final class ScreenProofSession: @unchecked Sendable {
         case .ready:
             locked { ready = true }; report("heartbeat-ready"); runCaseIfReady()
         case .proofControlSent(let at):
-            report(locked { proofCase == .ancillary } ? "ancillary-control-sent" : "exec-control-sent", at: at)
+            report(controlStage("sent"), at: at)
         case .proofControlEchoed(let at):
-            report(locked { proofCase == .ancillary } ? "ancillary-control-echoed" : "exec-control-echoed", at: at)
+            report(controlStage("echoed"), at: at)
             let transport = locked { self.transport }
             transport?.proofAfterFreshControl { [self] safety, frames, record, deadline in
                 guard let child = locked({ self.child }), child.isAlive else { throw ScreenFailure.peerLost }
                 if locked({ proofCase == .ancillary }) {
                     try injectAncillary(safety: safety, record: record, deadline: deadline)
+                    return
+                }
+                if locked({ proofCase == .safetyHandoff }) {
+                    try transferSafety(safety: safety, cli: child.pid, record: record, deadline: deadline)
                     return
                 }
                 let helper = Bundle.main.bundleURL.appending(path: "Contents/Helpers/ScreenProofExecHelper")
@@ -170,6 +191,12 @@ final class ScreenProofSession: @unchecked Sendable {
             report("native-ack", duration: locked { stopAt?.duration(to: .now) })
             close(locked { ready && stopping ? nil : .incompatible })
         case .stopped(let reason):
+            let handoff = locked { () -> Bool in
+                guard proofCase == .safetyHandoff, handoffAt != nil, !closing, !stopping else { return false }
+                if reason == .peerLost && handoffLoss == nil { handoffLoss = .now }
+                return true
+            }
+            if handoff { report("handoff-association-lost", reason: reason.rawValue); return }
             let observed = locked { () -> Bool in
                 guard proofCase == .ancillary, ancillaryObservation != nil, !closing, !stopping else { return false }
                 if ancillaryObservation?.loss == nil { ancillaryObservation?.loss = (reason, .now) }
@@ -186,6 +213,7 @@ final class ScreenProofSession: @unchecked Sendable {
     private func runCaseIfReady() {
         let selected: ScreenProofCase? = locked {
             guard ready, linked, !caseStarted, !closing, proofCase != .base else { return nil }
+            if proofCase == .safetyHandoff && !observerBaseline { return nil }
             caseStarted = true
             return proofCase
         }
@@ -196,6 +224,17 @@ final class ScreenProofSession: @unchecked Sendable {
             case .base: return
             case .parentExec, .ancillary:
                 transport.proofBeginExecControl()
+            case .safetyHandoff:
+                do {
+                    let url = Bundle.main.bundleURL.appending(path: "Contents/Helpers/ScreenProofHandoffHelper")
+                    try Self.verifyExecHelper(url)
+                    let helper = try ScreenProofHelper(executable: url.path, event: { [weak self] in self?.helperEvent($0) })
+                    let keep = locked { () -> Bool in
+                        guard !closing else { return false }; self.helper = helper; return true
+                    }
+                    report("handoff-helper-started", pid: helper.pid)
+                    if keep { try helper.start() } else { helper.stop() }
+                } catch { close(.peerUntrusted) }
             case .lifecycle:
                 guard let identity = locked({ authenticatedIdentity }),
                       (try? ScreenPeerVerifier.verify(identity: identity, identifier: "ai.sliccy.slicc")) != nil
@@ -205,6 +244,83 @@ final class ScreenProofSession: @unchecked Sendable {
                 report("lifecycle-stop-requested")
                 child?.stop()
             }
+        }
+    }
+    private func controlStage(_ suffix: String) -> String {
+        locked { (proofCase == .ancillary ? "ancillary" : proofCase == .safetyHandoff ? "handoff" : "exec") + "-control-" + suffix }
+    }
+    private func consumeObserver(_ data: Data?) {
+        if data != nil, locked({ observer.invalid }) { return }
+        do {
+            let rows = try locked { () throws -> [ScreenProofReport] in
+                if let data { return try observer.feed(data) }
+                observerEnded = true
+                guard observer.finish() else { throw ScreenFailure.incompatible }
+                return []
+            }
+            for row in rows {
+                locked {
+                    observerBaseline = observerBaseline || row.acceptedSafety
+                    observerRefusal = observerRefusal || (row.refusedSafety && handoffAt != nil)
+                    if row.stage == "complete" { observerComplete = !row.lost }
+                }
+                report("cli-verification", observerRow: row)
+            }
+            runCaseIfReady()
+            if data == nil, locked({ reaped }) { finish(locked { result }) }
+        } catch {
+            let first = locked { () -> Bool in
+                result = .incompatible
+                guard !observerFailureReported else { return false }
+                observerFailureReported = true; return true
+            }
+            if first { report("cli-verification-inconclusive") }
+            // connect() publishes the owned child before this queue advances.
+            // A malformed startup row cannot exit the app before ownership exists.
+            queue.async { [self] in
+                close(.incompatible)
+                if locked({ reaped }) { finish(.incompatible) }
+            }
+        }
+    }
+    private func helperEvent(_ value: ScreenProofHelper.Event) {
+        switch value {
+        case .stage(let stage):
+            report("handoff-helper-" + stage)
+            if stage == "ready" { locked { transport }?.proofBeginExecControl() }
+            if stage == "written" {
+                locked { helperWritten = handoffDeadline.map { ContinuousClock.now < $0 } == true }
+            }
+        case .finished(let success):
+            locked { helperEnded = true; helperGood = success }
+            report("handoff-helper-reaped", reason: success ? "complete" : "failed")
+            if !success { close(.peerLost) }
+            if locked({ reaped }) { finish(locked { result }) }
+        }
+    }
+    private func transferSafety(safety: Int32, cli: pid_t, record: Data, deadline: ContinuousClock.Instant) throws {
+        let now = ContinuousClock.now
+        let helper = locked { () -> ScreenProofHelper? in
+            guard !closing, !stopping, observerBaseline, !observer.invalid, handoffAt == nil,
+                  now < deadline, let helper else { return nil }
+            handoffAt = now; handoffDeadline = deadline
+            return helper
+        }
+        guard let helper else { throw ScreenFailure.incompatible }
+        report("handoff-send-started", at: now)
+        try helper.transfer(safety: safety, cli: cli, record: record)
+        report("handoff-record-transferred")
+        queue.asyncAfter(deadline: .now() + 2.5) { [self] in
+            let alive = locked { child }?.isAlive == true
+            let passed = locked { () -> Bool in
+                guard !closing, !stopping, alive, helperEnded, helperGood, helperWritten,
+                      observerBaseline, observerRefusal, observerComplete, !observer.invalid,
+                      let start = handoffAt, let loss = handoffLoss,
+                      loss >= start, start.duration(to: loss) <= .milliseconds(500) else { return false }
+                handoffCompleted = true; return true
+            }
+            report("handoff-observation-ended", reason: passed ? "elapsed" : "inconclusive")
+            close(passed ? nil : .incompatible)
         }
     }
     private func injectAncillary(safety: Int32, record: Data, deadline: ContinuousClock.Instant) throws {
@@ -240,6 +356,7 @@ final class ScreenProofSession: @unchecked Sendable {
             return (transport, child)
         }
         guard let owned else { return }
+        if let helper = locked({ helperEnded ? nil : helper }) { helper.stop() }
         owned.0?.close()
         if let child = owned.1 {
             child.stop()
@@ -294,7 +411,12 @@ final class ScreenProofSession: @unchecked Sendable {
         finish(failure)
     }
     private func finish(_ failure: ScreenFailure?) {
-        let failure = failure ?? locked { proofCase == .ancillary && !ancillaryCompleted ? .incompatible : nil }
+        if locked({ proofCase == .safetyHandoff && failure != .stalled &&
+            ((!observerEnded && child != nil) || (helper != nil && !helperEnded)) }) { return }
+        let failure = failure ?? locked {
+            (proofCase == .ancillary && !ancillaryCompleted) ||
+            (proofCase == .safetyHandoff && (!handoffCompleted || observer.invalid)) ? .incompatible : nil
+        }
         let outcome: (Bool, URL?) = locked {
             guard !finished else { return (false, nil) }
             finished = true
@@ -307,13 +429,14 @@ final class ScreenProofSession: @unchecked Sendable {
             switch proofCase {
             case .lifecycle: "lifecycle-only-complete"
             case .ancillary: "ancillary-observation-complete"
+            case .safetyHandoff: "handoff-observation-complete"
             default: "ipc-only-complete"
             }
         }
         report("terminal", reason: failure?.rawValue ?? success)
         completed(failure == nil ? 0 : 1)
     }
-    private func report(_ stage: String, at: ContinuousClock.Instant = .now, duration: Duration? = nil, reason: String? = nil, pid: pid_t? = nil) {
+    private func report(_ stage: String, at: ContinuousClock.Instant = .now, duration: Duration? = nil, reason: String? = nil, pid: pid_t? = nil, observerRow: ScreenProofReport? = nil) {
         func milliseconds(_ duration: Duration) -> Double {
             let value = duration.components
             return Double(value.seconds) * 1000 + Double(value.attoseconds) / 1e15
@@ -321,6 +444,7 @@ final class ScreenProofSession: @unchecked Sendable {
         var row: [String: Any] = ["schema": 1, "stage": stage, "elapsedMs": milliseconds(startTime.duration(to: at)), "capture": false]
         let selected = locked { proofCase }
         if selected != .base { row["schema"] = 2; row["case"] = selected.rawValue }
+        if let observerRow { row["verification"] = observerRow.metadata }
         if let pid { row["pid"] = pid }
         if let duration { row["durationMs"] = milliseconds(duration) }
         if let reason { row["reason"] = reason }
@@ -329,7 +453,7 @@ final class ScreenProofSession: @unchecked Sendable {
             data.append(10); try? FileHandle.standardOutput.write(contentsOf: data)
         }
     }
-    private func locked<T>(_ body: () -> T) -> T { lock.lock(); defer { lock.unlock() }; return body() }
+    private func locked<T>(_ body: () throws -> T) rethrows -> T { lock.lock(); defer { lock.unlock() }; return try body() }
 
     private static func verifyExecHelper(_ url: URL) throws {
         try ScreenPeerVerifier.verifySelf()

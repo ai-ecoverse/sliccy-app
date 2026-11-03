@@ -17,6 +17,7 @@ final class ScreenChild: @unchecked Sendable {
     var isAlive: Bool { lock.lock(); defer { lock.unlock() }; return live }
 
     init(executable: String, join: String, bootstrap: Data, policy: ScreenLaunchPolicy = .production,
+         proofOutput: (@Sendable (Data?) -> Void)? = nil,
          reaped: @escaping @Sendable (Int32) -> Void = { _ in },
          lost: @escaping @Sendable () -> Void) throws {
         guard policy.allowsIPC else { throw ScreenFailure.peerUntrusted }
@@ -25,7 +26,12 @@ final class ScreenChild: @unchecked Sendable {
               !join.contains("\n"), !join.contains("\r"), join.utf8.count <= 4096 else { throw ScreenFailure.incompatible }
         self.lost = lost
         self.reaped = reaped
-        let arguments = [executable, "-", "follow", "--json", "--native-screen"]
+        var arguments = [executable, "-", "follow", "--json", "--native-screen"]
+#if SLICCY_NATIVE_SCREEN_PROOF
+        if proofOutput != nil { arguments.append("--native-screen-proof") }
+#else
+        guard proofOutput == nil else { throw ScreenFailure.incompatible }
+#endif
         // No inherited DYLD/loader variables or user CLI settings.
         let environment = policy.environment
         let argv = arguments.map { strdup($0) } + [nil]
@@ -58,7 +64,8 @@ final class ScreenChild: @unchecked Sendable {
             } else { _ = kill(self.pid, SIGKILL) }
         }
         monitor.resume()
-        // Read stdout continuously, without retaining or logging even one line.
+        // Ordinary launches discard stdout. Diagnostic bytes go only to the
+        // bounded typed filter; they are never logged or directly forwarded.
         let readFD = output
         DispatchQueue(label: "ai.sliccy.screen.child-output").async {
             defer { Darwin.close(readFD) }
@@ -67,7 +74,13 @@ final class ScreenChild: @unchecked Sendable {
                 let count = Darwin.read(readFD, &bytes, bytes.count)
                 if count < 0 && errno == EINTR { continue }
                 if count <= 0 { break }
+#if SLICCY_NATIVE_SCREEN_PROOF
+                proofOutput?(Data(bytes.prefix(count)))
+#endif
             }
+#if SLICCY_NATIVE_SCREEN_PROOF
+            proofOutput?(nil)
+#endif
         }
         do {
             defer { Darwin.close(input); Darwin.close(boot) }

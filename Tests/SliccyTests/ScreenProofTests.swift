@@ -31,6 +31,7 @@ struct ScreenProofTests {
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "parent-exec"]) == .parentExec)
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "lifecycle"]) == .lifecycle)
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "ancillary"]) == .ancillary)
+        #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "safety-handoff"]) == .safetyHandoff)
         for bad in [[String](), ["--screen-proof", "--case", "/bin/sh"],
                     ["--screen-proof", "--case", "base"], ["--screen-proof", "--pid", "1"],
                     ["--screen-proof", "--case", "parent-exec", "--path", "/tmp/helper"]] {

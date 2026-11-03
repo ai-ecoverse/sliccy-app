@@ -5,6 +5,7 @@ enum ScreenProofCase: String, Sendable {
     case base
     case parentExec = "parent-exec"
     case lifecycle
+    case safetyHandoff = "safety-handoff"
     case ancillary
 
     static func parse(_ arguments: [String]) throws -> Self {
