@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   setup-read-only:
-    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/proof/runner-capture-v1'
+    if: false
     runs-on: xcode-27
     timeout-minutes: 7
     steps:
@@ -45,7 +45,7 @@ jobs:
           retention-days: 3
 
   diagnostic:
-    if: false
+    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/proof/runner-capture-v1'
     runs-on: xcode-27
     timeout-minutes: 20
     steps:

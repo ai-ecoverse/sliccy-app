@@ -291,16 +291,20 @@ class EnvelopeTests(unittest.TestCase):
                 self.assertNotIn('private failure', out.getvalue()); self.assertNotIn('TOKEN-SENTINEL', out.getvalue())
                 self.assertFalse(list(root.glob('sliccy-tcc-readonly-private-*')))
 
-    def test_workflow_only_enables_setup_without_driver_or_grant(self):
+    def test_capture_mode_leaves_setup_universal_and_pid_disabled(self):
         text = (BASE / '.github/workflows/runner-proof.yml').read_text()
-        for job in ['diagnostic', 'universal', 'hosted-pid']:
+        for job in ['setup-read-only', 'universal', 'hosted-pid']:
             self.assertIn('  ' + job + ':\n    if: false', text)
-        block = text.split('  setup-read-only:')[1].split('  diagnostic:')[0]
-        self.assertIn('sealed_tcc_dry_run.py', block)
-        self.assertIn('timeout-minutes: 7', block)
-        self.assertIn('name: tcc-setup-diagnostic-sealed', block)
+        block = text.split('  diagnostic:')[1].split('  universal:')[0]
+        self.assertIn("github.repository == 'ai-ecoverse/sliccy-app'", block)
+        self.assertIn("github.event_name == 'workflow_dispatch'", block)
+        self.assertIn("github.ref == 'refs/heads/proof/runner-capture-v1'", block)
+        self.assertIn('sealed_runner.py', block)
+        self.assertIn('timeout-minutes: 20', block)
+        self.assertIn('name: screen-diagnostic-sealed', block)
         self.assertNotIn('secrets.', text); self.assertNotIn('id-token:', text)
-        self.assertNotIn('go test', block); self.assertNotIn('tccutil', block)
+        self.assertNotIn('sealed_tcc_dry_run.py', block)
+
 
 
 if __name__ == '__main__': unittest.main(verbosity=2)

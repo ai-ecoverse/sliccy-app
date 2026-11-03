@@ -5,7 +5,7 @@
   "artifactSource": "357b7f7cc7ef8ae2fd4570efd468c95f58deba41",
   "mode": "setup-read-only",
   "files": {
-    ".github/workflows/runner-proof.yml": "eb0f66f7d0b4cd3a8d89515116c09059c8a627d38e3ca27b08852928f65a029a",
+    ".github/workflows/runner-proof.yml": "8f25739c7e7c38b07cd1c75b562df481c1511b27c3e2d91690a68c3ca88e8305",
     "script/runner-proof/capture_evidence.py": "25d3a6ecc7da56ad030d5914321903b1f7588d0af0e6e0f01c4ef6d34406c0fe",
     "script/runner-proof/capture_manifest.py": "bfc4ae44e202310bfbc33b2e6cfe7474e6e9cf7dc91be7861f4baa605ac48cc6",
     "script/runner-proof/capture_setup_support.py": "1f000a0fa59ea26b1b90cbc2419b63217ba790073a6bb1cfd8afd02fd91b7ff5",
