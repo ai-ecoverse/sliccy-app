@@ -1,0 +1,73 @@
+name: Isolated screen diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: isolated-screen-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnostic:
+    if: false
+    runs-on: xcode-27
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Isolated diagnostic
+        id: diagnostic
+        shell: bash
+        env:
+          SLICCY_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +x
+          python3 script/runner-proof/sealed_runner.py
+      - name: Retain sealed evidence
+        if: always() && steps.diagnostic.outputs.sealed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: screen-diagnostic-sealed
+          path: ${{ runner.temp }}/sliccy-screen-evidence.age
+          if-no-files-found: error
+          retention-days: 3
+
+  universal:
+    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/proof/runner-capture-v1'
+    runs-on: xcode-27
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Universal identity diagnostic
+        id: universal
+        shell: bash
+        env:
+          SLICCY_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          GH_TOKEN: ${{ github.token }}
+          SLICC_NO_TELEMETRY: '1'
+          SLICC_NO_UPDATE_CHECK: '1'
+        run: |
+          set +x
+          umask 077
+          if python3 script/runner-proof/sealed_universal.py > "$RUNNER_TEMP/sliccy-universal-bootstrap.log" 2>&1; then
+            echo 'Universal diagnostic finished; inspect sealed evidence.'
+          else
+            echo 'Universal diagnostic incomplete; inspect sealed evidence if available.'
+            exit 1
+          fi
+      - name: Retain sealed universal evidence
+        if: always() && steps.universal.outputs.sealed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: universal-diagnostic-sealed
+          path: ${{ runner.temp }}/sliccy-universal-evidence.age
+          if-no-files-found: error
+          retention-days: 3
