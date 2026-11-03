@@ -12,8 +12,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  diagnostic:
+  setup-read-only:
     if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/proof/runner-capture-v1'
+    runs-on: xcode-27
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Read-only setup diagnostic
+        id: setup
+        shell: bash
+        env:
+          SLICCY_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +x
+          umask 077
+          if python3 -B script/runner-proof/sealed_tcc_dry_run.py > "$RUNNER_TEMP/sliccy-tcc-setup-bootstrap.log" 2>&1; then
+            echo 'Setup diagnostic finished; inspect sealed evidence.'
+          else
+            echo 'Setup diagnostic incomplete; inspect sealed evidence if available.'
+            exit 1
+          fi
+      - name: Retain sealed setup evidence
+        if: always() && steps.setup.outputs.sealed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tcc-setup-diagnostic-sealed
+          path: ${{ runner.temp }}/sliccy-tcc-setup-evidence.age
+          if-no-files-found: error
+          retention-days: 3
+
+  diagnostic:
+    if: false
     runs-on: xcode-27
     timeout-minutes: 20
     steps:

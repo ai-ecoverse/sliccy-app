@@ -97,7 +97,7 @@ class ScopedGrants:
         raw = self.command(['/usr/bin/sudo', '-n', '/usr/bin/sqlite3', '-json', '-cmd', '.timeout 1000', db, sql], cleanup)
         return json.loads(raw or b'[]')
 
-    def install(self, app):
+    def validate(self, app):
         placement.require_host(os.environ, platform.system(), platform.machine(), platform.mac_ver()[0])
         if os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted':
             raise ValueError('TCC hosted guard')
@@ -121,6 +121,10 @@ class ScopedGrants:
             if self.query(db, 'SELECT service FROM access WHERE ' + predicates() + ';'):
                 raise ValueError('preexisting app permission')
         self.record('validated', databases=databases, services=list(SERVICES))
+        return databases
+
+    def install(self, app):
+        databases = self.validate(app)
         for db in databases:
             self.touched.append(db)
             self.query(db, insert_sql(self.hex, int(time.time())))

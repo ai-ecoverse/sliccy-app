@@ -186,27 +186,11 @@ def unpack_age(archive, executable):
     executable.chmod(0o700)
 
 
-def suite(root, evidence, log, env, deadline, workspace, trace):
-    inputs = workspace / 'script/runner-proof/inputs'
-    sources = root / 'source'
-    crash_baseline = capture_evidence.crash_baseline()
-    with trace.step('source-extract'):
-        metadata = extract_sources(inputs, sources)
-    (evidence / 'driver-source-files.json').write_text(json.dumps(metadata, indent=2) + '\n')
-    for name in INPUTS:
-        shutil.copy2(inputs / name, evidence / name)
+def prepare_artifact(root, evidence, log, env, deadline, workspace, trace):
     artifacts = root / 'artifact'; artifacts.mkdir(mode=0o700)
 
     with trace.step('gh-discovery'):
         gh = setup.discover_gh(os.environ.get('PATH', ''), workspace, root, env, deadline)
-    with trace.step('go-download'):
-        go_archive = root / 'go.tar.gz'
-        run_owned(['/usr/bin/curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
-                   '--tlsv1.2', '--max-time', '30', 'https://go.dev/dl/go1.26.5.darwin-arm64.tar.gz',
-                   '--output', str(go_archive)], log, env, deadline, maximum=35)
-    with trace.step('go-check'):
-        go = setup.unpack_go(go_archive, root, sha, safe_parts)
-        setup.check_go(go, env, deadline)
     with trace.step('artifact-download'):
         gh_env = dict(env, GH_TOKEN=os.environ['GH_TOKEN'])
         run_owned([gh, 'run', 'download', APP_RUN, '--repo', 'ai-ecoverse/sliccy-app', '--name',
@@ -255,6 +239,28 @@ def suite(root, evidence, log, env, deadline, workspace, trace):
     shutil.copy2(artifacts / 'capture-manifest.json', evidence / 'capture-manifest.json')
     (evidence / 'artifact-binding.json').write_text(json.dumps({'run': APP_RUN, 'source': APP_SOURCE,
         'zipSHA256': APP_ZIP_SHA, 'manifestSHA256': APP_MANIFEST_SHA, 'staticVerification': True}) + '\n')
+    return app, artifacts, recorded, bounded_static_check
+
+
+def suite(root, evidence, log, env, deadline, workspace, trace):
+    inputs = workspace / 'script/runner-proof/inputs'
+    sources = root / 'source'
+    crash_baseline = capture_evidence.crash_baseline()
+    with trace.step('source-extract'):
+        metadata = extract_sources(inputs, sources)
+    (evidence / 'driver-source-files.json').write_text(json.dumps(metadata, indent=2) + '\n')
+    for name in INPUTS:
+        shutil.copy2(inputs / name, evidence / name)
+    with trace.step('go-download'):
+        go_archive = root / 'go.tar.gz'
+        run_owned(['/usr/bin/curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
+                   '--tlsv1.2', '--max-time', '30', 'https://go.dev/dl/go1.26.5.darwin-arm64.tar.gz',
+                   '--output', str(go_archive)], log, env, deadline, maximum=35)
+    with trace.step('go-check'):
+        go = setup.unpack_go(go_archive, root, sha, safe_parts)
+        setup.check_go(go, env, deadline)
+    app, artifacts, recorded, bounded_static_check = prepare_artifact(root, evidence, log, env, deadline, workspace, trace)
+    old_sha = os.environ['GITHUB_SHA']
     case = evidence / 'capture'; case.mkdir(mode=0o700)
     assertions = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'ai-ecoverse/sliccy-app',
                   'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_REF': 'refs/heads/proof/runner-capture-v1',
