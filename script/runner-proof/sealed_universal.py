@@ -15,6 +15,7 @@ import time
 import zipfile
 import mac_rosetta_preflight as rosetta
 import universal_manifest
+import setup_support as setup
 
 RECIPIENT = 'age1n5hhvvjf65g96xjksnk2j7aqld83ae2mt3vfdymuxqsh0ex5qqxsarh2nk'
 AGE_SHA = 'e2020b073c44f692685a24d6abc378817eb81ffaaf49fd0531ef8565f767f2f5'
@@ -111,7 +112,8 @@ def validate_source_manifest(workspace):
     if record['branch'] != 'proof/runner-capture-v1' or record['artifactRun'] != APP_RUN or record['artifactSource'] != APP_SOURCE:
         raise ValueError('source manifest binding')
     required = {'.github/workflows/runner-proof.yml', 'script/runner-proof/sealed_universal.py',
-                'script/runner-proof/mac_rosetta_preflight.py', 'script/runner-proof/universal_manifest.py'}
+                'script/runner-proof/mac_rosetta_preflight.py', 'script/runner-proof/universal_manifest.py',
+                'script/runner-proof/setup_support.py'}
     required.update('script/runner-proof/inputs/' + name for name in INPUTS)
     if set(record['files']) != required:
         raise ValueError('source manifest set')
@@ -168,26 +170,36 @@ def unpack_age(archive, executable):
     executable.chmod(0o700)
 
 
-def suite(root, evidence, log, env, deadline, workspace):
+def suite(root, evidence, log, env, deadline, workspace, trace):
     inputs = workspace / 'script/runner-proof/inputs'
     sources = root / 'source'
-    metadata = extract_sources(inputs, sources)
+    with trace.step('source-extract'):
+        metadata = extract_sources(inputs, sources)
     (evidence / 'driver-source-files.json').write_text(json.dumps(metadata, indent=2) + '\n')
     for name in INPUTS:
         shutil.copy2(inputs / name, evidence / name)
     artifacts = root / 'artifact'; artifacts.mkdir(mode=0o700)
 
-    gh_env = dict(env, GH_TOKEN=os.environ['GH_TOKEN'])
-    gh = shutil.which('gh', path=PATH)
-    go = shutil.which('go', path=PATH)
-    if not gh or not go:
-        raise ValueError('required runner tooling unavailable')
-    run_owned([gh, 'run', 'download', APP_RUN, '--repo', 'ai-ecoverse/sliccy-app', '--name',
-               'Sliccy-Universal-Proof-0.1.0-universal-' + APP_SOURCE, '--dir', str(artifacts)], log, gh_env, deadline)
-    check_app_zip(artifacts / 'Sliccy-0.1.0.zip')
-    if sha(artifacts / 'universal-manifest.json') != APP_MANIFEST_SHA:
-        raise ValueError('signed manifest checksum')
-    run_owned(['/usr/bin/ditto', '-x', '-k', str(artifacts / 'Sliccy-0.1.0.zip'), str(artifacts)], log, env, deadline)
+    with trace.step('gh-discovery'):
+        gh = setup.discover_gh(os.environ.get('PATH', ''), workspace, root, env, deadline)
+    with trace.step('go-download'):
+        go_archive = root / 'go.tar.gz'
+        run_owned(['/usr/bin/curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
+                   '--tlsv1.2', '--max-time', '30', 'https://go.dev/dl/go1.26.5.darwin-arm64.tar.gz',
+                   '--output', str(go_archive)], log, env, deadline, maximum=35)
+    with trace.step('go-check'):
+        go = setup.unpack_go(go_archive, root, sha, safe_parts)
+        setup.check_go(go, env, deadline)
+    with trace.step('artifact-download'):
+        gh_env = dict(env, GH_TOKEN=os.environ['GH_TOKEN'])
+        run_owned([gh, 'run', 'download', APP_RUN, '--repo', 'ai-ecoverse/sliccy-app', '--name',
+                   'Sliccy-Universal-Proof-0.1.0-universal-' + APP_SOURCE, '--dir', str(artifacts)], log, gh_env, deadline)
+    with trace.step('artifact-check'):
+        check_app_zip(artifacts / 'Sliccy-0.1.0.zip')
+        if sha(artifacts / 'universal-manifest.json') != APP_MANIFEST_SHA:
+            raise setup.SetupFailure('checksum')
+    with trace.step('artifact-extract'):
+        run_owned(['/usr/bin/ditto', '-x', '-k', str(artifacts / 'Sliccy-0.1.0.zip'), str(artifacts)], log, env, deadline)
     app = artifacts / 'Sliccy.app'
 
     def bounded_static_check(args):
@@ -198,16 +210,19 @@ def suite(root, evidence, log, env, deadline, workspace):
         return result.stdout, result.stderr
     universal_manifest.checked = bounded_static_check
     old_sha = os.environ['GITHUB_SHA']
-    try:
-        os.environ['GITHUB_SHA'] = APP_SOURCE
-        actual = universal_manifest.manifest(app)
-    finally:
-        os.environ['GITHUB_SHA'] = old_sha
-    recorded = json.loads((artifacts / 'universal-manifest.json').read_text())
-    if actual != recorded:
-        raise ValueError('signed manifest differs from artifact')
-    run_owned(['/usr/bin/xcrun', 'stapler', 'validate', str(app)], log, env, deadline)
-    run_owned(['/usr/sbin/spctl', '--assess', '--type', 'execute', str(app)], log, env, deadline)
+    with trace.step('artifact-signature'):
+        try:
+            os.environ['GITHUB_SHA'] = APP_SOURCE
+            actual = universal_manifest.manifest(app)
+        finally:
+            os.environ['GITHUB_SHA'] = old_sha
+        recorded = json.loads((artifacts / 'universal-manifest.json').read_text())
+        if actual != recorded:
+            raise ValueError('signed manifest differs from artifact')
+    with trace.step('artifact-staple'):
+        run_owned(['/usr/bin/xcrun', 'stapler', 'validate', str(app)], log, env, deadline)
+    with trace.step('artifact-gatekeeper'):
+        run_owned(['/usr/sbin/spctl', '--assess', '--type', 'execute', str(app)], log, env, deadline)
     shutil.copy2(artifacts / 'universal-manifest.json', evidence / 'universal-manifest.json')
     (evidence / 'artifact-binding.json').write_text(json.dumps({'run': APP_RUN, 'source': APP_SOURCE,
         'zipSHA256': APP_ZIP_SHA, 'manifestSHA256': APP_MANIFEST_SHA, 'staticVerification': True}) + '\n')
@@ -215,7 +230,9 @@ def suite(root, evidence, log, env, deadline, workspace):
     for label, test in [('native', 'TestSignedUniversalNative'), ('translated', 'TestSignedUniversalTranslated')]:
         case = evidence / label; case.mkdir(mode=0o700)
         if label == 'translated':
-            try: preflight = rosetta.inspect()
+            try:
+                with trace.step('translation-preflight'):
+                    preflight = rosetta.inspect()
             except Exception:
                 preflight = {'schema': 1, 'macAppRosettaEstablished': False, 'outcome': 'FAILED_TO_DEMONSTRATE', 'reason': 'preflight-unavailable', 'installerAttempted': False, 'translatedLaunchAttempted': False}
             (case / 'mac-rosetta-preflight.json').write_text(json.dumps(preflight, indent=2) + '\n')
@@ -223,28 +240,36 @@ def suite(root, evidence, log, env, deadline, workspace):
                 outcomes[label] = 'FAILED_TO_DEMONSTRATE'
                 (case / 'result.json').write_text(json.dumps({'result': 'FAILED_TO_DEMONSTRATE', 'reason': 'Mac-app Rosetta not established; translated invocation skipped'}) + '\n')
                 continue
-        run_env = dict(env, CGO_ENABLED='0', GOTOOLCHAIN='local', GOFLAGS='-mod=readonly',
+        run_env = dict(env, PATH=str(go.parent) + ':' + PATH, GOROOT=str(go.parent.parent),
+                       CGO_ENABLED='0', GOTOOLCHAIN='local', GOFLAGS='-mod=readonly',
                        GOCACHE=str(root / 'go-cache'), GOMODCACHE=str(root / 'go-mod'),
                        SLICCY_SIGNED_PROOF_APP=str(app / 'Contents/MacOS/Sliccy'),
                        SLICCY_UNIVERSAL_MANIFEST=str(artifacts / 'universal-manifest.json'),
                        SLICCY_PROOF_EVIDENCE=str(case))
         with (case / 'go-test.log').open('xb') as case_log:
             try:
-                code = run_owned([go, 'test', '-count=1', '-timeout', '55s', '-run', '^' + test + '$', './test/nativeproof'],
-                                 case_log, run_env, deadline, maximum=105, cwd=sources, check=False)
-                outcomes[label] = 'DRIVER_EXIT_0' if code == 0 else 'DRIVER_FAILED'
+                with trace.step(label + '-driver'):
+                    code = run_owned([str(go), 'test', '-count=1', '-timeout', '55s', '-run', '^' + test + '$', './test/nativeproof'],
+                                     case_log, run_env, deadline, maximum=105, cwd=sources, check=False)
+                    if code != 0:
+                        raise setup.SetupFailure('command-failed')
+                outcomes[label] = 'DRIVER_EXIT_0'
+            except setup.SetupFailure:
+                outcomes[label] = 'DRIVER_FAILED'
             except subprocess.TimeoutExpired:
                 outcomes[label] = 'DRIVER_TIMEOUT'
 
         (case / 'invocation.json').write_text(json.dumps({'entryTest': test, 'result': outcomes[label], 'CGO_ENABLED': '0'}) + '\n')
 
-    try:
-        os.environ['GITHUB_SHA'] = APP_SOURCE
-        if universal_manifest.manifest(app) != recorded:
-            raise ValueError('artifact changed during trials')
-    finally:
-        os.environ['GITHUB_SHA'] = old_sha
-    (evidence / 'suite-outcomes.json').write_text(json.dumps(outcomes, indent=2) + '\n')
+    with trace.step('artifact-recheck'):
+        try:
+            os.environ['GITHUB_SHA'] = APP_SOURCE
+            if universal_manifest.manifest(app) != recorded:
+                raise ValueError('artifact changed during trials')
+        finally:
+            os.environ['GITHUB_SHA'] = old_sha
+    with trace.step('suite-finished'):
+        (evidence / 'suite-outcomes.json').write_text(json.dumps(outcomes, indent=2) + '\n')
     return 0 if all(value == 'DRIVER_EXIT_0' for value in outcomes.values()) else 1
 
 
@@ -267,17 +292,20 @@ def main():
         destination = runner_temp / 'sliccy-universal-evidence.age'
         if destination.exists() or destination.is_symlink(): raise ValueError('existing output')
         (evidence / 'reviewed-sources.json').write_text(json.dumps(source_manifest, indent=2) + '\n')
+        trace = setup.SetupTrace(evidence / 'setup-stages.ndjson', began)
         with (evidence / 'runner.log').open('xb') as log:
             age = root / 'age'
             try:
                 archive = root / 'age.tar.gz'
-                run_owned(['/usr/bin/curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
-                           '--tlsv1.2', '--max-time', '30', 'https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-darwin-arm64.tar.gz',
-                           '--output', str(archive)], log, env, began + 255, maximum=35)
-                unpack_age(archive, age)
+                with trace.step('age-download'):
+                    run_owned(['/usr/bin/curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
+                               '--tlsv1.2', '--max-time', '30', 'https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-darwin-arm64.tar.gz',
+                               '--output', str(archive)], log, env, began + 255, maximum=35)
+                with trace.step('age-check'):
+                    unpack_age(archive, age)
 
                 os.environ['SLICC_NO_TELEMETRY'] = '1'; os.environ['SLICC_NO_UPDATE_CHECK'] = '1'
-                status = suite(root, evidence, log, env, began + 255, workspace)
+                status = suite(root, evidence, log, env, began + 255, workspace, trace)
             except Exception as error:
                 log.write((type(error).__name__ + '\n').encode()); status = 1
             finally:

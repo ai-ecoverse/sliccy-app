@@ -5,11 +5,12 @@
   "artifactSource": "d93cc688e8aed3f1f35cde87735083d5f6b7191d",
   "files": {
     ".github/workflows/runner-proof.yml": "11d5ef6093198c6ca4a83e1134a2c6ac58e8ca576e7c596ba2f1f8ec1db7ab12",
-    "script/runner-proof/sealed_universal.py": "ab44059e77e6bf2cdf3d34aee6ff13dfce95c5df9c91250ff2748df27a565f14",
+    "script/runner-proof/sealed_universal.py": "1d19041f0ded17bae1c0c51e3ac440c9dc79fa4641506938cdd44ed07d7dba7f",
     "script/runner-proof/mac_rosetta_preflight.py": "f2682a4466f334ba1a27be80fc02be5d0c15f59d7fc6e3492ce15e2fdbc6781b",
     "script/runner-proof/universal_manifest.py": "3ce896a09383f713f50040a05eb416da64e9ea5980fd2a62f4c36bf64c2f2ffe",
     "script/runner-proof/inputs/universal-driver.tar.gz": "075b6406be321e95c2c613841ee76dfab3db3635e89c05480106e35b6440e4fe",
     "script/runner-proof/inputs/universal-driver-files.json": "aa35ee8d0b780d36c1ee7fe5d00189d32154b248a3ae9877a50ff6c3f03ec4e4",
-    "script/runner-proof/inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
+    "script/runner-proof/inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9",
+    "script/runner-proof/setup_support.py": "4cf538a990c46a2c82fde19871f33ad16ff3d96604723ba1699c2ad51619299b"
   }
 }
