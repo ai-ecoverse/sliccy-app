@@ -13,6 +13,11 @@
 
 extern int csops(pid_t, unsigned int, void *, size_t);
 
+static int failed(const char *step, int status) {
+    fprintf(stderr, "{\"step\":\"%s\",\"exitStatus\":%d}\n", step, status);
+    return status;
+}
+
 static id absent(void) { return [NSNull null]; }
 static BOOL hosted(void) {
     NSDictionary *env = NSProcessInfo.processInfo.environment;
@@ -61,11 +66,13 @@ static NSDictionary *owner(pid_t pid) {
     SecRequirementRef anchor = NULL;
     CFDictionaryRef raw = NULL;
     OSStatus lookup = SecCodeCopyGuestWithAttributes(NULL, (__bridge CFDictionaryRef)@{(__bridge NSString *)kSecGuestAttributePid: @(pid)}, kSecCSDefaultFlags, &guest);
+    OSStatus requirementStatus = errSecParam;
     OSStatus live = errSecParam, apple = errSecParam, copied = errSecParam, details = errSecParam, staticStatus = errSecParam;
     NSDictionary *info = @{};
     if (lookup == errSecSuccess && guest) {
         live = SecCodeCheckValidity(guest, kSecCSStrictValidate, NULL);
-        if (SecRequirementCreateWithString(CFSTR("anchor apple"), kSecCSDefaultFlags, &anchor) == errSecSuccess && anchor)
+        requirementStatus = SecRequirementCreateWithString(CFSTR("anchor apple"), kSecCSDefaultFlags, &anchor);
+        if (requirementStatus == errSecSuccess && anchor)
             apple = SecCodeCheckValidity(guest, kSecCSStrictValidate, anchor);
         copied = SecCodeCopyStaticCode(guest, kSecCSDefaultFlags, &code);
         if (copied == errSecSuccess && code) {
@@ -89,7 +96,7 @@ static NSDictionary *owner(pid_t pid) {
         codeHash && [codeHash isEqual:before[@"cdHash"]] && imagePath && [imagePath isEqual:before[@"path"]];
     NSDictionary *result = @{@"pid": @(pid), @"before": before, @"after": after,
         @"guestLookupStatus": @(lookup), @"liveValidityStatus": @(live), @"liveValidityAfterStatus": @(liveAfter),
-        @"appleAnchorStatus": @(apple), @"appleAnchored": apple == errSecSuccess ? @YES : apple == errSecCSReqFailed ? @NO : absent(),
+        @"appleRequirementStatus": @(requirementStatus), @"appleAnchorStatus": @(apple), @"appleAnchored": apple == errSecSuccess ? @YES : apple == errSecCSReqFailed ? @NO : absent(),
         @"staticCopyStatus": @(copied), @"staticValidityStatus": @(staticStatus), @"signingInformationStatus": @(details),
         @"signingIdentifier": [identifier isKindOfClass:NSString.class] ? identifier : absent(),
         @"teamIdentifier": [team isKindOfClass:NSString.class] ? team : absent(),
@@ -129,19 +136,20 @@ static NSDictionary *snapshot(void) {
 }
 int main(int argc, const char **argv) {
     @autoreleasepool {
-        if (!hosted()) return 2;
+        if (!hosted()) return failed("observer-host-preflight", 2);
         id value = nil;
         if (argc == 1) value = snapshot();
         else if (argc == 3 && strcmp(argv[1], "--owner") == 0) {
             char *end = NULL;
             long pid = strtol(argv[2], &end, 10);
-            if (!end || *end || pid <= 0 || pid > INT32_MAX) return 2;
+            if (!end || *end || pid <= 0 || pid > INT32_MAX) return failed("observer-owner-argument", 2);
             value = owner((pid_t)pid);
-        } else return 2;
+        } else return failed("observer-mode-argument", 2);
         NSError *error = nil;
         NSData *data = [NSJSONSerialization dataWithJSONObject:value options:NSJSONWritingSortedKeys error:&error];
-        if (!data || data.length > 4194304) return 1;
-        if (fwrite(data.bytes, 1, data.length, stdout) != data.length || fputc('\n', stdout) == EOF) return 1;
+        if (!data) return failed("observer-json-serialization", 1);
+        if (data.length > 4194304) return failed("observer-json-bound", 1);
+        if (fwrite(data.bytes, 1, data.length, stdout) != data.length || fputc('\n', stdout) == EOF || fflush(stdout) == EOF) return failed("observer-output-write", 1);
         return 0;
     }
 }

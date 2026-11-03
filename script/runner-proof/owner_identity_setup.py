@@ -5,6 +5,7 @@ import os
 import signal
 import subprocess
 import threading
+import tempfile
 import time
 import sealed_runner as shared
 
@@ -27,11 +28,15 @@ def same_owned(record, current, pid, parent, uid, role, digest):
 
 
 class Observer:
-    def __init__(self, binary, evidence, env, deadline):
+    def __init__(self, binary, evidence, env, deadline, journal):
         self.binary, self.evidence, self.env, self.deadline = binary, evidence, env, deadline
         self.sequence = 0
+        self.journal = journal
 
     def read(self, phase, pid=None):
+        return self.journal.call(phase, self.read_observation, phase, pid)
+
+    def read_observation(self, phase, pid=None):
         remaining = min(15, self.deadline - time.monotonic())
         if remaining <= 0:
             raise ValueError('observer-deadline')
@@ -39,7 +44,7 @@ class Observer:
         target = self.evidence / ('observation-%03d.json' % self.sequence)
         args = [str(self.binary)] + ([] if pid is None else ['--owner', str(pid)])
         with target.open('xb') as out, (self.evidence / 'observer-errors.log').open('ab') as error:
-            result = subprocess.run(args, stdin=subprocess.DEVNULL, stdout=out, stderr=error, env=self.env, timeout=remaining)
+            result = self.journal.run(args, stdin=subprocess.DEVNULL, stdout=out, stderr=error, env=self.env, timeout=remaining)
         if result.returncode != 0 or target.stat().st_size > 4 * 1024 * 1024:
             raise ValueError('observer-failed')
         value = json.loads(target.read_text())
@@ -53,8 +58,17 @@ class Observer:
 class Owned:
     def __init__(self, label, args, role, digest, observer, env, log):
         self.label, self.role, self.digest, self.observer = label, role, digest, observer
-        self.child = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=log, stderr=log, env=env, close_fds=True)
-        self.record = None
+        self.journal = observer.journal
+        self.output, self.errors = tempfile.TemporaryFile(), tempfile.TemporaryFile()
+        self.command = self.journal.command_record(args)
+        self.journal.write(dict(self.command, status='entered', exitStatus=None, stdoutTail='', stderrTail=''))
+        try:
+            self.child = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=self.output, stderr=self.errors, env=env, close_fds=True)
+        except BaseException as error:
+            self.journal.finish(self.command, None, error=error)
+            self.output.close(); self.errors.close()
+            raise
+        self.record, self.reported = None, False
 
     def identify(self):
         value = self.observer.read('spawn-' + self.label, self.child.pid)
@@ -65,11 +79,26 @@ class Owned:
     def reap(self, seconds):
         try:
             self.child.wait(timeout=max(0, seconds))
+            if hasattr(self, 'journal') and not self.reported:
+                self.journal.finish(self.command, self.child.returncode, self.journal.tail(self.output), self.journal.tail(self.errors))
+                self.output.close(); self.errors.close()
+                self.reported = True
             return True
         except subprocess.TimeoutExpired:
             return False
 
     def cleanup(self, deadline):
+        if hasattr(self, 'journal'):
+            try:
+                return self.journal.call('cleanup-' + self.label, self.cleanup_owned, deadline)
+            finally:
+                if not self.reported:
+                    self.journal.finish(self.command, self.child.returncode, self.journal.tail(self.output), self.journal.tail(self.errors), ValueError('owned-child-unreaped'))
+                    self.output.close(); self.errors.close()
+                    self.reported = True
+        return self.cleanup_owned(deadline)
+
+    def cleanup_owned(self, deadline):
         result = {'label': self.label, 'pid': self.child.pid, 'recorded': self.record is not None, 'signals': [], 'reaped': False}
         if self.reap(0):
             result['reaped'] = True
@@ -87,7 +116,10 @@ class Owned:
                 result['refused'] = 'identity-unavailable-or-changed'
                 break
             try:
-                os.kill(self.child.pid, sig)
+                if hasattr(self, 'journal'):
+                    self.journal.call('cleanup-' + self.label, os.kill, self.child.pid, sig)
+                else:
+                    os.kill(self.child.pid, sig)
                 result['signals'].append(int(sig))
             except ProcessLookupError:
                 pass
@@ -145,21 +177,22 @@ class Pages:
         return 'http://127.0.0.1:' + str(self.server.server_port) + path
 
 
-def run(root, evidence, observer_binary, app, helper, app_hash, helper_hash, chrome_hash, manifest, env, log, deadline):
-    shared.require_host()
+def run(root, evidence, observer_binary, app, helper, app_hash, helper_hash, chrome_hash, manifest, env, log, deadline, journal):
+    journal.call('setup-host', shared.require_host)
     env = dict(env, **ASSERTIONS)
-    for name in ['surface-home', 'browser-home', 'chrome-a', 'chrome-b']:
-        (root / name).mkdir(mode=0o700)
-    observer = Observer(observer_binary, evidence, env, deadline)
+    with journal.step('setup-directories'):
+        for name in ['surface-home', 'browser-home', 'chrome-a', 'chrome-b']:
+            (root / name).mkdir(mode=0o700)
+    observer = Observer(observer_binary, evidence, env, deadline, journal)
     owned, cleanup = [], []
     body_ok = False
-    with Pages(manifest) as pages:
+    with journal.call('page-server', Pages, manifest) as pages:
         try:
             observer.read('initial')
             def launch(label, args, role, digest, child_env):
                 if deadline - time.monotonic() < 35:
                     raise ValueError('setup-admission-deadline')
-                child = Owned(label, args, role, digest, observer, child_env, log)
+                child = journal.call(label, Owned, label, args, role, digest, observer, child_env, log)
                 owned.append(child)
                 if not child.identify() and not child.reap(0):
                     raise ValueError('spawn-identity-unavailable')
@@ -182,7 +215,10 @@ def run(root, evidence, observer_binary, app, helper, app_hash, helper_hash, chr
             final = observer.read('final-setup')
             visible = {row['pid'] for row in final['windows'] if row.get('validShape') is True}
             expected = {child.child.pid for child in owned if child.label in {'app-preview', 'surface', 'host-a-1', 'host-b-1'}}
-            body_ok = expected.issubset(visible) and all(count > 0 for count in pages.counts.values())
+            with journal.step('setup-presence'):
+                body_ok = expected.issubset(visible) and all(count > 0 for count in pages.counts.values())
+                if not body_ok:
+                    journal.finish({'kind': 'setup', 'step': 'setup-presence', 'tool': {'pythonModule': 'owner_identity_setup'}, 'arguments': []}, None, error=ValueError('required-owner-or-fixed-page-absent'))
             (evidence / 'setup-presence.json').write_text(json.dumps({'requiredDirectOwnersPresent': expected.issubset(visible),
                 'allFixedPagesRequested': all(count > 0 for count in pages.counts.values()),
                 'authorizationWindowInferred': False, 'renderInferredFromGET': False}) + '\n')
@@ -197,4 +233,7 @@ def run(root, evidence, observer_binary, app, helper, app_hash, helper_hash, chr
             (evidence / 'page-counts.json').write_text(json.dumps(pages.counts, indent=2) + '\n')
             if time.monotonic() < deadline:
                 observer.read('after-owned-cleanup')
-    return body_ok and all(value.get('reaped') is True for value in cleanup)
+    complete = body_ok and all(value.get('reaped') is True for value in cleanup)
+    if not complete:
+        journal.finish({'kind': 'setup', 'step': 'identity-setup', 'tool': {'pythonModule': 'owner_identity_setup'}, 'arguments': []}, None, error=ValueError('setup-or-owned-cleanup-incomplete'))
+    return complete
