@@ -34,9 +34,12 @@ mkdir -p "$APP_BUNDLE/Contents/MacOS"
 if [[ "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 ]]; then
   proof_slices=()
   for proof_arch in arm64 x86_64; do
-    proof_flags=(--scratch-path "$ROOT_DIR/.build/universal-$proof_arch" --triple "$proof_arch-apple-macosx27.0" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_UNIVERSAL_SLICE_PROOF)
+    # Swift Build currently ignores --triple for this executable on the hosted
+    # runner. The native engine honors it; verify the output before combining.
+    proof_flags=(--build-system native --scratch-path "$ROOT_DIR/.build/universal-$proof_arch" --triple "$proof_arch-apple-macosx27.0" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_UNIVERSAL_SLICE_PROOF)
     "$SWIFT" build "${proof_flags[@]}" --product "$APP_NAME"
     proof_bin="$("$SWIFT" build "${proof_flags[@]}" --show-bin-path)"
+    [[ "$(/usr/bin/lipo -archs "$proof_bin/$APP_NAME")" == "$proof_arch" ]] || { echo 'Unexpected proof slice architecture.' >&2; exit 2; }
     proof_slices+=("$proof_bin/$APP_NAME")
   done
   /usr/bin/lipo -create "${proof_slices[@]}" -output "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
