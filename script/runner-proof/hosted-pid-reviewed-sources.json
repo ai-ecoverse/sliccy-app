@@ -5,14 +5,14 @@
   "artifactSource": "e416ccda54027e64e428238852bafa71746be335",
   "files": {
     ".github/workflows/runner-proof.yml": "e518a360ad7b4e1101eeb6aed69396139dc5049fd9b66c4e4b52955d42eb70ed",
-    "script/runner-proof/sealed_hosted_pid.py": "de257046c4e0a9a230c2d33500aa6664c0ffd69b3d358c600d5a4c6377e1ea77",
+    "script/runner-proof/sealed_hosted_pid.py": "e57a144337435746b45dfa1290bc97116f848ba90b9ac747abe1598af48f2bff",
     "script/runner-proof/setup_support.py": "4cf538a990c46a2c82fde19871f33ad16ff3d96604723ba1699c2ad51619299b",
     "script/runner-proof/mac_rosetta_preflight.py": "f2682a4466f334ba1a27be80fc02be5d0c15f59d7fc6e3492ce15e2fdbc6781b",
     "script/runner-proof/universal_manifest.py": "3ce896a09383f713f50040a05eb416da64e9ea5980fd2a62f4c36bf64c2f2ffe",
     "script/runner-proof/hosted_pid_manifest.py": "58804cb89262d4092f2e44b8d08fa6a9c2a9e8b8604ed4a00c554939f200442c",
     "script/runner-proof/snapshot_manifest.py": "386719e42128d2c5565a40afba7ee87b1d02f1de209c6c3bdca6e9b8688ad064",
-    "script/runner-proof/inputs/hosted-pid-driver.tar.gz": "a1cdb201fd4681b6691208f9b496f95b032aac0458cfea282f5d8e6bdcb617c3",
-    "script/runner-proof/inputs/hosted-pid-driver-files.json": "b408d4481a4e9a95fec8123d3ea69b310b010f48071ac10422db5d5902a3ecea",
+    "script/runner-proof/inputs/hosted-pid-driver.tar.gz": "424ed033ec26fa46dbcdf520e251e8a9d86551367cf7d01f1a96025c6d04e306",
+    "script/runner-proof/inputs/hosted-pid-driver-files.json": "70b9e16ad69d5a7c26386c19b0bafe5f5fc9612eb0707fb9c39d94296cb770a2",
     "script/runner-proof/inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
   }
 }

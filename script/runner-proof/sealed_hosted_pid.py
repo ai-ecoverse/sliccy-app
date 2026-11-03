@@ -26,8 +26,8 @@ APP_SOURCE = 'e416ccda54027e64e428238852bafa71746be335'
 APP_ZIP_SHA = '3661511513f54e8ae4c14361d6b8dfe33019abcb6e4299fc3756285dd37ec8a4'
 APP_MANIFEST_SHA = '888706fb69ac7d2900486bc52d855659c43fdcbc566056ba1e788981c16f1824'
 INPUTS = {
-    'hosted-pid-driver.tar.gz': 'a1cdb201fd4681b6691208f9b496f95b032aac0458cfea282f5d8e6bdcb617c3',
-    'hosted-pid-driver-files.json': 'b408d4481a4e9a95fec8123d3ea69b310b010f48071ac10422db5d5902a3ecea',
+    'hosted-pid-driver.tar.gz': '424ed033ec26fa46dbcdf520e251e8a9d86551367cf7d01f1a96025c6d04e306',
+    'hosted-pid-driver-files.json': '70b9e16ad69d5a7c26386c19b0bafe5f5fc9612eb0707fb9c39d94296cb770a2',
     'slicc-v1.59.0.tar.gz': '8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9',
 }
 PREFIX = 'ai-ecoverse-slicc-cli-cea8ec1'
@@ -77,7 +77,7 @@ def extract_sources(inputs, destination):
     if metadata['placementAssertions'] != ['GITHUB_ACTIONS', 'GITHUB_REPOSITORY', 'GITHUB_EVENT_NAME', 'GITHUB_REF', 'SLICCY_RUNNER_ENVIRONMENT']:
         raise ValueError('driver placement fields')
     expected = metadata['files']
-    if len(expected) != 28 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
+    if len(expected) != 29 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
         raise ValueError('driver file set')
     package = destination / 'test/nativeproof'
     package.mkdir(mode=0o700)
