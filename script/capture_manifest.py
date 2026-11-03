@@ -39,7 +39,7 @@ def manifest(app):
         raise ValueError('unexpected helper contents')
     surface = signed_bundle(helper, 'ai.sliccy.proof-helper', 'ScreenProofSurface')
     refusal = subprocess.run(['/usr/bin/codesign', '--verify', '--strict', '-R', '=' + REQUIREMENT, str(helper)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
-    if refusal.returncode != 1:
+    if refusal.returncode != 3:
         raise ValueError('helper app-role refusal absent')
     surface['appRoleRefused'] = True
     resource, _ = signature(app / 'Contents/Resources/slicc', 'ai.sliccy.slicc', 'arm64')

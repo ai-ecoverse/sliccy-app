@@ -33,7 +33,7 @@ class CaptureManifestTests(unittest.TestCase):
         return (plistlib.dumps({}), b'') if '--entitlements' in args else (b'', b'')
 
     def test_signed_roles_release_binding_and_closed_cases_with_mocked_verifiers(self):
-        with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {'GITHUB_SHA': 'a' * 40}), patch.object(subject, 'signature', side_effect=self.signature), patch.object(subject, 'checked', side_effect=self.checked), patch.object(subject.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)):
+        with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {'GITHUB_SHA': 'a' * 40}), patch.object(subject, 'signature', side_effect=self.signature), patch.object(subject, 'checked', side_effect=self.checked), patch.object(subject.subprocess, 'run', return_value=subprocess.CompletedProcess([], 3)):
             record = subject.manifest(self.fixture(root))
             self.assertEqual(record['build'], '11')
             self.assertEqual(len(record['cases']), 6)
@@ -49,6 +49,20 @@ class CaptureManifestTests(unittest.TestCase):
                 with self.assertRaises(ValueError): subject.manifest(app)
             with patch.object(subject, 'checked', return_value=(plistlib.dumps({'com.apple.security.get-task-allow': True}), b'')):
                 with self.assertRaises(ValueError): subject.manifest(app)
+
+    def test_only_documented_requirement_failure_is_role_refusal(self):
+        for status in [0, 1, 2, -9, 4, 127]:
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {'GITHUB_SHA': 'a' * 40}), patch.object(subject, 'signature', side_effect=self.signature), patch.object(subject, 'checked', side_effect=self.checked), patch.object(subject.subprocess, 'run', return_value=subprocess.CompletedProcess([], status)) as run:
+                app = self.fixture(root)
+                with self.assertRaisesRegex(ValueError, 'helper app-role refusal absent'):
+                    subject.manifest(app)
+                run.assert_called_once_with(['/usr/bin/codesign', '--verify', '--strict', '-R', '=' + subject.REQUIREMENT, str(app / 'Contents/Helpers/ScreenProofSurface.app')], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
+
+    def test_requirement_timeout_or_missing_tool_cannot_be_refusal(self):
+        for error in [subprocess.TimeoutExpired('codesign', 15), FileNotFoundError('codesign')]:
+            with self.subTest(error=type(error).__name__), tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {'GITHUB_SHA': 'a' * 40}), patch.object(subject, 'signature', side_effect=self.signature), patch.object(subject, 'checked', side_effect=self.checked), patch.object(subject.subprocess, 'run', side_effect=error):
+                with self.assertRaises(type(error)):
+                    subject.manifest(self.fixture(root))
 
     def test_extra_helper_and_symlink_refuse_before_verifier(self):
         for change in ['helper', 'symlink']:
