@@ -304,11 +304,22 @@ final class ScreenTransport: @unchecked Sendable {
                 width: 16, height: 16, launch: state.launch, connection: state.connection)
         }
     }
-    func proofSubmitGeneratedBaseline(_ source: ScreenProofSyntheticSource) throws {
-        let captured = ContinuousClock.now
-        try submit(proofFrameHeader(sequence: 1), jpeg: source.jpeg, captured: captured)
+    func proofSubmitGeneratedBaseline(_ source: ScreenProofSyntheticSource, sequence: UInt64) throws {
+        guard (1...5).contains(sequence) else { throw ScreenFailure.incompatible }
+        // Serialize behind the previous writer before admitting another request.
+        // No baseline can replace a pending frame in the latest-sample slot.
+        try imageQueue.sync {
+            guard locked({ !imageWriting && latest == nil }) else { throw ScreenFailure.stalled }
+            let captured = ContinuousClock.now
+            try submit(proofFrameHeader(sequence: sequence), jpeg: source.jpeg, captured: captured)
+        }
     }
-    func proofGeneratedFrameAfterFreshControl(_ source: ScreenProofSyntheticSource,
+    func proofDrainGeneratedBaseline() throws {
+        try imageQueue.sync {
+            guard locked({ !ended && !noCapture && !imageWriting && latest == nil && state.phase == .active }), currentProtection() else { throw ScreenFailure.stalled }
+        }
+    }
+    func proofGeneratedFrameAfterFreshControl(_ source: ScreenProofSyntheticSource, sequence: UInt64,
         action: @escaping @Sendable (Int32, Data, ContinuousClock.Instant) throws -> Void) {
         imageQueue.async { [self] in
             do {
@@ -320,7 +331,8 @@ final class ScreenTransport: @unchecked Sendable {
                     else { throw ScreenFailure.stalled }
                     return min(sent.advanced(by: .milliseconds(750)), now.advanced(by: .milliseconds(100)))
                 }
-                let header = try proofFrameHeader(sequence: 2)
+                guard (2...6).contains(sequence) else { throw ScreenFailure.incompatible }
+                let header = try proofFrameHeader(sequence: sequence)
                 _ = try verifier.verifyCLI(socket: frames.fd, expectedPID: identity.pid, expectedIdentity: identity)
                 let data = try JSONEncoder().encode(header)
                 let record = ScreenSocket.prefix(data.count) + data + ScreenSocket.prefix(source.jpeg.count) + source.jpeg

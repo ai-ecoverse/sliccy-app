@@ -39,6 +39,24 @@ struct ScreenProofTests {
             #expect(throws: ScreenFailure.incompatible) { try ScreenProofCase.parse(bad) }
         }
     }
+    @Test func baselineRequestsAreBoundedAndConfirmationFreezesExactNextSequence() throws {
+        let now = ContinuousClock.now
+        var state = ScreenProofBaseline()
+        #expect(throws: ScreenFailure.incompatible) { try state.receive("frame-baseline", now: now) }
+        for expected in 1...5 {
+            let confirmed = try state.receive("frame-next", now: now.advanced(by: .milliseconds(expected * 100)))
+            #expect(!confirmed && state.sequence == UInt64(expected))
+        }
+        #expect(throws: ScreenFailure.resourceLimit) { try state.receive("frame-next", now: now.advanced(by: .seconds(1))) }
+        let confirmed = try state.receive("frame-baseline", now: now.advanced(by: .seconds(1)))
+        #expect(confirmed && state.sequence + 1 == 6)
+        #expect(throws: ScreenFailure.stalled) { try state.receive("frame-next", now: now.advanced(by: .seconds(1))) }
+        var expired = ScreenProofBaseline()
+        _ = try expired.receive("frame-next", now: now)
+        #expect(throws: ScreenFailure.stalled) { try expired.receive("frame-baseline", now: now.advanced(by: .seconds(5))) }
+        var unknown = ScreenProofBaseline()
+        #expect(throws: ScreenFailure.incompatible) { try unknown.receive("path /tmp/source", now: now) }
+    }
     @Test func generatedSourceIsFixedBoundedAndUsesMetadataStrippedJPEG() throws {
         let first = try ScreenProofSyntheticSource(), second = try ScreenProofSyntheticSource()
         #expect(first.jpeg == second.jpeg)

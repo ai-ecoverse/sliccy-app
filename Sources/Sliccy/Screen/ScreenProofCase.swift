@@ -33,4 +33,22 @@ struct ScreenAncillaryObservation: Sendable {
         return true
     }
 }
+struct ScreenProofBaseline {
+    private(set) var sequence: UInt64 = 0
+    private(set) var confirmed = false
+    private(set) var deadline: ContinuousClock.Instant?
+    mutating func receive(_ command: String, now: ContinuousClock.Instant = .now) throws -> Bool {
+        guard !confirmed, deadline.map({ now < $0 }) ?? true else { throw ScreenFailure.stalled }
+        switch command {
+        case "frame-next":
+            guard sequence < 5 else { throw ScreenFailure.resourceLimit }
+            if deadline == nil { deadline = now.advanced(by: .seconds(5)) }
+            sequence += 1; return false
+        case "frame-baseline":
+            guard sequence > 0 else { throw ScreenFailure.incompatible }
+            confirmed = true; return true
+        default: throw ScreenFailure.incompatible
+        }
+    }
+}
 #endif

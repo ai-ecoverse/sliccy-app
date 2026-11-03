@@ -88,6 +88,7 @@ final class ScreenProofSession: @unchecked Sendable {
     private var syntheticSource: ScreenProofSyntheticSource?
     private var indicatorHealth: ScreenIndicatorHealth?
     private var generatedGranted = false
+    private var generatedBaselineSequence: UInt64 = 0
 
     init(show: @escaping @Sendable (ScreenStopRelay) -> Void, completed: @escaping @Sendable (Int32) -> Void) {
         self.show = show; self.completed = completed
@@ -168,7 +169,7 @@ final class ScreenProofSession: @unchecked Sendable {
             report(controlStage("echoed"), at: at)
             let transport = locked { self.transport }
             if locked({ proofCase == .frameHandoff }), let source = locked({ syntheticSource }) {
-                transport?.proofGeneratedFrameAfterFreshControl(source) { [self] frames, record, deadline in
+                transport?.proofGeneratedFrameAfterFreshControl(source, sequence: locked { generatedBaselineSequence + 1 }) { [self] frames, record, deadline in
                     guard let child = locked({ self.child }), child.isAlive else { throw ScreenFailure.peerLost }
                     try transferSafety(safety: frames, cli: child.pid, record: record, deadline: deadline)
                 }
@@ -203,17 +204,25 @@ final class ScreenProofSession: @unchecked Sendable {
             guard locked({ proofCase == .frameHandoff && !generatedGranted }), let source = locked({ syntheticSource }),
                   let transport = locked({ transport }) else { close(.protection); return }
             locked { generatedGranted = true }; report("synthetic-granted")
-            do {
-                try transport.proofSubmitGeneratedBaseline(source)
-                report("synthetic-baseline-submitted")
-                queue.async { [self] in
-                    do {
-                        try Self.readBaselineMarker()
-                        report("synthetic-baseline-confirmed")
-                        try startHandoffHelper()
-                    } catch { close(.incompatible) }
-                }
-            } catch { close(.protection) }
+            let initialDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+            queue.async { [self] in
+                do {
+                    var baseline = ScreenProofBaseline()
+                    while true {
+                        let command = try Self.readFrameCommand(until: baseline.deadline ?? initialDeadline)
+                        let confirmed = try baseline.receive(command)
+                        if confirmed {
+                            try transport.proofDrainGeneratedBaseline()
+                            locked { generatedBaselineSequence = baseline.sequence }
+                            report("synthetic-baseline-confirmed", frameSeq: baseline.sequence)
+                            try startHandoffHelper()
+                            break
+                        }
+                        try transport.proofSubmitGeneratedBaseline(source, sequence: baseline.sequence)
+                        report("synthetic-baseline-submitted", frameSeq: baseline.sequence)
+                    }
+                } catch { close(.incompatible) }
+            }
         case .revokeQueued(let at):
             report("revoke-queued", at: at)
         case .revocationConfirmed:
@@ -286,19 +295,18 @@ final class ScreenProofSession: @unchecked Sendable {
         report("handoff-helper-started", pid: helper.pid)
         if keep { try helper.start() } else { helper.stop() }
     }
-    private static func readBaselineMarker() throws {
-        let expected = Array("frame-baseline\n".utf8)
-        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-        var offset = 0
-        while offset < expected.count, ContinuousClock.now < deadline {
+    private static func readFrameCommand(until deadline: ContinuousClock.Instant) throws -> String {
+        var bytes = [UInt8]()
+        while bytes.count <= 14, ContinuousClock.now < deadline {
             var descriptor = pollfd(fd: STDIN_FILENO, events: Int16(POLLIN), revents: 0)
             let status = poll(&descriptor, 1, 25)
             if status == 0 || (status < 0 && errno == EINTR) { continue }
             var byte: UInt8 = 0
-            guard status > 0, read(STDIN_FILENO, &byte, 1) == 1, byte == expected[offset] else { throw ScreenFailure.incompatible }
-            offset += 1
+            guard status > 0, read(STDIN_FILENO, &byte, 1) == 1 else { throw ScreenFailure.incompatible }
+            if byte == 10 { return String(decoding: bytes, as: UTF8.self) }
+            bytes.append(byte)
         }
-        guard offset == expected.count else { throw ScreenFailure.stalled }
+        throw ScreenFailure.stalled
     }
     private func controlStage(_ suffix: String) -> String {
         locked { (proofCase == .ancillary ? "ancillary" : proofCase.isHandoff ? "handoff" : "exec") + "-control-" + suffix }
@@ -363,7 +371,7 @@ final class ScreenProofSession: @unchecked Sendable {
         guard let helper else { throw ScreenFailure.incompatible }
         report("handoff-send-started", at: now)
         try helper.transfer(safety: safety, cli: cli, record: record)
-        report("handoff-record-transferred")
+        report("handoff-record-transferred", frameSeq: locked { proofCase == .frameHandoff ? generatedBaselineSequence + 1 : nil })
         queue.asyncAfter(deadline: .now() + 2.5) { [self] in
             let alive = locked { child }?.isAlive == true
             let passed = locked { () -> Bool in
@@ -490,7 +498,7 @@ final class ScreenProofSession: @unchecked Sendable {
         report("terminal", reason: failure?.rawValue ?? success)
         completed(failure == nil ? 0 : 1)
     }
-    private func report(_ stage: String, at: ContinuousClock.Instant = .now, duration: Duration? = nil, reason: String? = nil, pid: pid_t? = nil, observerRow: ScreenProofReport? = nil) {
+    private func report(_ stage: String, at: ContinuousClock.Instant = .now, duration: Duration? = nil, reason: String? = nil, pid: pid_t? = nil, frameSeq: UInt64? = nil, observerRow: ScreenProofReport? = nil) {
         func milliseconds(_ duration: Duration) -> Double {
             let value = duration.components
             return Double(value.seconds) * 1000 + Double(value.attoseconds) / 1e15
@@ -498,6 +506,7 @@ final class ScreenProofSession: @unchecked Sendable {
         var row: [String: Any] = ["schema": 1, "stage": stage, "elapsedMs": milliseconds(startTime.duration(to: at)), "capture": false]
         let selected = locked { proofCase }
         if selected != .base { row["schema"] = 2; row["case"] = selected.rawValue }
+        if let frameSeq { row["frameSeq"] = String(frameSeq) }
         if let observerRow { row["verification"] = observerRow.metadata }
         if let pid { row["pid"] = pid }
         if let duration { row["durationMs"] = milliseconds(duration) }
