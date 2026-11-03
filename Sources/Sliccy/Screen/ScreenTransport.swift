@@ -53,6 +53,8 @@ final class ScreenTransport: @unchecked Sendable {
 #endif
 #if SLICCY_CAPTURE_RUNNER_PROOF
     private var proofReverseReplies = ScreenProofReverseReplies()
+    private let proofReaders = DispatchGroup(), proofWriters = DispatchGroup()
+    private var proofReadInFlight = false, proofFinalClosing = false, proofClosureFault = false
     func proofSubmitCaptured(_ image: ScreenCapture.Image) throws {
         let (binding, sequence, at) = try gate.admitFrame()
         event(.proofSourceAdmitted(String(sequence), image.monoMs, at))
@@ -68,6 +70,24 @@ final class ScreenTransport: @unchecked Sendable {
             guard !noCapture, currentProtection(), let link = state.link else { throw ScreenFailure.protection }; return link
         }
         try grant(ScreenBinding(link: link, session: ScreenID.make(), source: ScreenID.make(), grantEpoch: "1", sourceEpoch: "1", protectionEpoch: "1"), scope: scope)
+    }
+    func proofFinalClose(until deadline: ContinuousClock.Instant) -> ScreenProofReverseReplies.Closure {
+        gate.invalidate()
+        locked {
+            proofReverseReplies.beginCutoff(transportWasOpen: !ended && !proofClosureFault && !proofFinalClosing,
+                                           readInFlight: proofReadInFlight)
+            proofFinalClosing = true; ended = true
+            latest = nil; outbound.removeAll(); timer?.cancel(); timer = nil
+        }
+        frames.stop(); safety.stop()
+        func settle(_ group: DispatchGroup) -> Bool {
+            let remaining = ContinuousClock.now.duration(to: deadline)
+            guard remaining > .zero else { return false }
+            let nanos = Int(min(1_500_000_000, ScreenRunnerJournal.ms(remaining) * 1_000_000))
+            return group.wait(timeout: .now() + .nanoseconds(nanos)) == .success && ContinuousClock.now <= deadline
+        }
+        let readerDone = settle(proofReaders), writerDone = settle(proofWriters)
+        return locked { proofReverseReplies.closedSnapshot(workersSettled: readerDone && writerDone) }
     }
     func proofDrainReverseReplies() -> (notices: [ScreenProofReverseReplies.Notice], complete: Bool, invalid: Bool) {
         locked { (proofReverseReplies.drain(), proofReverseReplies.complete, proofReverseReplies.invalid) }
@@ -87,16 +107,33 @@ final class ScreenTransport: @unchecked Sendable {
         self.noCapture = noCapture
     }
     func start() {
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        guard locked({ () -> Bool in
+            guard !ended else { return false }
+            proofReaders.enter(); return true
+        }) else { return }
+#endif
         // Timers are independent of the blocking safety reader and frame writer.
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "ai.sliccy.screen.health", qos: .userInteractive))
         timer.schedule(deadline: .now(), repeating: .milliseconds(50), leeway: .milliseconds(5))
         timer.setEventHandler { [weak self] in self?.tick() }
-        lock.lock(); self.timer = timer; lock.unlock()
+        lock.lock()
+        if ended { timer.cancel() } else { self.timer = timer }
+        lock.unlock()
         timer.resume()
         DispatchQueue(label: "ai.sliccy.screen.safety-read", qos: .userInteractive).async { [self] in
+#if SLICCY_CAPTURE_RUNNER_PROOF
+            defer { proofReaders.leave() }
+#endif
             do {
                 while true {
                     let data = try safety.readSafety()
+#if SLICCY_CAPTURE_RUNNER_PROOF
+                    try locked {
+                        guard !proofFinalClosing else { proofReverseReplies.invalidate(); throw ScreenFailure.stopped }
+                        proofReadInFlight = true
+                    }
+#endif
                     _ = try verifier.verifyCLI(socket: safety.fd, expectedPID: identity.pid, expectedIdentity: identity)
                     let message = try ScreenSafety.decode(data)
                     let invalidation = message.type == "revoke" ? quiesceOutput() : nil
@@ -132,8 +169,19 @@ final class ScreenTransport: @unchecked Sendable {
                     }
                     if let reply = outcome.0 { try enqueue(reply) }
                     if let value = outcome.1 { event(value) }
+#if SLICCY_CAPTURE_RUNNER_PROOF
+                    locked { proofReadInFlight = false }
+#endif
                 }
-            } catch { fail(error as? ScreenFailure ?? .peerLost) }
+            } catch {
+#if SLICCY_CAPTURE_RUNNER_PROOF
+                locked {
+                    if proofReadInFlight { proofReverseReplies.invalidate() }
+                    proofReadInFlight = false
+                }
+#endif
+                fail(error as? ScreenFailure ?? .peerLost)
+            }
         }
     }
 
@@ -270,9 +318,15 @@ final class ScreenTransport: @unchecked Sendable {
 #endif
         if controlWriting { return (false, .now) }
         controlWriting = true
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        proofWriters.enter()
+#endif
         return (true, .now)
     }
     private func writeControl() {
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        defer { proofWriters.leave() }
+#endif
         do {
             while let next = locked({ () -> ScreenSafety? in
                 guard !ended, !outbound.isEmpty else { controlWriting = false; return nil }
@@ -301,6 +355,9 @@ final class ScreenTransport: @unchecked Sendable {
         } catch { fail(error as? ScreenFailure ?? .peerLost) }
     }
     private func fail(_ reason: ScreenFailure) {
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        locked { if !proofFinalClosing { proofClosureFault = true } }
+#endif
         gate.invalidate(); frames.stop(); safety.stop()
         let notify = locked {
             guard !ended else { return false }

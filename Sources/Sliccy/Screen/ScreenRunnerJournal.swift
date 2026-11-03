@@ -23,8 +23,6 @@ final class ScreenRunnerDiagnosticAbort: @unchecked Sendable {
     }
 }
 
-/// No writer queue, retries, flush or wait. One bounded nonblocking pipe write
-/// per row; backpressure, partial writes and delivery errors retire the journal.
 final class ScreenRunnerJournal: @unchecked Sendable {
     let began = ContinuousClock.now
     private let lock = NSLock()

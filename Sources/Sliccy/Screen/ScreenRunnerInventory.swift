@@ -58,8 +58,9 @@ final class ScreenRunnerInventory {
                   let running = NSRunningApplication(processIdentifier: pid), running.bundleIdentifier == bundle else { throw ScreenFailure.protection }
         }
         func requireCompleteOwnership(pid: pid_t, windows: [SCWindow]) throws {
-            let ids = cg.filter { ($0[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid }.compactMap { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value }
-            guard Set(ids) == Set(windows.map(\.windowID)), ids.count == windows.count else { throw ScreenFailure.protection }
+            let owned = cg.filter { ($0[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid }
+            let ids = owned.map { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value }
+            try ScreenRunnerWindowSets.requireComplete(cg: ids, sck: windows.map(\.windowID))
         }
         let surfaceWindows = content.windows.filter { $0.owningApplication?.processID == surface.pid }
         guard surfaceWindows.count == 1, let allowed = surfaceWindows.first,
@@ -85,6 +86,7 @@ final class ScreenRunnerInventory {
             }
             let own = content.windows.filter { $0.owningApplication?.processID == getpid() }
             guard !own.isEmpty else { throw ScreenFailure.protection }
+            try requireCompleteOwnership(pid: getpid(), windows: own)
             for window in own {
                 try attributed(window, pid: getpid(), bundle: "ai.sliccy.mac")
                 result.append(.init(label: "app", profile: "none", value: window))
@@ -95,6 +97,10 @@ final class ScreenRunnerInventory {
             try authorization.verifyLive()
             let prompts = content.windows.filter { ["com.apple.SecurityAgent", "com.apple.securityagent", "com.apple.AuthorizationHost", "com.apple.authorizationhost"].contains($0.owningApplication?.bundleIdentifier ?? "") }
             guard !prompts.isEmpty else { throw ScreenFailure.protection }
+            let owners = Set(prompts.compactMap { $0.owningApplication?.processID })
+            for pid in owners {
+                try requireCompleteOwnership(pid: pid, windows: prompts.filter { $0.owningApplication?.processID == pid })
+            }
             for window in prompts {
                 guard let owner = window.owningApplication else { throw ScreenFailure.protection }
                 try attributed(window, pid: owner.processID, bundle: owner.bundleIdentifier)

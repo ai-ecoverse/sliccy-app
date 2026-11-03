@@ -2,8 +2,6 @@
 import Darwin
 import Foundation
 
-/// Runner-owned tree only, after all owned children are reaped. Profile links
-/// and sockets are unlinked as leaves; their targets are never traversed.
 enum ScreenRunnerCleanup {
     private struct Node {
         let name: String, metadata: stat, children: [Node]?
@@ -16,7 +14,6 @@ enum ScreenRunnerCleanup {
         try checkRoot(directory, expected)
         var budget = Budget()
         let tree = try inspect(directory, path: [], device: expected.st_dev, budget: &budget)
-        // Refuse any regular file whose other hardlink is outside this owned tree.
         guard budget.fileLinks.values.allSatisfy({ $0.observed == $0.expected }) else { throw ScreenFailure.audit }
         try checkRoot(directory, expected)
         try erase(tree, at: directory)
@@ -55,7 +52,7 @@ enum ScreenRunnerCleanup {
         if path == ["Library"] { return isDirectory && name == "Application Support" }
         if path == ["Library", "Application Support"] { return isDirectory && ["slicc", "ai.sliccy.mac"].contains(name) }
         if path == ["Library", "Application Support", "ai.sliccy.mac"] { return isDirectory && name == "Audit" }
-        return true // regular owned contents within the fixed CLI config roots
+        return true
     }
     private static func inspect(_ fd: Int32, path: [String], device: dev_t, budget: inout Budget) throws -> [Node] {
         guard path.count <= 24 else { throw ScreenFailure.audit }

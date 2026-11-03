@@ -42,7 +42,7 @@ final class ScreenRunnerSession {
     private var failure: ScreenFailure?
     private var stopAt: ContinuousClock.Instant?
     private var root: URL?, rootFD: Int32 = -1, rootStat = stat()
-    private var reverseComplete = false, reverseSeen = false
+    private var reverseComplete = false, reverseSeen = false, inventoryUnavailable = false
     private var audit: ScreenAudit?
     init() throws {
         selected = try ScreenRunnerHost.require()
@@ -110,7 +110,7 @@ final class ScreenRunnerSession {
                 if inventory == nil { try await Task.sleep(for: .milliseconds(50)) }
             }
             guard let inventory else {
-                journal.emit("surface-unavailable", ["label": "inventory", "reason": "unresolved-owner"])
+                reportInventoryUnavailable()
                 reason = "surface-unavailable"; exitCode = 2; throw ScreenFailure.protection
             }
             if selected.needsBrowser { journal.emit("surface-process", ["label": "app", "pid": getpid(), "bundleIdentifier": "ai.sliccy.mac"]) }
@@ -121,7 +121,9 @@ final class ScreenRunnerSession {
             journal.emit("surfaces-ready", ["counts": ["processes": Set(inventory.windows.compactMap { $0.value.owningApplication?.processID }).count, "windows": inventory.windows.count]])
             try await marker("runner-surfaces-observed", timeout: .seconds(5))
             try audit?.record(.consent, reason: "active", scope: selected.scope, session: nil)
-            let refreshed = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization)
+            let refreshed: ScreenRunnerInventory
+            do { refreshed = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization) }
+            catch { reportInventoryUnavailable(); throw error }
             guard inventory.fingerprint == refreshed.fingerprint else { throw ScreenFailure.sourceChanged }
             journal.emit("surfaces-confirmed")
             let source = try ScreenRunnerCaptureSource.make(inventory: refreshed, selected: selected) { refusal in
@@ -143,7 +145,8 @@ final class ScreenRunnerSession {
                         connection.health.renewSource()
                     } catch {
                         guard let self, !Task.isCancelled, !self.cleaning, !self.stopping else { return }
-                        self.failure = .sourceChanged; self.relay?.invoke(.sourceChanged); return
+                        self.failure = .sourceChanged; self.relay?.invoke(.sourceChanged)
+                        self.reportInventoryUnavailable(); return
                     }
                 }
             }
@@ -180,21 +183,39 @@ final class ScreenRunnerSession {
             guard ContinuousClock.now < captureDeadline, reset, !journal.failed else { throw ScreenFailure.stalled }
             capture.stop(.stopped)
             guard await capture.proofAwaitStopped() else { throw ScreenFailure.sourceChanged }
+            try check()
             journal.emit("capture-stopped")
             try audit?.record(.stop, reason: "stopped", scope: selected.scope, session: binding.session)
             outcome = "complete"; reason = "complete"; exitCode = 0
         } catch {
+            if inventoryUnavailable { reason = "surface-unavailable"; exitCode = 2 }
             if exitCode == 2 { outcome = "failed-to-demonstrate" }
             if cancelled { outcome = "failed"; reason = "interrupted"; exitCode = 1 }
         }
         cleaning = true; sourceMonitor?.cancel(); captureLimit?.cancel(); connection?.health.invalidate(); capture?.stop(.stopped)
         indicator?.dismiss()
         var cleaned = true
+        if let transport = connection?.transport {
+            let deadline = stopAt?.advanced(by: .milliseconds(1500)) ?? .now
+            let snapshot = await Task.detached { transport.proofFinalClose(until: deadline) }.value
+            reportReverse(snapshot.notices)
+            journal.emit("reverse-ledger-closed", ["requests": snapshot.requests, "written": snapshot.written,
+                "pending": snapshot.pending, "pendingAtCutoff": snapshot.cutoff.pending,
+                "readInFlightAtCutoff": snapshot.cutoff.readInFlight,
+                "transportWasOpen": snapshot.cutoff.transportWasOpen, "invalid": snapshot.invalid,
+                "workersSettled": snapshot.workersSettled, "complete": snapshot.succeeded], at: snapshot.cutoff.at)
+            if outcome == "complete" && (!snapshot.succeeded || failure != nil || (selected == .reciprocalRevoke && snapshot.requests == 0)) {
+                outcome = "failed"; reason = "reverse-incomplete"; exitCode = 1
+            }
+        } else if outcome == "complete" {
+            outcome = "failed"; reason = "reverse-incomplete"; exitCode = 1
+        }
         if let connection {
             do {
                 if let pid = try await Task.detached(operation: { try connection.stopAndReap() }).value { reportNativeReap(pid) }
             } catch { cleaned = false }
         }
+        drainReverse()
         for (_, process) in owned { process.stop() }
         let cleanupRemaining = max(0, 45 - ScreenRunnerJournal.ms(journal.began.duration(to: .now)) / 1000)
         let cleanupDeadline = DispatchTime.now() + cleanupRemaining
@@ -207,6 +228,11 @@ final class ScreenRunnerSession {
         if journal.failed { outcome = "failed-to-demonstrate"; reason = "diagnostic-loss"; exitCode = 2 }
         let delivered = journal.emit("terminal", ["outcome": outcome, "reason": reason])
         Darwin.exit(delivered && !journal.failed ? exitCode : 2)
+    }
+    private func reportInventoryUnavailable() {
+        guard !inventoryUnavailable else { return }
+        inventoryUnavailable = true
+        journal.emit("surface-unavailable", ["label": "inventory", "reason": "unresolved-owner"])
     }
     private var reportedReaps = Set<pid_t>()
     private var nativeStarted: pid_t?, nativeReaped: pid_t?, nativeReapReported = false
@@ -250,7 +276,11 @@ final class ScreenRunnerSession {
     private func drainReverse() {
         guard let value = connection?.transport?.proofDrainReverseReplies() else { return }
         if value.invalid { failure = .incompatible }
-        for notice in value.notices {
+        reportReverse(value.notices)
+        reverseComplete = value.complete
+    }
+    private func reportReverse(_ notices: [ScreenProofReverseReplies.Notice]) {
+        for notice in notices {
             reverseSeen = true
             if notice.stage == .received, selected == .reciprocalRevoke, stopAt == nil {
                 stopAt = notice.at; journal.emit("stop-requested", ["trigger": "remote"], at: notice.at)
@@ -262,7 +292,6 @@ final class ScreenRunnerSession {
             let stage = notice.stage == .received ? "reverse-revoke-received" : notice.stage == .enqueued ? "reverse-reply-enqueued" : "reverse-reply-written"
             journal.emit(stage, ["revokeOrdinal": notice.ordinal], at: notice.at)
         }
-        reverseComplete = value.complete
     }
     private func surfaceEnded(_ label: String) -> @Sendable (pid_t, Bool) -> Void {
         { [weak self] pid, reaped in Task { @MainActor in
