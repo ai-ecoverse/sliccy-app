@@ -17,7 +17,7 @@ if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 ]]; then
   [[ "$MODE" == --build && "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == ai-ecoverse/sliccy-app && "${GITHUB_EVENT_NAME:-}" == push && "${GITHUB_REF:-}" == refs/heads/main ]] || { echo 'Build the diagnostic bundle through upstream main CI.' >&2; exit 2; }
   SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/native-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF)
   APP_BUNDLE="$ROOT_DIR/dist-proof/$APP_NAME.app"
-  BUILD_NUMBER=5
+  BUILD_NUMBER=6
 fi
 SWIFT="${SLICCY_SWIFT:-$(/usr/bin/xcrun --find swift)}"
 cd "$ROOT_DIR"

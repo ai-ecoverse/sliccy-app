@@ -33,11 +33,23 @@ struct ScreenProofTests {
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "ancillary"]) == .ancillary)
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "safety-handoff"]) == .safetyHandoff)
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "frame-handoff"]) == .frameHandoff)
+        #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "pid-reuse"]) == .pidReuse)
         for bad in [[String](), ["--screen-proof", "--case", "/bin/sh"],
                     ["--screen-proof", "--case", "base"], ["--screen-proof", "--pid", "1"],
                     ["--screen-proof", "--case", "parent-exec", "--path", "/tmp/helper"]] {
             #expect(throws: ScreenFailure.incompatible) { try ScreenProofCase.parse(bad) }
         }
+    }
+    @Test func reuseBudgetCannotExtendOrExceedTheFixedChurnLimit() {
+        let now = ContinuousClock.now
+        var countBound = ScreenProofReuseBudget(started: now)
+        for attempt in 1...32 { #expect(countBound.admit(now: now) == attempt) }
+        #expect(countBound.admit(now: now) == nil)
+        var timeBound = ScreenProofReuseBudget(started: now)
+        #expect(timeBound.admit(now: now.advanced(by: .seconds(12))) == 1)
+        #expect(timeBound.admit(now: now.advanced(by: .seconds(12) + .nanoseconds(1))) == nil)
+        #expect(timeBound.attempts == 1)
+        #expect(timeBound.deadline == now.advanced(by: .seconds(15)))
     }
     @Test func baselineRequestsAreBoundedAndConfirmationFreezesExactNextSequence() throws {
         let now = ContinuousClock.now

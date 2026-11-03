@@ -46,7 +46,7 @@ identity="Developer ID Application: Lars Trieloff ($APPLE_TEAM_ID)"
 for helper_name in ScreenProofExecHelper ScreenProofHandoffHelper; do
 helper="$signed_app/Contents/Helpers/$helper_name"
 if [[ -e "$helper" ]]; then
-  [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 5 ]] || { echo 'Unexpected diagnostic helper.' >&2; exit 2; }
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 6 ]] || { echo 'Unexpected diagnostic helper.' >&2; exit 2; }
   /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" \
     --identifier ai.sliccy.proof-helper --entitlements "$artifact_dir/entitlements.plist" "$helper"
   /usr/bin/codesign --verify --strict -R '=anchor apple generic and identifier "ai.sliccy.proof-helper" and certificate leaf[subject.OU] = "S8LB56P782"' "$helper"

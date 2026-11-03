@@ -89,6 +89,7 @@ final class ScreenProofSession: @unchecked Sendable {
     private var indicatorHealth: ScreenIndicatorHealth?
     private var generatedGranted = false
     private var generatedBaselineSequence: UInt64 = 0
+    private var reuse: ScreenProofPIDReuse?
 
     init(show: @escaping @Sendable (ScreenStopRelay) -> Void, completed: @escaping @Sendable (Int32) -> Void) {
         self.show = show; self.completed = completed
@@ -116,6 +117,21 @@ final class ScreenProofSession: @unchecked Sendable {
         locked { self.root = root }
         for name in ["tmp", "config"] {
             try FileManager.default.createDirectory(at: root.appending(path: name), withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        }
+        if selected == .pidReuse {
+            let reuse = ScreenProofPIDReuse(root: root, join: join) { [weak self] stage, pid, attempt, reason, duration in
+                self?.report(stage, reason: reason, pid: pid, attempt: attempt, budgetElapsedMs: duration)
+            }
+            locked { self.reuse = reuse }
+            show(ScreenStopRelay(gate: ScreenOutputGate(), stop: { _ in reuse.cancel() }))
+            reuse.run { [weak self] reason, code, cleaned in
+                guard let self else { return }
+                self.locked { self.finished = true; self.closing = true }
+                if cleaned { try? FileManager.default.removeItem(at: root) }
+                self.report("terminal", reason: reason)
+                self.completed(code)
+            }
+            return
         }
         let policy = ScreenLaunchPolicy.noCaptureProof(root: root)
         let verifier = ScreenPeerVerifier(approvedHashes: policy.hashes)
@@ -260,7 +276,7 @@ final class ScreenProofSession: @unchecked Sendable {
         queue.async { [self] in
             guard let transport = locked({ transport }) else { close(.peerLost); return }
             switch selected {
-            case .base: return
+            case .base, .pidReuse: return
             case .parentExec, .ancillary:
                 transport.proofBeginExecControl()
             case .safetyHandoff:
@@ -412,6 +428,7 @@ final class ScreenProofSession: @unchecked Sendable {
         }
     }
     func close(_ failure: ScreenFailure?) {
+        if let reuse = locked({ reuse }) { reuse.cancel(); return }
         let owned: (ScreenTransport?, ScreenChild?)? = locked {
             guard !closing else { return nil }
             closing = true; result = failure
@@ -498,7 +515,7 @@ final class ScreenProofSession: @unchecked Sendable {
         report("terminal", reason: failure?.rawValue ?? success)
         completed(failure == nil ? 0 : 1)
     }
-    private func report(_ stage: String, at: ContinuousClock.Instant = .now, duration: Duration? = nil, reason: String? = nil, pid: pid_t? = nil, frameSeq: UInt64? = nil, observerRow: ScreenProofReport? = nil) {
+    private func report(_ stage: String, at: ContinuousClock.Instant = .now, duration: Duration? = nil, reason: String? = nil, pid: pid_t? = nil, attempt: Int? = nil, budgetElapsedMs: Double? = nil, frameSeq: UInt64? = nil, observerRow: ScreenProofReport? = nil) {
         func milliseconds(_ duration: Duration) -> Double {
             let value = duration.components
             return Double(value.seconds) * 1000 + Double(value.attoseconds) / 1e15
@@ -507,6 +524,8 @@ final class ScreenProofSession: @unchecked Sendable {
         let selected = locked { proofCase }
         if selected != .base { row["schema"] = 2; row["case"] = selected.rawValue }
         if let frameSeq { row["frameSeq"] = String(frameSeq) }
+        if let attempt { row["attempt"] = attempt }
+        if let budgetElapsedMs { row["budgetElapsedMs"] = budgetElapsedMs }
         if let observerRow { row["verification"] = observerRow.metadata }
         if let pid { row["pid"] = pid }
         if let duration { row["durationMs"] = milliseconds(duration) }
