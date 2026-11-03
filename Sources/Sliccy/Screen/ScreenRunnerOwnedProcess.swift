@@ -8,7 +8,7 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
     let executable: URL
     let identifier: String
     private let lock = NSLock()
-    private var reaped = false, invalid = false
+    private var reaped = false, invalid = false, ownsPID = true
     private var input: Int32 = -1
     private var monitor: DispatchSourceProcess?
     private let exited = DispatchSemaphore(value: 0)
@@ -84,12 +84,12 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
         monitor.setEventHandler { [weak self, weak monitor] in
             guard let self else { return }
             self.lock.lock()
-            if monitor?.data.contains(.exec) == true { self.invalid = true; if !self.reaped { _ = kill(self.pid, SIGKILL) } }
+            if monitor?.data.contains(.exec) == true { self.invalid = true; if self.ownsPID && !self.reaped { _ = kill(self.pid, SIGKILL) } }
             if monitor?.data.contains(.exit) == true, !self.reaped {
                 self.invalid = true
                 var status: Int32 = 0, result: pid_t
                 repeat { result = waitpid(self.pid, &status, 0) } while result < 0 && errno == EINTR
-                self.reaped = result == self.pid
+                self.reaped = result == self.pid; self.ownsPID = false
                 let reaped = self.reaped
                 self.lock.unlock(); monitor?.cancel()
                 if reaped { self.exited.signal() }
@@ -112,7 +112,7 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
     }
     func verifyLive() throws {
         lock.lock(); defer { lock.unlock() }
-        guard !invalid, !reaped else { throw ScreenFailure.peerLost }
+        guard ownsPID, !invalid, !reaped else { throw ScreenFailure.peerLost }
         var guest: SecCode?
         guard SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributePid as String: pid] as CFDictionary, [], &guest) == errSecSuccess,
               let guest, SecCodeCheckValidity(guest, [], try Self.rule(identifier: identifier, team: identifier == "ai.sliccy.proof-helper" ? "S8LB56P782" : nil)) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
@@ -127,13 +127,13 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
     func stop() {
         lock.lock(); invalid = true
         if input >= 0 { close(input); input = -1 }
-        if !reaped { _ = kill(pid, SIGTERM) }
+        if ownsPID && !reaped { _ = kill(pid, SIGTERM) }
         lock.unlock()
     }
     func stopAndReap(until: DispatchTime) throws {
         stop()
         if !hasReaped, exited.wait(timeout: min(until, .now() + 1)) != .success {
-            lock.lock(); if !reaped { _ = kill(pid, SIGKILL) }; lock.unlock()
+            lock.lock(); if ownsPID && !reaped { _ = kill(pid, SIGKILL) }; lock.unlock()
             if !hasReaped, exited.wait(timeout: until) != .success { throw ScreenFailure.stalled }
         }
         guard hasReaped else { throw ScreenFailure.stalled }

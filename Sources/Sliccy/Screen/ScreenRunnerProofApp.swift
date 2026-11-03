@@ -134,8 +134,11 @@ final class ScreenRunnerSession {
                 reason = "surface-unavailable"; exitCode = 2; throw ScreenFailure.protection
             }
             if selected.needsBrowser { journal.emit("surface-process", ["label": "app", "pid": getpid(), "bundleIdentifier": "ai.sliccy.mac"]) }
+            if let authorizationWindow = inventory.windows.first(where: { $0.label == "authorization" }), let owner = authorizationWindow.value.owningApplication {
+                journal.emit("surface-process", ["label": "authorization", "pid": owner.processID, "bundleIdentifier": owner.bundleIdentifier])
+            }
             report(inventory)
-            journal.emit("surfaces-ready", ["counts": ["processes": primaries.count + (selected.needsBrowser ? 1 : 0), "windows": inventory.windows.count]])
+            journal.emit("surfaces-ready", ["counts": ["processes": Set(inventory.windows.compactMap { $0.value.owningApplication?.processID }).count, "windows": inventory.windows.count]])
             try await marker("runner-surfaces-observed", timeout: .seconds(5))
             try audit?.record(.consent, reason: "active", scope: selected.scope, session: nil)
             let refreshed = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization)
