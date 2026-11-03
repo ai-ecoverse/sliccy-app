@@ -71,6 +71,8 @@ enum ScreenFilterBuilder {
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(fps))
         configuration.queueDepth = 3
         configuration.pixelFormat = kCVPixelFormatType_32BGRA
+        configuration.colorSpaceName = CGColorSpace.sRGB
+        guard CFEqual(configuration.colorSpaceName, CGColorSpace.sRGB) else { throw ScreenFailure.incompatible }
         configuration.showsCursor = false
         configuration.capturesAudio = false
         configuration.captureMicrophone = false

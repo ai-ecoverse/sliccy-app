@@ -5,6 +5,12 @@ import Testing
 @testable import Sliccy
 
 struct ScreenCaptureTests {
+    @Test func captureConfigurationMatchesTheJPEGColorSpace() throws {
+        let configuration = try ScreenFilterBuilder.configuration(width: 256, height: 256)
+        #expect(CFEqual(configuration.colorSpaceName, CGColorSpace.sRGB))
+        #expect(configuration.pixelFormat == kCVPixelFormatType_32BGRA)
+        #expect(configuration.captureDynamicRange == .SDR)
+    }
     @Test func syntheticPixelsEncodeWithoutSourceMetadata() throws {
         var buffer: CVPixelBuffer?
         #expect(CVPixelBufferCreate(kCFAllocatorDefault, 32, 24, kCVPixelFormatType_32BGRA, nil, &buffer) == kCVReturnSuccess)
