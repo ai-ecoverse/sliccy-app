@@ -21,13 +21,13 @@ import setup_support as setup
 
 RECIPIENT = 'age1n5hhvvjf65g96xjksnk2j7aqld83ae2mt3vfdymuxqsh0ex5qqxsarh2nk'
 AGE_SHA = 'e2020b073c44f692685a24d6abc378817eb81ffaaf49fd0531ef8565f767f2f5'
-APP_RUN = '41592474876'
-APP_SOURCE = 'e416ccda54027e64e428238852bafa71746be335'
-APP_ZIP_SHA = '3661511513f54e8ae4c14361d6b8dfe33019abcb6e4299fc3756285dd37ec8a4'
-APP_MANIFEST_SHA = '888706fb69ac7d2900486bc52d855659c43fdcbc566056ba1e788981c16f1824'
+APP_RUN = '41601338035'
+APP_SOURCE = '4b00c6a77536c52eea4ef3ae3fd133fe0a7fd8a7'
+APP_ZIP_SHA = '3a7ecf12760fb1f86b22ef4bc4ba741a2cde8df48dc39a8bfec097188e2c5dc8'
+APP_MANIFEST_SHA = '58696c9afe1cfa64d755da93cba7a9410a12e5ffb7084bc08cf3e81f136e9786'
 INPUTS = {
-    'hosted-pid-driver.tar.gz': '424ed033ec26fa46dbcdf520e251e8a9d86551367cf7d01f1a96025c6d04e306',
-    'hosted-pid-driver-files.json': '70b9e16ad69d5a7c26386c19b0bafe5f5fc9612eb0707fb9c39d94296cb770a2',
+    'hosted-pid-driver.tar.gz': '56d3874211d097f46979ded675d63f3d718ecd25e31aa22dcd65c7a980a62af6',
+    'hosted-pid-driver-files.json': '6b0a7e18c3a2fc1cbfa3385eac4a43f9f933dc3ebddce678834298c9341938fb',
     'slicc-v1.59.0.tar.gz': '8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9',
 }
 PREFIX = 'ai-ecoverse-slicc-cli-cea8ec1'
@@ -72,12 +72,12 @@ def extract_sources(inputs, destination):
         raise ValueError('driver contract')
     if set(metadata) != {'schema', 'sourceTag', 'CGO_ENABLED', 'entryTests', 'case', 'fixtureSource', 'appBuild', 'driverTimeoutSeconds', 'goTestTimeoutSeconds', 'placementAssertions', 'files'}:
         raise ValueError('driver manifest fields')
-    if (metadata['case'], metadata['fixtureSource'], metadata['appBuild'], metadata['driverTimeoutSeconds'], metadata['goTestTimeoutSeconds']) != ('pid-reuse-hosted', APP_SOURCE, '9', 650, 670):
+    if (metadata['case'], metadata['fixtureSource'], metadata['appBuild'], metadata['driverTimeoutSeconds'], metadata['goTestTimeoutSeconds']) != ('pid-reuse-hosted', APP_SOURCE, '10', 970, 990):
         raise ValueError('driver placement contract')
     if metadata['placementAssertions'] != ['GITHUB_ACTIONS', 'GITHUB_REPOSITORY', 'GITHUB_EVENT_NAME', 'GITHUB_REF', 'SLICCY_RUNNER_ENVIRONMENT']:
         raise ValueError('driver placement fields')
     expected = metadata['files']
-    if len(expected) != 29 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
+    if len(expected) != 30 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
         raise ValueError('driver file set')
     package = destination / 'test/nativeproof'
     package.mkdir(mode=0o700)
@@ -251,8 +251,8 @@ def suite(root, evidence, log, env, deadline, workspace, trace):
     with (case / 'go-test.log').open('xb') as case_log:
         try:
             with trace.step('native-driver'):
-                code = run_owned([str(go), 'test', '-count=1', '-timeout', '670s', '-run', '^TestSignedHostedPIDReuse$', './test/nativeproof'],
-                                 case_log, run_env, deadline, maximum=680, cwd=sources, check=False)
+                code = run_owned([str(go), 'test', '-count=1', '-timeout', '990s', '-run', '^TestSignedHostedPIDReuse$', './test/nativeproof'],
+                                 case_log, run_env, deadline, maximum=1000, cwd=sources, check=False)
                 if code != 0:
                     raise setup.SetupFailure('command-failed')
             outcome = 'DRIVER_EXIT_0'
@@ -262,7 +262,7 @@ def suite(root, evidence, log, env, deadline, workspace, trace):
             outcome = 'DRIVER_TIMEOUT'
     outcomes = {'pid-reuse-hosted': outcome}
     (case / 'invocation.json').write_text(json.dumps({'entryTest': 'TestSignedHostedPIDReuse', 'result': outcome,
-        'CGO_ENABLED': '0', 'driverTimeoutSeconds': 650, 'goTestTimeoutSeconds': 670}) + '\n')
+        'CGO_ENABLED': '0', 'driverTimeoutSeconds': 970, 'goTestTimeoutSeconds': 990}) + '\n')
 
     with trace.step('artifact-recheck'):
         try:
@@ -303,12 +303,12 @@ def main():
                 with trace.step('age-download'):
                     run_owned(['/usr/bin/curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
                                '--tlsv1.2', '--max-time', '30', 'https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-darwin-arm64.tar.gz',
-                               '--output', str(archive)], log, env, began + 700, maximum=35)
+                               '--output', str(archive)], log, env, began + 1020, maximum=35)
                 with trace.step('age-check'):
                     unpack_age(archive, age)
 
                 os.environ['SLICC_NO_TELEMETRY'] = '1'; os.environ['SLICC_NO_UPDATE_CHECK'] = '1'
-                status = suite(root, evidence, log, env, began + 700, workspace, trace)
+                status = suite(root, evidence, log, env, began + 1020, workspace, trace)
             except Exception as error:
                 log.write((type(error).__name__ + '\n').encode()); status = 1
             finally:
@@ -335,7 +335,7 @@ def main():
                         bundle.add(path, arcname=str(path.relative_to(evidence)), recursive=False)
                 temporary = root / 'sealed.age'
                 run_owned([str(age), '--encrypt', '--recipient', RECIPIENT, '--output', str(temporary), str(payload)],
-                          log, env, began + 720, maximum=40)
+                          log, env, began + 1040, maximum=40)
                 if temporary.stat().st_size <= 0: raise ValueError('empty envelope')
                 temporary.replace(destination); sealed = True
         if sealed:

@@ -12,7 +12,7 @@ from universal_manifest import REQUIREMENT, checked
 def manifest(app):
     plist = (app / 'Contents/Info.plist').read_bytes()
     info = plistlib.loads(plist)
-    if (info['CFBundleIdentifier'], info['CFBundleShortVersionString'], info['CFBundleVersion']) != ('ai.sliccy.mac', '0.1.0', '9'):
+    if (info['CFBundleIdentifier'], info['CFBundleShortVersionString'], info['CFBundleVersion']) != ('ai.sliccy.mac', '0.1.0', '10'):
         raise ValueError('wrong fixture identity')
     if (app / 'Contents/Helpers').exists() or {p.name for p in (app / 'Contents/Resources').iterdir()} != {'slicc'}:
         raise ValueError('unexpected fixture resources')
@@ -29,7 +29,7 @@ def manifest(app):
     source = os.environ.get('GITHUB_SHA', '')
     if not re.fullmatch('[0-9a-f]{40}', source):
         raise ValueError('source commit required')
-    return {'schema': 1, 'sourceCommit': source, 'version': '0.1.0', 'build': '9',
+    return {'schema': 1, 'sourceCommit': source, 'version': '0.1.0', 'build': '10',
             'identifier': 'ai.sliccy.mac', 'team': 'S8LB56P782', 'executable': executable,
             'emptyEntitlements': True, 'infoPlistSHA256': hashlib.sha256(plist).hexdigest(),
             'resources': {'slicc': resource}, 'case': 'pid-reuse-hosted', 'capture': False,

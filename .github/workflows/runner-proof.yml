@@ -75,7 +75,7 @@ jobs:
   hosted-pid:
     if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/proof/runner-capture-v1'
     runs-on: xcode-27
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
