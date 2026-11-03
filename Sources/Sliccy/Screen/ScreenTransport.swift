@@ -269,18 +269,63 @@ final class ScreenTransport: @unchecked Sendable {
     }
 
 #if SLICCY_NATIVE_SCREEN_PROOF
-    func proofBeginExecControl() {
+    func proofBeginExecControl(keepHeartbeats: Bool = false) {
         outputQueue.async { [self] in
             do {
                 let start = try locked {
-                    guard noCapture, !ended, state.ready, !imageWriting, state.phase == .linked,
+                    guard !ended, state.ready, !imageWriting, proofControlSeq == nil,
+                          keepHeartbeats ? (!noCapture && state.phase == .active && currentProtection()) : (noCapture && state.phase == .linked),
                           !proofPaused else { throw ScreenFailure.incompatible }
-                    proofPaused = true
+                    proofPaused = !keepHeartbeats
                     let message = try state.heartbeat()
                     proofControlSeq = state.sent
                     return try appendLocked(message).0
                 }
                 if start { outputQueue.async { [self] in writeControl() } }
+            } catch { fail(error as? ScreenFailure ?? .peerLost) }
+        }
+    }
+
+    func proofGrantGeneratedSource() throws {
+        let link = try locked { () throws -> String in
+            guard !noCapture, currentProtection(), let link = state.link else { throw ScreenFailure.protection }
+            return link
+        }
+        let binding = ScreenBinding(link: link, session: try ScreenID.make(), source: try ScreenID.make(),
+            grantEpoch: "1", sourceEpoch: "1", protectionEpoch: "1")
+        try grant(binding, scope: "window") // Synthetic vocabulary only, no OS window.
+    }
+    private func proofFrameHeader(sequence: UInt64) throws -> ScreenFrameHeader {
+        let (binding, next) = try gate.nextFrame()
+        guard next == sequence else { throw ScreenFailure.incompatible }
+        return try locked {
+            guard !noCapture, !ended, state.phase == .active, state.binding == binding, currentProtection() else { throw ScreenFailure.protection }
+            return ScreenFrameHeader(binding: binding, frameSeq: String(next), capturedMonoMs: ScreenProofSyntheticSource.monotonicMilliseconds(),
+                width: 16, height: 16, launch: state.launch, connection: state.connection)
+        }
+    }
+    func proofSubmitGeneratedBaseline(_ source: ScreenProofSyntheticSource) throws {
+        let captured = ContinuousClock.now
+        try submit(proofFrameHeader(sequence: 1), jpeg: source.jpeg, captured: captured)
+    }
+    func proofGeneratedFrameAfterFreshControl(_ source: ScreenProofSyntheticSource,
+        action: @escaping @Sendable (Int32, Data, ContinuousClock.Instant) throws -> Void) {
+        imageQueue.async { [self] in
+            do {
+                let deadline = try locked { () throws -> ContinuousClock.Instant in
+                    let now = ContinuousClock.now
+                    guard !ended, !noCapture, !imageWriting, latest == nil, !proofPaused,
+                          let sent = proofControlSentAt, let echoed = proofControlEchoedAt,
+                          sent.duration(to: now) <= .milliseconds(750), echoed.duration(to: now) <= .milliseconds(100)
+                    else { throw ScreenFailure.stalled }
+                    return min(sent.advanced(by: .milliseconds(750)), now.advanced(by: .milliseconds(100)))
+                }
+                let header = try proofFrameHeader(sequence: 2)
+                _ = try verifier.verifyCLI(socket: frames.fd, expectedPID: identity.pid, expectedIdentity: identity)
+                let data = try JSONEncoder().encode(header)
+                let record = ScreenSocket.prefix(data.count) + data + ScreenSocket.prefix(source.jpeg.count) + source.jpeg
+                guard record.count <= 4104, gate.allows(header.binding) else { throw ScreenFailure.protection }
+                try action(frames.fd, record, deadline)
             } catch { fail(error as? ScreenFailure ?? .peerLost) }
         }
     }

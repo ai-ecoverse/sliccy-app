@@ -17,6 +17,13 @@ struct ScreenProofReport: Codable, Sendable {
         stage == "check" && lane == "safety" && outcome == "accepted" &&
         tokenMatched == true && pidAgreed == true && uidAgreed == true && !lost
     }
+    var acceptedFrames: Bool {
+        stage == "check" && lane == "frames" && outcome == "accepted" &&
+        tokenMatched == true && pidAgreed == true && uidAgreed == true && !lost
+    }
+    var refusedFrames: Bool {
+        stage == "check" && lane == "frames" && outcome == "refused" && tokenMatched == false && !lost
+    }
     var refusedSafety: Bool {
         stage == "check" && lane == "safety" && outcome == "refused" && tokenMatched == false && !lost
     }

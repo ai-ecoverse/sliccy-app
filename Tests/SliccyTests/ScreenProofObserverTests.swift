@@ -19,6 +19,13 @@ struct ScreenProofObserverTests {
         let result = try JSONSerialization.data(withJSONObject: rows.map(\.metadata))
         #expect(!String(decoding: result, as: UTF8.self).contains("CONTENT-SENTINEL"))
     }
+    @Test func frameEvidenceCannotBeSubstitutedForSafetyEvidence() throws {
+        var filter = ScreenProofObserver()
+        let rows = try filter.feed(line(accepted.replacingOccurrences(of: "safety", with: "frames")) + line(refused.replacingOccurrences(of: "safety", with: "frames")) + line(complete))
+        #expect(rows[0].acceptedFrames && !rows[0].acceptedSafety)
+        #expect(rows[1].refusedFrames && !rows[1].refusedSafety)
+        let complete = filter.finish(); #expect(complete)
+    }
     @Test func gapsDuplicatesUnknownFieldsAndTypesAreInconclusive() throws {
         for malformed in [accepted.replacingOccurrences(of: #""seq":1"#, with: #""seq":2"#),
             accepted.replacingOccurrences(of: #""tokenMatched":true"#, with: #""tokenMatched":1"#),

@@ -32,11 +32,19 @@ struct ScreenProofTests {
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "lifecycle"]) == .lifecycle)
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "ancillary"]) == .ancillary)
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "safety-handoff"]) == .safetyHandoff)
+        #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "frame-handoff"]) == .frameHandoff)
         for bad in [[String](), ["--screen-proof", "--case", "/bin/sh"],
                     ["--screen-proof", "--case", "base"], ["--screen-proof", "--pid", "1"],
                     ["--screen-proof", "--case", "parent-exec", "--path", "/tmp/helper"]] {
             #expect(throws: ScreenFailure.incompatible) { try ScreenProofCase.parse(bad) }
         }
+    }
+    @Test func generatedSourceIsFixedBoundedAndUsesMetadataStrippedJPEG() throws {
+        let first = try ScreenProofSyntheticSource(), second = try ScreenProofSyntheticSource()
+        #expect(first.jpeg == second.jpeg)
+        #expect(first.jpeg.count <= 2048)
+        #expect(try ScreenJPEG.withoutMetadata(first.jpeg) == first.jpeg)
+        #expect(!ScreenReleasePolicy.identityProofApproved && ScreenReleasePolicy.provenScopes.isEmpty)
     }
     @Test func ancillaryObservationCannotPassFromLeaseExpiryPartialSendOrEarlyExit() {
         let start = ContinuousClock.now

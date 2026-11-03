@@ -5,6 +5,8 @@ enum ScreenProofCase: String, Sendable {
     case base
     case parentExec = "parent-exec"
     case lifecycle
+    case frameHandoff = "frame-handoff"
+    var isHandoff: Bool { self == .safetyHandoff || self == .frameHandoff }
     case safetyHandoff = "safety-handoff"
     case ancillary
 

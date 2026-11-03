@@ -26,6 +26,7 @@ final class ScreenProofApp: NSObject, NSApplicationDelegate {
                 do {
                     self.relay = relay
                     self.indicator = try ScreenIndicator(recipient: "Local synthetic peer", scope: "None", relay: relay, diagnostic: true)
+                    if let health = self.indicator?.health { self.session?.indicatorReady(health) }
                 } catch { relay.invoke(.indicator) }
             }
         }, completed: { [weak self] code in
@@ -84,6 +85,9 @@ final class ScreenProofSession: @unchecked Sendable {
     private var handoffDeadline: ContinuousClock.Instant?
     private var handoffLoss: ContinuousClock.Instant?
     private var handoffCompleted = false
+    private var syntheticSource: ScreenProofSyntheticSource?
+    private var indicatorHealth: ScreenIndicatorHealth?
+    private var generatedGranted = false
 
     init(show: @escaping @Sendable (ScreenStopRelay) -> Void, completed: @escaping @Sendable (Int32) -> Void) {
         self.show = show; self.completed = completed
@@ -99,6 +103,11 @@ final class ScreenProofSession: @unchecked Sendable {
     private func connect() throws {
         let selected = try ScreenProofCase.parse(Array(ProcessInfo.processInfo.arguments.dropFirst()))
         locked { proofCase = selected }
+        if selected == .frameHandoff {
+            let source = try ScreenProofSyntheticSource()
+            locked { syntheticSource = source }
+            report("generated-source-verified")
+        }
         let join = try Self.readJoin()
         var template = Array("/private/tmp/sliccy-proof.XXXXXXXX".utf8CString)
         guard mkdtemp(&template) != nil else { throw ScreenFailure.audit }
@@ -111,7 +120,7 @@ final class ScreenProofSession: @unchecked Sendable {
         let verifier = ScreenPeerVerifier(approvedHashes: policy.hashes)
         let handshake = try ScreenHandshake()
         let proofOutput: (@Sendable (Data?) -> Void)?
-        if selected == .safetyHandoff { proofOutput = { [weak self] data in self?.consumeObserver(data) } }
+        if selected.isHandoff { proofOutput = { [weak self] data in self?.consumeObserver(data) } }
         else { proofOutput = nil }
         let child = try ScreenChild(executable: Bundle.main.bundleURL.appending(path: "Contents/Resources/slicc").path,
             join: join, bootstrap: handshake.bootstrapRecord(), policy: policy, proofOutput: proofOutput,
@@ -126,7 +135,7 @@ final class ScreenProofSession: @unchecked Sendable {
             policy: policy, childAlive: { child.isAlive })
         report("lanes-authenticated")
         locked { authenticatedIdentity = pair.identity }
-        let transport = ScreenTransport(pair: pair, verifier: verifier, noCapture: true, currentProtection: { false },
+        let transport = ScreenTransport(pair: pair, verifier: verifier, noCapture: selected != .frameHandoff, currentProtection: { [weak self] in self?.generatedSourceReady == true },
             event: { [weak self] in self?.event($0) })
         guard locked({ () -> Bool in
             guard !closing else { return false }
@@ -158,13 +167,20 @@ final class ScreenProofSession: @unchecked Sendable {
         case .proofControlEchoed(let at):
             report(controlStage("echoed"), at: at)
             let transport = locked { self.transport }
+            if locked({ proofCase == .frameHandoff }), let source = locked({ syntheticSource }) {
+                transport?.proofGeneratedFrameAfterFreshControl(source) { [self] frames, record, deadline in
+                    guard let child = locked({ self.child }), child.isAlive else { throw ScreenFailure.peerLost }
+                    try transferSafety(safety: frames, cli: child.pid, record: record, deadline: deadline)
+                }
+                return
+            }
             transport?.proofAfterFreshControl { [self] safety, frames, record, deadline in
                 guard let child = locked({ self.child }), child.isAlive else { throw ScreenFailure.peerLost }
                 if locked({ proofCase == .ancillary }) {
                     try injectAncillary(safety: safety, record: record, deadline: deadline)
                     return
                 }
-                if locked({ proofCase == .safetyHandoff }) {
+                if locked({ proofCase.isHandoff }) {
                     try transferSafety(safety: safety, cli: child.pid, record: record, deadline: deadline)
                     return
                 }
@@ -184,7 +200,20 @@ final class ScreenProofSession: @unchecked Sendable {
         case .link:
             locked { linked = true }; report("synthetic-link-observed"); runCaseIfReady()
         case .granted:
-            close(.protection) // No diagnostic code may request a grant.
+            guard locked({ proofCase == .frameHandoff && !generatedGranted }), let source = locked({ syntheticSource }),
+                  let transport = locked({ transport }) else { close(.protection); return }
+            locked { generatedGranted = true }; report("synthetic-granted")
+            do {
+                try transport.proofSubmitGeneratedBaseline(source)
+                report("synthetic-baseline-submitted")
+                queue.async { [self] in
+                    do {
+                        try Self.readBaselineMarker()
+                        report("synthetic-baseline-confirmed")
+                        try startHandoffHelper()
+                    } catch { close(.incompatible) }
+                }
+            } catch { close(.protection) }
         case .revokeQueued(let at):
             report("revoke-queued", at: at)
         case .revocationConfirmed:
@@ -192,7 +221,7 @@ final class ScreenProofSession: @unchecked Sendable {
             close(locked { ready && stopping ? nil : .incompatible })
         case .stopped(let reason):
             let handoff = locked { () -> Bool in
-                guard proofCase == .safetyHandoff, handoffAt != nil, !closing, !stopping else { return false }
+                guard proofCase.isHandoff, handoffAt != nil, !closing, !stopping else { return false }
                 if reason == .peerLost && handoffLoss == nil { handoffLoss = .now }
                 return true
             }
@@ -213,7 +242,8 @@ final class ScreenProofSession: @unchecked Sendable {
     private func runCaseIfReady() {
         let selected: ScreenProofCase? = locked {
             guard ready, linked, !caseStarted, !closing, proofCase != .base else { return nil }
-            if proofCase == .safetyHandoff && !observerBaseline { return nil }
+            if proofCase.isHandoff && !observerBaseline { return nil }
+            if proofCase == .frameHandoff && indicatorHealth?.check() != true { return nil }
             caseStarted = true
             return proofCase
         }
@@ -225,16 +255,10 @@ final class ScreenProofSession: @unchecked Sendable {
             case .parentExec, .ancillary:
                 transport.proofBeginExecControl()
             case .safetyHandoff:
-                do {
-                    let url = Bundle.main.bundleURL.appending(path: "Contents/Helpers/ScreenProofHandoffHelper")
-                    try Self.verifyExecHelper(url)
-                    let helper = try ScreenProofHelper(executable: url.path, event: { [weak self] in self?.helperEvent($0) })
-                    let keep = locked { () -> Bool in
-                        guard !closing else { return false }; self.helper = helper; return true
-                    }
-                    report("handoff-helper-started", pid: helper.pid)
-                    if keep { try helper.start() } else { helper.stop() }
-                } catch { close(.peerUntrusted) }
+                do { try startHandoffHelper() } catch { close(.peerUntrusted) }
+            case .frameHandoff:
+                do { try transport.proofGrantGeneratedSource(); report("synthetic-grant-requested") }
+                catch { close(.protection) }
             case .lifecycle:
                 guard let identity = locked({ authenticatedIdentity }),
                       (try? ScreenPeerVerifier.verify(identity: identity, identifier: "ai.sliccy.slicc")) != nil
@@ -246,8 +270,38 @@ final class ScreenProofSession: @unchecked Sendable {
             }
         }
     }
+    func indicatorReady(_ health: ScreenIndicatorHealth) {
+        locked { indicatorHealth = health }; runCaseIfReady()
+    }
+    private var generatedSourceReady: Bool {
+        locked { proofCase == .frameHandoff && syntheticSource != nil && indicatorHealth?.check() == true }
+    }
+    private func startHandoffHelper() throws {
+        let url = Bundle.main.bundleURL.appending(path: "Contents/Helpers/ScreenProofHandoffHelper")
+        try Self.verifyExecHelper(url)
+        let helper = try ScreenProofHelper(executable: url.path, event: { [weak self] in self?.helperEvent($0) })
+        let keep = locked { () -> Bool in
+            guard !closing, self.helper == nil else { return false }; self.helper = helper; return true
+        }
+        report("handoff-helper-started", pid: helper.pid)
+        if keep { try helper.start() } else { helper.stop() }
+    }
+    private static func readBaselineMarker() throws {
+        let expected = Array("frame-baseline\n".utf8)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        var offset = 0
+        while offset < expected.count, ContinuousClock.now < deadline {
+            var descriptor = pollfd(fd: STDIN_FILENO, events: Int16(POLLIN), revents: 0)
+            let status = poll(&descriptor, 1, 25)
+            if status == 0 || (status < 0 && errno == EINTR) { continue }
+            var byte: UInt8 = 0
+            guard status > 0, read(STDIN_FILENO, &byte, 1) == 1, byte == expected[offset] else { throw ScreenFailure.incompatible }
+            offset += 1
+        }
+        guard offset == expected.count else { throw ScreenFailure.stalled }
+    }
     private func controlStage(_ suffix: String) -> String {
-        locked { (proofCase == .ancillary ? "ancillary" : proofCase == .safetyHandoff ? "handoff" : "exec") + "-control-" + suffix }
+        locked { (proofCase == .ancillary ? "ancillary" : proofCase.isHandoff ? "handoff" : "exec") + "-control-" + suffix }
     }
     private func consumeObserver(_ data: Data?) {
         if data != nil, locked({ observer.invalid }) { return }
@@ -260,8 +314,8 @@ final class ScreenProofSession: @unchecked Sendable {
             }
             for row in rows {
                 locked {
-                    observerBaseline = observerBaseline || row.acceptedSafety
-                    observerRefusal = observerRefusal || (row.refusedSafety && handoffAt != nil)
+                    observerBaseline = observerBaseline || (proofCase == .frameHandoff ? row.acceptedFrames : row.acceptedSafety)
+                    observerRefusal = observerRefusal || ((proofCase == .frameHandoff ? row.refusedFrames : row.refusedSafety) && handoffAt != nil)
                     if row.stage == "complete" { observerComplete = !row.lost }
                 }
                 report("cli-verification", observerRow: row)
@@ -287,7 +341,7 @@ final class ScreenProofSession: @unchecked Sendable {
         switch value {
         case .stage(let stage):
             report("handoff-helper-" + stage)
-            if stage == "ready" { locked { transport }?.proofBeginExecControl() }
+            if stage == "ready" { locked { transport }?.proofBeginExecControl(keepHeartbeats: locked { proofCase == .frameHandoff }) }
             if stage == "written" {
                 locked { helperWritten = handoffDeadline.map { ContinuousClock.now < $0 } == true }
             }
@@ -411,11 +465,11 @@ final class ScreenProofSession: @unchecked Sendable {
         finish(failure)
     }
     private func finish(_ failure: ScreenFailure?) {
-        if locked({ proofCase == .safetyHandoff && failure != .stalled &&
+        if locked({ proofCase.isHandoff && failure != .stalled &&
             ((!observerEnded && child != nil) || (helper != nil && !helperEnded)) }) { return }
         let failure = failure ?? locked {
             (proofCase == .ancillary && !ancillaryCompleted) ||
-            (proofCase == .safetyHandoff && (!handoffCompleted || observer.invalid)) ? .incompatible : nil
+            (proofCase.isHandoff && (!handoffCompleted || observer.invalid)) ? .incompatible : nil
         }
         let outcome: (Bool, URL?) = locked {
             guard !finished else { return (false, nil) }
@@ -429,7 +483,7 @@ final class ScreenProofSession: @unchecked Sendable {
             switch proofCase {
             case .lifecycle: "lifecycle-only-complete"
             case .ancillary: "ancillary-observation-complete"
-            case .safetyHandoff: "handoff-observation-complete"
+            case .safetyHandoff, .frameHandoff: "handoff-observation-complete"
             default: "ipc-only-complete"
             }
         }
