@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "status": "static-page-handler-and-pure-loopback-tests-only",
+  "minimumMainDisplayCGPoints": [
+    1024,
+    768
+  ],
+  "allowedHelperRectCGPoints": {
+    "x": 128,
+    "y": 128,
+    "width": 256,
+    "height": 256
+  },
+  "pages": [
+    {
+      "path": "/screen-proof/host-a-1",
+      "profile": "a",
+      "title": "Sliccy proof host A1",
+      "sRGB": [
+        224,
+        32,
+        192
+      ],
+      "rectCGPoints": {
+        "x": 416,
+        "y": 64,
+        "width": 288,
+        "height": 224
+      }
+    },
+    {
+      "path": "/screen-proof/host-a-2",
+      "profile": "a",
+      "title": "Sliccy proof host A2",
+      "sRGB": [
+        24,
+        200,
+        208
+      ],
+      "rectCGPoints": {
+        "x": 720,
+        "y": 64,
+        "width": 288,
+        "height": 224
+      }
+    },
+    {
+      "path": "/screen-proof/host-b-1",
+      "profile": "b",
+      "title": "Sliccy proof host B1",
+      "sRGB": [
+        248,
+        120,
+        24
+      ],
+      "rectCGPoints": {
+        "x": 416,
+        "y": 320,
+        "width": 288,
+        "height": 224
+      }
+    },
+    {
+      "path": "/screen-proof/host-b-2",
+      "profile": "b",
+      "title": "Sliccy proof host B2",
+      "sRGB": [
+        128,
+        64,
+        224
+      ],
+      "rectCGPoints": {
+        "x": 720,
+        "y": 320,
+        "width": 288,
+        "height": 224
+      }
+    }
+  ],
+  "origin": "validated http://127.0.0.1:<ephemeral> origin only; ports9222..9229 refused",
+  "pageAdmissionMaximum": 64,
+  "pageMethods": [
+    "GET",
+    "HEAD"
+  ],
+  "queryEncodedPathBodyAndForeignHostRefused": true,
+  "joinCapabilityIncluded": false,
+  "staticRoutesPrecedeProofGate": true,
+  "ChromeOrCaptureLaunched": false,
+  "staticPageTestsPassed": 2,
+  "futureCaptureDriverComplete": false,
+  "sourceFilesSHA256": {
+    "runner_pages_darwin_test.go": "97120f7f16f822fceec9cbaa23fbfe222e0d50b1e4d22acca13decaf5f93febd",
+    "fakehub_test.go": "b9d5ce98a94949544e8ec20317678494213e9a16a1170a2ca807260fbcc2b711",
+    "released_test.go": "7bfc09b585caf4ef895e0ec7944cd6d9cc88222c1961b5860ba54e307b59b4f5"
+  },
+  "priorFrozenPIDDriverArchiveUnchanged": true
+}
