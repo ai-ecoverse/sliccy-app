@@ -14,6 +14,9 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
     private let exited = DispatchSemaphore(value: 0)
     private let ended: @Sendable (pid_t, Bool) -> Void
     private let staticHash: Data
+    private let team: String?
+    private var identity: ScreenRunnerProcessIdentity?
+    private var signalRefused = false
     var isAlive: Bool { lock.lock(); defer { lock.unlock() }; return !invalid && !reaped }
 
     static func surface(home: URL, ended: @escaping @Sendable (pid_t, Bool) -> Void) throws -> ScreenRunnerOwnedProcess {
@@ -42,7 +45,7 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
     }
     private init(executable: URL, identifier: String, team: String?, arguments: [String], home: URL,
                  ended: @escaping @Sendable (pid_t, Bool) -> Void) throws {
-        self.executable = executable; self.identifier = identifier; self.ended = ended
+        self.executable = executable; self.identifier = identifier; self.ended = ended; self.team = team
         var code: SecStaticCode?
         guard SecStaticCodeCreateWithPath(executable as CFURL, [], &code) == errSecSuccess, let code else { throw ScreenFailure.peerUntrusted }
         let rule = try Self.rule(identifier: identifier, team: team)
@@ -84,7 +87,7 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
         monitor.setEventHandler { [weak self, weak monitor] in
             guard let self else { return }
             self.lock.lock()
-            if monitor?.data.contains(.exec) == true { self.invalid = true; if self.ownsPID && !self.reaped { _ = kill(self.pid, SIGKILL) } }
+            if monitor?.data.contains(.exec) == true { self.invalid = true; _ = self.signalLocked(SIGKILL) }
             if monitor?.data.contains(.exit) == true, !self.reaped {
                 self.invalid = true
                 var status: Int32 = 0, result: pid_t
@@ -100,7 +103,12 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
         }
         monitor.resume()
         guard registered.wait(timeout: .now() + 1) == .success else { stop(); throw ScreenFailure.stalled }
-        guard kill(pid, SIGCONT) == 0 else { stop(); throw ScreenFailure.peerLost }
+        let role: ScreenRunnerProcessIdentity.Role = identifier == "ai.sliccy.proof-helper" ? .surface : identifier == "com.google.Chrome" ? .chrome : .authorizationRequester
+        do {
+            let recorded = try ScreenRunnerProcessIdentity.capture(pid: pid, role: role, hash: staticHash, identifier: identifier, team: team)
+            lock.lock(); identity = recorded; let resumed = signalLocked(SIGCONT); lock.unlock()
+            guard resumed else { throw ScreenFailure.peerUntrusted }
+        } catch { stop(); throw error }
     }
     private static func rule(identifier: String, team: String?) throws -> SecRequirement {
         var value: SecRequirement?
@@ -112,7 +120,8 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
     }
     func verifyLive() throws {
         lock.lock(); defer { lock.unlock() }
-        guard ownsPID, !invalid, !reaped else { throw ScreenFailure.peerLost }
+        guard ownsPID, !invalid, !reaped, let identity else { throw ScreenFailure.peerLost }
+        try identity.verify(identifier: identifier, team: team)
         var guest: SecCode?
         guard SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributePid as String: pid] as CFDictionary, [], &guest) == errSecSuccess,
               let guest, SecCodeCheckValidity(guest, [], try Self.rule(identifier: identifier, team: identifier == "ai.sliccy.proof-helper" ? "S8LB56P782" : nil)) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
@@ -127,26 +136,40 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
     func stop() {
         lock.lock(); invalid = true
         if input >= 0 { close(input); input = -1 }
-        if ownsPID && !reaped { _ = kill(pid, SIGTERM) }
+        _ = signalLocked(SIGTERM)
         lock.unlock()
     }
     func stopAndReap(until: DispatchTime) throws {
         stop()
         if !hasReaped, exited.wait(timeout: min(until, .now() + 1)) != .success {
-            lock.lock(); if ownsPID && !reaped { _ = kill(pid, SIGKILL) }; lock.unlock()
+            lock.lock(); _ = signalLocked(SIGKILL); lock.unlock()
             if !hasReaped, exited.wait(timeout: until) != .success { throw ScreenFailure.stalled }
         }
         guard hasReaped else { throw ScreenFailure.stalled }
+        lock.lock(); let refused = signalRefused; lock.unlock()
+        guard !refused else { throw ScreenFailure.peerUntrusted }
     }
     deinit {
         monitor?.cancel()
         if input >= 0 { close(input) }
         var status: Int32 = 0
         if waitpid(pid, &status, WNOHANG) == 0 {
-            _ = kill(pid, SIGKILL)
-            while waitpid(pid, &status, 0) < 0 && errno == EINTR {}
+            if signalLocked(SIGKILL) {
+                _ = waitpid(pid, &status, WNOHANG)
+            }
         }
     }
+    private func signalLocked(_ value: Int32) -> Bool {
+        guard ownsPID, !reaped else { return false }
+        guard let identity else { signalRefused = true; return false }
+        let accepted = identity.signal(value, owned: ownsPID, reaped: reaped,
+            sample: { try ScreenRunnerProcessSample.read(pid) },
+            role: { try ScreenRunnerProcessIdentity.verifyRole(pid: pid, identifier: identifier, team: team, hash: staticHash) },
+            send: { kill($0, $1) })
+        if !accepted { signalRefused = true }
+        return accepted
+    }
+    var recordedIdentity: ScreenRunnerProcessIdentity? { lock.lock(); defer { lock.unlock() }; return identity }
     var hasReaped: Bool { lock.lock(); defer { lock.unlock() }; return reaped }
 }
 #endif

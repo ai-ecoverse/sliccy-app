@@ -44,6 +44,14 @@ struct ScreenRunnerCauseTests {
         ledger.noteStop(at: now.advanced(by: .seconds(2)))
         #expect(ledger.firstStopAt == now)
     }
+    @Test func queuedStopKeepsPreGrantPhaseDespiteDelayedCauseCallback() throws {
+        let sink = Sink(), ledger = ScreenRunnerCauseLedger { sink.append($0) }
+        let now = ContinuousClock.now
+        ledger.advance(.inventory); ledger.noteStop(at: now)
+        ledger.advance(.stopping); ledger.advance(.cleanup)
+        ledger.record(.stop, reason: .screen(.sourceChanged), origin: .workspaceLaunch, at: now)
+        #expect(try #require(sink.rows.first).phase == .inventory)
+    }
     @Test func causeObserverCannotBlockMandatoryStop() {
         let gate = ScreenOutputGate(), entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
         let stopped = DispatchSemaphore(value: 0), done = DispatchSemaphore(value: 0)

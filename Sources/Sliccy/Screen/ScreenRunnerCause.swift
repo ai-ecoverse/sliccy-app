@@ -43,18 +43,24 @@ final class ScreenRunnerCauseLedger: @unchecked Sendable {
     private var phase: ScreenRunnerPhase = .preflight
     private var seen = Set<Kind>()
     private var stoppedAt: ContinuousClock.Instant?
+    private var stopPhase: ScreenRunnerPhase?
     private let emit: @Sendable (Notice) -> Void
     init(emit: @escaping @Sendable (Notice) -> Void) { self.emit = emit }
-    func advance(_ phase: ScreenRunnerPhase) { lock.lock(); self.phase = phase; lock.unlock() }
+    func advance(_ phase: ScreenRunnerPhase) {
+        lock.lock()
+        if phase == .stopping, stopPhase == nil { stopPhase = self.phase }
+        self.phase = phase; lock.unlock()
+    }
     func noteStop(at: ContinuousClock.Instant) {
-        lock.lock(); stoppedAt = stoppedAt.map { min($0, at) } ?? at; lock.unlock()
+        lock.lock(); stoppedAt = stoppedAt.map { min($0, at) } ?? at
+        if stopPhase == nil { stopPhase = phase }; lock.unlock()
     }
     var firstStopAt: ContinuousClock.Instant? { lock.lock(); defer { lock.unlock() }; return stoppedAt }
     func record(_ kind: Kind, reason: ScreenRunnerCauseReason, origin: ScreenStopRelay.Origin, at: ContinuousClock.Instant = .now) {
         lock.lock()
         if kind == .stop { stoppedAt = stoppedAt.map { min($0, at) } ?? at }
         guard seen.insert(kind).inserted else { lock.unlock(); return }
-        let notice = Notice(kind: kind, reason: reason, phase: phase, origin: origin, at: at)
+        let notice = Notice(kind: kind, reason: reason, phase: kind == .stop ? (stopPhase ?? phase) : phase, origin: origin, at: at)
         lock.unlock(); emit(notice)
     }
 }

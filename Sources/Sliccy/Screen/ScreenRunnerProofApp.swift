@@ -55,7 +55,16 @@ final class ScreenRunnerSession {
                 "phase": notice.phase.rawValue, "origin": notice.origin.rawValue], at: notice.at)
         }
     }
-    func cancel(origin: ScreenStopRelay.Origin = .cancelled) { cancelled = true; relay?.invoke(.stopped, origin: origin); connection?.health.invalidate() }
+    func cancel(origin: ScreenStopRelay.Origin = .cancelled) {
+        let at = ContinuousClock.now
+        cancelled = true
+        if let relay { relay.invoke(.stopped, origin: origin) }
+        else {
+            connection?.health.invalidate(); connection?.transport?.stop(.stopped)
+            causes.record(.stop, reason: .screen(.stopped), origin: origin, at: at)
+        }
+        connection?.health.invalidate()
+    }
     func run() async {
         var outcome = "failed", reason = "fixed-failure", exitCode: Int32 = 1
         let watchdog = Task { try? await Task.sleep(for: .seconds(40)); if !Task.isCancelled { cancel(origin: .watchdog) } }
@@ -72,6 +81,7 @@ final class ScreenRunnerSession {
             audit = try ScreenAudit(base: home.appending(path: "Library/Application Support"))
             let surface = try ScreenRunnerOwnedProcess.surface(home: home, ended: surfaceEnded("allowed"))
             owned.append(("allowed", surface)); primaries.append(surface)
+            try reportOwned(surface.recordedIdentity)
             journal.emit("surface-process", ["label": "allowed", "pid": surface.pid, "bundleIdentifier": "ai.sliccy.proof-helper"])
             var browsers: [ScreenRunnerOwnedProcess] = []
             if selected.needsBrowser {
@@ -79,6 +89,7 @@ final class ScreenRunnerSession {
                     let label = "chrome-" + window.profile
                     let child = try ScreenRunnerOwnedProcess.chrome(window: window, join: join, home: home, ended: surfaceEnded(label))
                     owned.append((label, child))
+                    try reportOwned(child.recordedIdentity)
                     journal.emit("surface-launcher-started", ["label": label, "pid": child.pid])
                     if window == .a1 || window == .b1 {
                         browsers.append(child); primaries.append(child)
@@ -91,6 +102,7 @@ final class ScreenRunnerSession {
                 guard try await !ScreenRunnerInventory.authorizationWindowExists() else { reason = "authorization-preexisting"; exitCode = 2; throw ScreenFailure.protection }
                 let requester = try ScreenRunnerOwnedProcess.authorization(home: home, ended: surfaceEnded("authorization-requester"))
                 owned.append(("authorization-requester", requester)); authorization = requester
+                try reportOwned(requester.recordedIdentity)
                 journal.emit("surface-launcher-started", ["label": "authorization-requester", "pid": requester.pid])
             }
             let causes = self.causes
@@ -263,6 +275,16 @@ final class ScreenRunnerSession {
         causes.record(.inventory, reason: .inventory(issue), origin: .inventory)
         journal.emit("surface-unavailable", ["label": "inventory", "reason": "unresolved-owner"])
     }
+    private func reportOwned(_ identity: ScreenRunnerProcessIdentity?) throws {
+        guard let identity else { throw ScreenFailure.peerUntrusted }
+        reportOwnedIdentity(identity)
+    }
+    private func reportOwnedIdentity(_ identity: ScreenRunnerProcessIdentity) {
+        let sample = identity.sample
+        journal.emit("owned-process-recorded", ["role": identity.role.rawValue, "pid": sample.pid, "parent": sample.parent,
+            "uid": sample.uid, "startSeconds": String(sample.seconds), "startMicroseconds": sample.microseconds,
+            "cdHash": identity.hash.map { String(format: "%02x", $0) }.joined()])
+    }
     private var reportedReaps = Set<pid_t>()
     private var nativeStarted: pid_t?, nativeReaped: pid_t?, nativeReapReported = false
     private func reportNativeReap(_ pid: pid_t) {
@@ -277,6 +299,7 @@ final class ScreenRunnerSession {
     private var currentBinding: ScreenBinding?
     private func consume(_ event: ScreenRunnerConnection.Event) {
         switch event {
+        case .owned(let identity): reportOwnedIdentity(identity)
         case .started(let pid):
             nativeStarted = pid; journal.emit("child-started", ["pid": pid])
             if let reaped = nativeReaped { reportNativeReap(reaped) }
@@ -328,9 +351,11 @@ final class ScreenRunnerSession {
         }
     }
     private func surfaceEnded(_ label: String) -> @Sendable (pid_t, Bool) -> Void {
-        { [weak self] pid, reaped in Task { @MainActor in
+        let causes = self.causes
+        return { [weak self, causes] pid, reaped in
+            causes.record(.launcherReap, reason: reaped ? .reaped : .unreaped, origin: .launcher)
+            Task { @MainActor in
             guard let self else { return }
-            self.causes.record(.launcherReap, reason: reaped ? .reaped : .unreaped, origin: .launcher)
             if reaped { self.reportReap(pid: pid, label: label) }
             if !self.cleaning, self.captureStarted, self.primaries.contains(where: { $0.pid == pid }) { self.failure = .sourceChanged; self.relay?.invoke(.sourceChanged, origin: .launcher) }
         } }

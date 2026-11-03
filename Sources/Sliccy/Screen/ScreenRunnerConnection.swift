@@ -24,7 +24,7 @@ final class ScreenRunnerHealth: @unchecked Sendable {
 }
 
 final class ScreenRunnerConnection: @unchecked Sendable {
-    enum Event: Sendable { case started(pid_t), authenticated, lost, reaped(pid_t), transport(ScreenTransport.Event) }
+    enum Event: Sendable { case owned(ScreenRunnerProcessIdentity), started(pid_t), authenticated, lost, reaped(pid_t), transport(ScreenTransport.Event) }
     private let lock = NSLock()
     private var child: ScreenChild?, link: ScreenTransport?
     private var stopped = false, reaped = false
@@ -42,6 +42,7 @@ final class ScreenRunnerConnection: @unchecked Sendable {
             join: join, bootstrap: handshake.bootstrapRecord(), policy: policy,
             reaped: { [weak self] _ in self?.childReaped() }, lost: { [weak self] in self?.childLost() })
         lock.lock(); child = owned; let stop = stopped, alreadyReaped = reaped; lock.unlock()
+        if let identity = owned.runnerIdentity { event(.owned(identity)) }
         event(.started(owned.pid))
         if alreadyReaped { event(.reaped(owned.pid)) }
         if stop { owned.stop(); throw ScreenFailure.stopped }

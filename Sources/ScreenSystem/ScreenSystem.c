@@ -23,6 +23,18 @@ OSStatus sliccy_screen_dynamic_status(SecCodeRef code, uint32_t *status) {
 #include <libproc.h>
 #include <sys/proc_info.h>
 
+int sliccy_screen_proof_process_identity(pid_t pid, struct sliccy_screen_process_identity *identity) {
+    struct proc_bsdinfo info = {0};
+    if (pid <= 0 || !identity || proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, sizeof(info)) != (int)sizeof(info)) return EINVAL;
+    if (info.pbi_pid != (uint32_t)pid || !info.pbi_start_tvsec || info.pbi_start_tvusec >= 1000000) return EINVAL;
+    identity->pid = (int32_t)info.pbi_pid;
+    identity->parent = (int32_t)info.pbi_ppid;
+    identity->uid = info.pbi_uid;
+    identity->seconds = info.pbi_start_tvsec;
+    identity->microseconds = info.pbi_start_tvusec;
+    return 0;
+}
+
 int sliccy_screen_proof_self_arch(int32_t *cpu, int32_t *subtype) {
     struct proc_archinfo info = {0};
     _Static_assert(sizeof(info) == 8, "Unexpected proc_archinfo layout");

@@ -3,6 +3,12 @@
 #include <sys/types.h>
 #include <stddef.h>
 #include <Security/Security.h>
+struct sliccy_screen_process_identity {
+    int32_t pid, parent;
+    uint32_t uid;
+    uint64_t seconds, microseconds;
+};
+int sliccy_screen_proof_process_identity(pid_t pid, struct sliccy_screen_process_identity *identity);
 OSStatus sliccy_screen_dynamic_status(SecCodeRef code, uint32_t *status);
 // Read-only diagnostic self-query; never accepts another process identifier.
 int sliccy_screen_proof_self_arch(int32_t *cpu, int32_t *subtype);
