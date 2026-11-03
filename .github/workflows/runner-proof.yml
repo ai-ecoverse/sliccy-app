@@ -39,7 +39,7 @@ jobs:
           retention-days: 3
 
   universal:
-    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/proof/runner-capture-v1'
+    if: false
     runs-on: xcode-27
     timeout-minutes: 10
     steps:
@@ -69,5 +69,39 @@ jobs:
         with:
           name: universal-diagnostic-sealed
           path: ${{ runner.temp }}/sliccy-universal-evidence.age
+          if-no-files-found: error
+          retention-days: 3
+
+  hosted-pid:
+    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/proof/runner-capture-v1'
+    runs-on: xcode-27
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Hosted PID diagnostic
+        id: pid
+        shell: bash
+        env:
+          SLICCY_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          GH_TOKEN: ${{ github.token }}
+          SLICC_NO_TELEMETRY: '1'
+          SLICC_NO_UPDATE_CHECK: '1'
+        run: |
+          set +x
+          umask 077
+          if python3 script/runner-proof/sealed_hosted_pid.py > "$RUNNER_TEMP/sliccy-hosted-pid-bootstrap.log" 2>&1; then
+            echo 'Hosted PID diagnostic finished; inspect sealed evidence.'
+          else
+            echo 'Hosted PID diagnostic incomplete; inspect sealed evidence if available.'
+            exit 1
+          fi
+      - name: Retain sealed PID evidence
+        if: always() && steps.pid.outputs.sealed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hosted-pid-diagnostic-sealed
+          path: ${{ runner.temp }}/sliccy-hosted-pid-evidence.age
           if-no-files-found: error
           retention-days: 3

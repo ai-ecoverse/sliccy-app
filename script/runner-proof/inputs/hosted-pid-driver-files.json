@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "sourceTag": "v1.59.0",
+  "CGO_ENABLED": "0",
+  "entryTests": [
+    "TestSignedHostedPIDReuse"
+  ],
+  "case": "pid-reuse-hosted",
+  "fixtureSource": "e416ccda54027e64e428238852bafa71746be335",
+  "appBuild": "9",
+  "driverTimeoutSeconds": 650,
+  "goTestTimeoutSeconds": 670,
+  "placementAssertions": [
+    "GITHUB_ACTIONS",
+    "GITHUB_REPOSITORY",
+    "GITHUB_EVENT_NAME",
+    "GITHUB_REF",
+    "SLICCY_RUNNER_ENVIRONMENT"
+  ],
+  "files": {
+    "code_status_darwin_test.go": "96339768f8a2a658bb1374f941cb6a6ea783d2239696718f24e76f1b7b36b41c",
+    "fakehub_test.go": "cdcf5f1470f8b3c0022531b62ad63535bf6ef2c0425beb259b7610d3b768c9f9",
+    "fd_inventory_darwin_test.go": "1f0a0ffda39a5d1c01da928a1a93f2debb360987095296adf7676afdd72b5bca",
+    "frame_baseline_darwin_test.go": "69f8df4e4ae5110ff0242f128ff7b9ceb036253b84725591b91f7c6276ba771a",
+    "frame_consumer_darwin_test.go": "ad364fad0567691335f0cc37a5d57d6b9535b58fc0bfa32887acb3994afc5360",
+    "held_hub_cleanup_test.go": "1c8bdd6587dc8c23c5a9a756d304e8c993fe7a557c40aef1a35c769b4ef6b86f",
+    "hosted_pid_darwin_test.go": "b167787b57707bdb889b40a9777cf6fb2972b45bb6738ce3b377a1c26cc82e8d",
+    "hosted_pid_parser_darwin_test.go": "f8732a9e7efa7e83349721e50e09b5027a1efc808f071d502b00df299bac462a",
+    "identity_cases_darwin_test.go": "2886b7ad6201efcbf42389685173c98f8f15866754a86f340c521d5f0de323ea",
+    "incarnation_darwin_test.go": "abfca18517aff6a82ee598b3305541330c51d5ba54f3682252bb14d09fd03fba",
+    "kernel_image_darwin_test.go": "1687f851d358d2a126a91964f8bed06e1ccf09aa63d0daa6c4dba04bdce55e2b",
+    "observer_self_test.go": "d2260bf2bcae8a41db0af506dc8dfe9938e35ddf957debba08106d77bf7c8f73",
+    "pid_reuse_darwin_test.go": "11c92388831dff2c2cc8867e2996e369ec9e70fc770ea235cb1ce6719509075a",
+    "process_observer_darwin_test.go": "325544ae64f386ffa8292feee64be5835244c5da743aa345d8279daac3f909ac",
+    "released_test.go": "c071786808da372bb6920cc1eed33c83ab3127c3f163f06feac74805e5474dca",
+    "runner_entry_darwin_test.go": "ef3e166eaf6411f40672e64252ce277b8a33663ec3dcfd59b4af0c9a4e32b67e",
+    "runner_windows_darwin_test.go": "75bfb759915d14f603ff5658232db9884fa9f756e9291abf5745638ed41c3f26",
+    "safety_handoff_darwin_test.go": "680ff5cae19825aa39288dfa7df162d4ffbf29d83be1e6c2e10ee49ecf260be0",
+    "safety_handoff_parser_test.go": "7c794e21e9f848b7bb78125994d60b57652bb16ff053c4017cc76b56a2bbd615",
+    "signed_app_test.go": "3ac7343d8729971723980601e9e0b9996b7214b9f9c4bb84b8c8a1ec07c8aeff",
+    "snapshot_darwin_test.go": "cc6fb597f6876bb681401d91d33fc2b196eb71c5787ffb24339477d7b7d9ab1a",
+    "snapshot_files_darwin_test.go": "ad113828ee6dc891e58e9e2b722b3da5d45c5c388aa19973138f22cb89a01550",
+    "snapshot_files_fixture_darwin_test.go": "0eae34c5842790347ee358da5a7509a79af45381fec60613617bcb646fea0d21",
+    "snapshot_parser_darwin_test.go": "dd7b2edfdf10d8d8061d6477cdb80ca82de74debdcdc29e91eba6932d91c944c",
+    "snapshot_slices_test.go": "a25733e68aa2e9f95c895a8fdefcd8621302861b5c26eb03b07fe5fd5d497da6",
+    "static_slice_darwin_test.go": "c373d035c626dc3f17869ca7eec38e1090084e57e2bda3080d22c596f4a94c78",
+    "universal_darwin_test.go": "865781a30f68fc54b01b43fbf192e4d2415b4c55f0f423bcae75b79cab8e56a6",
+    "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
+  }
+}
