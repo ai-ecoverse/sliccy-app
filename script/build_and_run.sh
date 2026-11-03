@@ -13,7 +13,7 @@ BUNDLE_ID="ai.sliccy.mac"
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
 SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build")
 BUILD_NUMBER=1
-if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 || "${SLICCY_SNAPSHOT_PROOF:-0}" == 1 ]]; then
+if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 || "${SLICCY_SNAPSHOT_PROOF:-0}" == 1 || "${SLICCY_HOSTED_PID_PROOF:-0}" == 1 ]]; then
   [[ "$MODE" == --build && "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == ai-ecoverse/sliccy-app && "${GITHUB_EVENT_NAME:-}" == push && "${GITHUB_REF:-}" == refs/heads/main ]] || { echo 'Build the diagnostic bundle through upstream main CI.' >&2; exit 2; }
   SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/native-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF)
   APP_BUNDLE="$ROOT_DIR/dist-proof/$APP_NAME.app"
@@ -27,6 +27,12 @@ if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF
     SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/snapshot-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_SNAPSHOT_PROOF)
     APP_BUNDLE="$ROOT_DIR/dist-snapshot-proof/$APP_NAME.app"
     BUILD_NUMBER=8
+  fi
+  if [[ "${SLICCY_HOSTED_PID_PROOF:-0}" == 1 ]]; then
+    [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" != 1 && "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" != 1 && "${SLICCY_SNAPSHOT_PROOF:-0}" != 1 && "$(uname -m)" == arm64 ]] || { echo 'Hosted PID fixture requires its separate arm64 variant.' >&2; exit 2; }
+    SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/hosted-pid-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_HOSTED_PID_PROOF)
+    APP_BUNDLE="$ROOT_DIR/dist-hosted-pid-proof/$APP_NAME.app"
+    BUILD_NUMBER=9
   fi
 fi
 SWIFT="${SLICCY_SWIFT:-$(/usr/bin/xcrun --find swift)}"

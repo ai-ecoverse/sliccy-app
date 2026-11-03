@@ -63,6 +63,9 @@ if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 8 ]];
   /usr/bin/cmp "$input_app/Contents/Resources/slicc-snapshot-amd64" "$signed_app/Contents/Resources/slicc-snapshot-amd64"
   python3 "$(dirname "$0")/snapshot_manifest.py" "$signed_app" "$artifact_dir/snapshot-manifest.json"
 fi
+if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 9 ]]; then
+  python3 "$(dirname "$0")/hosted_pid_manifest.py" "$signed_app" "$artifact_dir/hosted-pid-manifest.json"
+fi
 requirement='anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[subject.OU] = "S8LB56P782" and identifier "ai.sliccy.mac"'
 /usr/bin/codesign --verify --deep --strict -R "=$requirement" "$signed_app"
 if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 7 ]]; then

@@ -1,4 +1,4 @@
-#if SLICCY_SNAPSHOT_PROOF
+#if SLICCY_SNAPSHOT_PROOF || SLICCY_HOSTED_PID_PROOF
 import Darwin
 import Foundation
 

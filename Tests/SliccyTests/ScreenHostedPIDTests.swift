@@ -1,0 +1,104 @@
+#if SLICCY_HOSTED_PID_PROOF
+import Foundation
+import Testing
+@testable import Sliccy
+
+struct ScreenHostedPIDTests {
+    @Test func pacingHasNoToleranceAndDeadlineCannotAdmit() {
+        let began = ContinuousClock.now
+        var budget = ScreenHostedPIDBudget(original: 100, started: began, selfCPU: .seconds(1), childrenCPU: .seconds(2))
+        #expect(budget.decision(now: began.advanced(by: .milliseconds(10)), selfCPU: .seconds(1) + .milliseconds(11), childrenCPU: .seconds(2)) == .pace(.milliseconds(1)))
+        #expect(budget.decision(now: began.advanced(by: .milliseconds(11)), selfCPU: .seconds(1) + .milliseconds(11), childrenCPU: .seconds(2)) == .spawnCycler)
+        #expect(budget.decision(now: began.advanced(by: .seconds(1)), selfCPU: .seconds(1), childrenCPU: .seconds(2)) == .stop(.invalidLifecycle))
+        var debt = ScreenHostedPIDBudget(original: 100, started: began, selfCPU: .zero, childrenCPU: .zero)
+        #expect(debt.decision(now: began.advanced(by: .seconds(600)), selfCPU: .seconds(601), childrenCPU: .zero) == .stop(.cpuDebtAtDeadline))
+        #expect(debt.maximumTransientDebt == .seconds(1))
+        var elapsed = ScreenHostedPIDBudget(original: 100, started: began, selfCPU: .zero, childrenCPU: .zero)
+        #expect(elapsed.decision(now: began.advanced(by: .seconds(600)), selfCPU: .seconds(100), childrenCPU: .seconds(100)) == .stop(.timeLimit))
+    }
+    @Test func childAdmissionRequiresDecisionAndReapAndNearTargetIsOneShot() throws {
+        let began = ContinuousClock.now
+        var state = ScreenHostedPIDBudget(original: 10, started: began, selfCPU: .zero, childrenCPU: .zero)
+        #expect(throws: ScreenFailure.incompatible) { try state.didSpawnCycler() }
+        #expect(state.decision(now: began, selfCPU: .zero, childrenCPU: .zero) == .spawnCycler)
+        try state.didSpawnCycler()
+        #expect(throws: ScreenFailure.incompatible) { try state.didSpawnCycler() }
+        try state.didReapCycler(pid: 9)
+        #expect(state.spawned == 1 && state.reaped == 1)
+        #expect(state.decision(now: began.advanced(by: .seconds(1)), selfCPU: .milliseconds(1), childrenCPU: .milliseconds(1)) == .attemptCLI)
+        #expect(state.decision(now: began.advanced(by: .seconds(2)), selfCPU: .milliseconds(1), childrenCPU: .milliseconds(1)) == .stop(.invalidLifecycle))
+        #expect(throws: ScreenFailure.incompatible) { try state.didSpawnCycler() }
+    }
+    @Test func skippedTargetIsNeverReuseAndAccountingMustRemainMonotonic() throws {
+        let began = ContinuousClock.now
+        var state = ScreenHostedPIDBudget(original: 10, started: began, selfCPU: .zero, childrenCPU: .zero)
+        #expect(state.decision(now: began, selfCPU: .zero, childrenCPU: .zero) == .spawnCycler)
+        try state.didSpawnCycler(); try state.didReapCycler(pid: 10)
+        #expect(state.decision(now: began.advanced(by: .seconds(1)), selfCPU: .milliseconds(1), childrenCPU: .milliseconds(1)) == .spawnCycler)
+        try state.didSpawnCycler(); try state.didReapCycler(pid: 11)
+        #expect(state.decision(now: began.advanced(by: .seconds(2)), selfCPU: .zero, childrenCPU: .milliseconds(2)) == .stop(.invalidAccounting))
+        var invalid = ScreenHostedPIDBudget(original: 2, started: began, selfCPU: .zero, childrenCPU: .zero)
+        #expect(invalid.decision(now: began, selfCPU: .zero, childrenCPU: .zero) == .stop(.unsupportedTarget))
+    }
+    @Test func onlyTokenVersionMayDiffer() throws {
+        func token(_ words: [UInt32]) throws -> ScreenAuditIdentity {
+            try words.withUnsafeBytes { try ScreenAuditIdentity(native: Data($0)) }
+        }
+        let old: [UInt32] = [1, 501, 20, 501, 20, 99, 42, 7]
+        var changed = old; changed[7] = 8
+        #expect(ScreenHostedPIDBudget.sameCredentialPrefixAndNewVersion(saved: try token(old), current: try token(changed)))
+        #expect(!ScreenHostedPIDBudget.sameCredentialPrefixAndNewVersion(saved: try token(old), current: try token(old)))
+        for index in 0...6 {
+            var wrong = changed; wrong[index] += 1
+            #expect(!ScreenHostedPIDBudget.sameCredentialPrefixAndNewVersion(saved: try token(old), current: try token(wrong)))
+        }
+    }
+    @Test func localHostAndOverridesRefuseBeforeAnySpawn() throws {
+        let arguments = ["--screen-runner-proof", "--case", "pid-reuse-hosted"]
+        let environment = ScreenHostedPIDHost.required
+        try ScreenHostedPIDHost.validate(arguments: arguments, environment: environment, major: 27, arm: true)
+        #expect(throws: ScreenFailure.incompatible) { try ScreenHostedPIDHost.validate(arguments: arguments, environment: [:], major: 27, arm: true) }
+        #expect(throws: ScreenFailure.incompatible) { try ScreenHostedPIDHost.validate(arguments: arguments + ["--limit", "1"], environment: environment, major: 27, arm: true) }
+        #expect(throws: ScreenFailure.incompatible) { try ScreenHostedPIDHost.validate(arguments: arguments, environment: environment, major: 26, arm: true) }
+        #expect(throws: ScreenFailure.incompatible) { try ScreenHostedPIDHost.validate(arguments: arguments, environment: environment, major: 27, arm: false) }
+        for key in environment.keys {
+            var wrong = environment; wrong[key] = "unapproved"
+            #expect(throws: ScreenFailure.incompatible) { try ScreenHostedPIDHost.validate(arguments: arguments, environment: wrong, major: 27, arm: true) }
+        }
+        #expect(throws: ScreenFailure.incompatible) { try ScreenHostedPIDSpawn.spawn() }
+    }
+    @Test func mockedWaitNeverSignalsAnUnownedOrAlreadyReapedPID() throws {
+        let now = ContinuousClock.now
+        var signals = 0
+        let unowned = ScreenHostedPIDSpawn.WaitCalls(now: { now }, wait: { _ in .unowned }, send: { _, _ in signals += 1; return true }, pause: {})
+        #expect(throws: ScreenFailure.peerLost) { try ScreenHostedPIDSpawn.reap(123, deadline: now, cancelled: { true }, calls: unowned) }
+        #expect(signals == 0)
+        var reaped = unowned; reaped.wait = { _ in .reaped(0) }
+        let result = try ScreenHostedPIDSpawn.reap(123, deadline: now, cancelled: { true }, calls: reaped)
+        #expect(result.status == 0 && !result.interrupted && signals == 0)
+    }
+    @Test func mockedEscalationRetainsOwnershipUntilActualReap() throws {
+        let start = ContinuousClock.now
+        var ticks = 0, signals: [Int32] = []
+        let calls = ScreenHostedPIDSpawn.WaitCalls(now: { start.advanced(by: .milliseconds(ticks * 500)) }, wait: { pid in
+            #expect(pid == 123)
+            return ticks == 4 ? .reaped(9) : .running
+        }, send: { pid, signal in #expect(pid == 123); signals.append(signal); return true }, pause: { ticks += 1 })
+        let result = try ScreenHostedPIDSpawn.reap(123, deadline: start, cancelled: { false }, calls: calls)
+        #expect(result.status == 9 && result.interrupted)
+        #expect(signals == [15, 9] && ticks == 4)
+    }
+
+    @Test func hardCleanupDeadlineCannotExtendTheTrial() throws {
+        let start = ContinuousClock.now
+        var signals: [Int32] = []
+        let calls = ScreenHostedPIDSpawn.WaitCalls(now: { start }, wait: { _ in .running },
+            send: { _, signal in signals.append(signal); return true }, pause: { Issue.record("No pacing after hard deadline") })
+        #expect(throws: ScreenFailure.stalled) {
+            try ScreenHostedPIDSpawn.reap(123, deadline: start, cancelled: { true }, cleanupDeadline: start, calls: calls)
+        }
+        #expect(signals == [9])
+    }
+
+}
+#endif

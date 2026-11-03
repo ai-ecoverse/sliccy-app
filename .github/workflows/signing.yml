@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [app, ipc-proof, universal-proof, snapshot-proof]
+        variant: [app, ipc-proof, universal-proof, snapshot-proof, hosted-pid-proof]
     if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: xcode-27
     timeout-minutes: 60
@@ -34,11 +34,15 @@ jobs:
           if [[ '${{ matrix.variant }}' == snapshot-proof ]]; then
             /usr/bin/xcrun swift test --scratch-path .build/snapshot-tests -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_SNAPSHOT_PROOF --filter 'Screen'
           fi
+          if [[ '${{ matrix.variant }}' == hosted-pid-proof ]]; then
+            /usr/bin/xcrun swift test --scratch-path .build/hosted-pid-tests -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_HOSTED_PID_PROOF --filter 'Screen'
+          fi
       - name: Build app with pinned CLI
         env:
           SLICCY_NATIVE_SCREEN_PROOF: ${{ matrix.variant == 'ipc-proof' && '1' || '0' }}
           SLICCY_UNIVERSAL_SLICE_PROOF: ${{ matrix.variant == 'universal-proof' && '1' || '0' }}
           SLICCY_SNAPSHOT_PROOF: ${{ matrix.variant == 'snapshot-proof' && '1' || '0' }}
+          SLICCY_HOSTED_PID_PROOF: ${{ matrix.variant == 'hosted-pid-proof' && '1' || '0' }}
         run: |
           ./script/fetch_cli.sh
           if [[ '${{ matrix.variant }}' == snapshot-proof ]]; then ./script/fetch_snapshot_cli.sh; fi
@@ -56,6 +60,8 @@ jobs:
             ./script/ci_sign.sh dist-proof/Sliccy.app artifacts/signed
           elif [[ '${{ matrix.variant }}' == universal-proof ]]; then
             ./script/ci_sign.sh dist-universal-proof/Sliccy.app artifacts/signed
+          elif [[ '${{ matrix.variant }}' == hosted-pid-proof ]]; then
+            ./script/ci_sign.sh dist-hosted-pid-proof/Sliccy.app artifacts/signed
           elif [[ '${{ matrix.variant }}' == snapshot-proof ]]; then
             ./script/ci_sign.sh dist-snapshot-proof/Sliccy.app artifacts/signed
           else
@@ -64,12 +70,13 @@ jobs:
       - name: Upload verified app
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ${{ matrix.variant == 'snapshot-proof' && 'Sliccy-Snapshot-Proof-0.1.0-arm64' || matrix.variant == 'universal-proof' && 'Sliccy-Universal-Proof-0.1.0-universal' || matrix.variant == 'ipc-proof' && 'Sliccy-IPC-Proof-0.1.0-arm64' || 'Sliccy-0.1.0-arm64' }}-${{ github.sha }}
+          name: ${{ matrix.variant == 'hosted-pid-proof' && 'Sliccy-Hosted-PID-Proof-0.1.0-arm64' || matrix.variant == 'snapshot-proof' && 'Sliccy-Snapshot-Proof-0.1.0-arm64' || matrix.variant == 'universal-proof' && 'Sliccy-Universal-Proof-0.1.0-universal' || matrix.variant == 'ipc-proof' && 'Sliccy-IPC-Proof-0.1.0-arm64' || 'Sliccy-0.1.0-arm64' }}-${{ github.sha }}
           path: |
             artifacts/signed/Sliccy-0.1.0.zip
             artifacts/signed/SHA256SUMS
             artifacts/signed/signing.txt
             artifacts/signed/universal-manifest.json
             artifacts/signed/snapshot-manifest.json
+            artifacts/signed/hosted-pid-manifest.json
           if-no-files-found: error
           retention-days: 14
