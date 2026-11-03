@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "status": "IMPLEMENTATION_FROZEN_FOR_FINAL_REVIEW",
+  "supersedes": "v1 internal pre-handoff freeze retained; v2 clips final cleanup waits to original case deadline",
+  "dispatchCleared": false,
+  "archive": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-v2/driver-source.tar.gz",
+  "archiveSHA256": "d00e592b70e8272e441c0ab4159e636287d3aeb23185e19eae5d005574c41c62",
+  "sourceMap": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-v2/source-files.json",
+  "sourceMapSHA256": "8ed094018ef9d9bc203c31cc32c15910f19b2c46f147ab5a11d9345d957ceeb1",
+  "flatGoFiles": 45,
+  "sourceReadDirectory": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-v2/files",
+  "deltaAgainstPreviousPIDArchive": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-v2/driver-delta.patch",
+  "entry": [
+    "go",
+    "test",
+    "-mod=readonly",
+    "./test/nativeproof",
+    "-run",
+    "^TestSignedRunnerCapture$",
+    "-count=1",
+    "-timeout=470s"
+  ],
+  "runWorkingDirectory": "unchanged checksum-pinned v1.59.0 source root after exact flat driver extraction to test/nativeproof",
+  "toolchain": "existing pinned Go1.26.5 darwin/arm64; CGO_ENABLED=0 GOTOOLCHAIN=local; driver rebuilt only, never bundled CLI",
+  "environment": {
+    "SLICC_RUNNER_PROOF_ROOT": "fresh absolute 0700 owned evidence directory",
+    "SLICCY_SIGNED_PROOF_APP": "verified build11 Sliccy.app/Contents/MacOS/Sliccy",
+    "SLICCY_CAPTURE_MANIFEST": "byte-exact capture-manifest.json SHA25640d769fdcdb9b8ccc4dc000e92c118445518c3d8e835f36f97c91d0034be398f",
+    "SLICCY_RUNNER_OS_VERSION": "actual sw_vers -productVersion, independently rechecked by driver; major27",
+    "SLICCY_RUNNER_ENVIRONMENT": "github-hosted from actual runner.environment guard",
+    "RUNNER_ENVIRONMENT": "github-hosted from actual GitHub-hosted context",
+    "GITHUB_ACTIONS": "true",
+    "GITHUB_REPOSITORY": "ai-ecoverse/sliccy-app",
+    "GITHUB_EVENT_NAME": "workflow_dispatch",
+    "GITHUB_REF": "refs/heads/proof/runner-capture-v1"
+  },
+  "environmentExclusions": [
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+    "no inherited download credentials in app/CLI; explicit isolated child HOME/TMPDIR and telemetry/update off"
+  ],
+  "schemas": {
+    "app": "immutable schema3 SHA25675dbbd6eac898a2b781245aae1d5af71be946dbc3d4abe3ed76cfb7cabee21e8",
+    "driver": "schema1 capture-suite.json plus per-case driver-observations.json, milestones.ndjson, stderr.txt and frame-NNN.jpeg",
+    "partialRecords": "bounded first-byte/completion/reset facts and byte count; incomplete records are never decoded/admitted"
+  },
+  "cases": [
+    "selected-window",
+    "display-exclusion",
+    "authorization-exclusion",
+    "reciprocal-revoke",
+    "active-stop",
+    "hotkey-stop"
+  ],
+  "observerDecision": {
+    "noNewScreenRecordingGrant": true,
+    "identity": "independent kernel parent/UID/incarnation/running CPU+CodeDirectory hash, strict live+static signed role, actual fixed Chrome profile argv; CG owner PID and unique bounds",
+    "windowIdentification": "helper and Chrome use independently selected frozen geometry by verified owner PID; app requires fixed indicator plus every independently visible owner window; actual Apple authorization owner uses independently observed new unique windows/bounds",
+    "subtree": "strict root-PID subset of verified owned subtree, matching the signed fixture; unknown child/shim/window owner fails-to-demonstrate; no guessed role",
+    "titles": "optional sealed diagnostics only; absent, unavailable or conflicting title does not change verdict",
+    "observerAccess": "actual read-only CGPreflightScreenCaptureAccess result retained; responsible PID remains unknown unless established; no permission inference from ancestry",
+    "missingOrAmbiguousPIDBounds": "FAILED_TO_DEMONSTRATE; no fallback grant, prompt or title-based selection"
+  },
+  "sourceAssertions": {
+    "fixedPages": "four exact loopback paths/geometry plus successful GETs; no join capability in Chrome argv",
+    "color": "positive four-quadrant/pulse pattern sRGB tolerance8 and pulse tolerance16; both pulse phases required",
+    "displayMask": "all decoded pixels outside an8-point helper halo must be black within12/255; each protected rectangle needs independently positioned omission samples; no widening after run",
+    "protection": "every protected owner requires actual unconfounded display refusal and every actual window its own builder refusal; nonzero-layer windows are separately marked confounded",
+    "provenance": "no protected-origin pixel guarantee; fixed synthetic source only"
+  },
+  "stopAssertions": {
+    "localTargetMs": 50,
+    "leaseAndAckMs": 1500,
+    "eventClock": "app eventElapsedMs, not emission order; native/source admission after invalidation fails",
+    "wireClock": "local case uses causal lower clock bound from actual baseline marker round trip; reciprocal case starts at actual viewer request, not later app receipt",
+    "receiver": "instant policy clear independent of JPEG decode; source/native timestamps, record arrival, decode/admission times and reset facts separate; no admission after reset; already-in-flight records explicitly discarded",
+    "reverse": "actual receive/enqueue/write ordinals plus final synchronized cutoff; pending-at-cutoff/in-flight/invalid/unsettled evidence cannot pass; peer Stop OPENED+END required for reciprocal"
+  },
+  "limits": {
+    "appMetadataLineBytes": 4096,
+    "appMetadataTotalBytes": 524288,
+    "metadataRows": 1024,
+    "wireHeaderBytes": 4096,
+    "encodedFrameBytes": 2097152,
+    "decodedPixels": 4000000,
+    "maxDimension": 2560,
+    "fps": 5,
+    "imagesPerCase": 128,
+    "suiteImageEvidenceBytes": 67108864,
+    "suiteContextSeconds": 450,
+    "goTestTimeoutSeconds": 470,
+    "caseTotalSeconds": 45,
+    "caseExecutionSeconds": 40,
+    "caseCaptureSeconds": 10,
+    "partialRecordSeconds": 2,
+    "screenOpenSeconds": 3,
+    "originalRemoteStopDeadlineMs": 1500,
+    "pionSettlementSeconds": 2,
+    "pionAndExplicitCleanupWaitsClippedToCaseDeadline": true,
+    "nativeAPICalls": "read-only local calls; any case over45s fails; outer450s driver/470s test bounds cover hung APIs"
+  },
+  "cleanup": "actual app Wait; exact monitored owned PID/incarnation only for emergency signals, never authorization service; direct signed-app reaps retained, short-lived secondary reap claims labelled supporting; verify known children absent, owned roots removed, known windows absent and no readable root-associated app/Chrome processes; unconfirmed cleanup prevents further native cases",
+  "sealing": "all private output including every complete JPEG record, stderr, source maps and case outcomes must be sealed to existing public age recipient before upload; no raw failure cat/public logs; no private key in job",
+  "validation": {
+    "componentTestsPassed": 24,
+    "tests": [
+      "TestRunnerClockUsesCausalLowerBoundRatherThanLateRowDelivery",
+      "TestRunnerReciprocalWireResetCanPrecedeAppRevokeObservation",
+      "TestRunnerMarkerControllerCannotSubstituteSentFramesOrLocalClear",
+      "TestRunnerCleanupWaitsDoNotRestartTheCaseDeadline",
+      "TestRunnerEntryRejectsLocalBeforeAnyWindowOrAppOperation",
+      "TestRunnerInventoryCannotTrustPartialOrMislabeledClaims",
+      "TestRunnerRefusalsRequireEveryOwnerAndEveryActualWindow",
+      "TestRunnerOwnerBoundsDoNotDependOnTitleVisibilityOrText",
+      "TestRunnerArgumentsRetainOnlyFixedArgvAndOwnedTemporaryRoot",
+      "TestRunnerMetadataLossAbortsBeforeWaitAndRetainsFinalRows",
+      "TestRunnerCleanupDoesNotReadUnrelatedProcessArguments",
+      "TestRunnerStaticPagesBypassHeldJoinWithoutLeakingCapability",
+      "TestRunnerStaticPagesRejectUnfixedRequestsAndBoundAdmission",
+      "TestRunnerPatternRecognizesSyntheticJPEGInteriors",
+      "TestRunnerLivePionFixtureClearsWhileDecoderIsBlocked",
+      "TestRunnerPixelExclusionCannotIgnoreColoredProtectedRegions",
+      "TestRunnerReceiverClearsBeforeInflightArrivalAndDuringDecode",
+      "TestRunnerReceiverRejectsMalformedGrantAndDisabledState",
+      "TestRunnerRecordRejectsDimensionsAndNativeFieldsBeforeBodyAllocation",
+      "TestRunnerCaptureSchemaRejectsUnknownAndMalformedOwnershipMetadata",
+      "TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission",
+      "TestRunnerWireFramesMustMatchSourceAndNativeAdmissionLedger",
+      "TestRunnerWindowObserverRequiresExplicitGate",
+      "TestRunnerIndependentRecordBoundsApplyBeforePayloadRead"
+    ],
+    "vet": "PASS no suppressions",
+    "gofmt": "PASS",
+    "testOutputSHA256": "a1671dd56eb025c3737ae1a3ef659eca983dc617495e550bc989ba73c3601a76",
+    "nativeAppCLIHelperChromeLaunchedLocally": false,
+    "windowEnumerationOrCaptureHotkeyInvokedLocally": false,
+    "validationScope": "generated pixels, pure metadata/filesystem/net.Pipe and genuine loopback Pion only; actual Darwin identity/GUI branches compiled but unrun"
+  },
+  "remainingReviewGates": [
+    "exact full driver source read",
+    "exact sealed hosted wrapper/workflow source and artifact binding review",
+    "one explicitly authorized capture-only dispatch; no automatic retry"
+  ],
+  "coverageLimitations": [
+    "System Settings remains UNTESTED",
+    "TCC-specific prompt remains UNTESTED",
+    "password-specific surface remains UNTESTED",
+    "actual authorization fixture cannot stand in for other classes",
+    "preexisting image TCC entries are not treated as observer grants"
+  ],
+  "priorOutcomesAndArtifacts": "all earlier PASS/FAIL/FAILED_TO_DEMONSTRATE records and signed fixtures preserved",
+  "chromePublisherReference": "https://chromium.googlesource.com/chromium/src/+/014ce716f91d9c223e043606d2982ff47bfaa983/chrome/updater/branding.gni"
+}

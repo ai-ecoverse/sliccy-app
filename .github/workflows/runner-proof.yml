@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   diagnostic:
-    if: false
+    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/proof/runner-capture-v1'
     runs-on: xcode-27
     timeout-minutes: 20
     steps:
@@ -28,7 +28,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set +x
-          python3 script/runner-proof/sealed_runner.py
+          umask 077
+          if python3 -B script/runner-proof/sealed_runner.py > "$RUNNER_TEMP/sliccy-screen-bootstrap.log" 2>&1; then
+            echo 'Capture diagnostic finished; inspect sealed evidence.'
+          else
+            echo 'Capture diagnostic incomplete; inspect sealed evidence if available.'
+            exit 1
+          fi
       - name: Retain sealed evidence
         if: always() && steps.diagnostic.outputs.sealed == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -73,7 +79,7 @@ jobs:
           retention-days: 3
 
   hosted-pid:
-    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/proof/runner-capture-v1'
+    if: false
     runs-on: xcode-27
     timeout-minutes: 20
     steps:

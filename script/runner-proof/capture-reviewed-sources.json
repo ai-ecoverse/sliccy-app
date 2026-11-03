@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "branch": "proof/runner-capture-v1",
+  "artifactRun": "41619548340",
+  "artifactSource": "357b7f7cc7ef8ae2fd4570efd468c95f58deba41",
+  "files": {
+    ".github/workflows/runner-proof.yml": "6381934338ea6f5253c33527afa74c936db32fa37c8021fbf6b170f918a785f1",
+    "script/runner-proof/capture_evidence.py": "25d3a6ecc7da56ad030d5914321903b1f7588d0af0e6e0f01c4ef6d34406c0fe",
+    "script/runner-proof/capture_manifest.py": "bfc4ae44e202310bfbc33b2e6cfe7474e6e9cf7dc91be7861f4baa605ac48cc6",
+    "script/runner-proof/capture_setup_support.py": "1f000a0fa59ea26b1b90cbc2419b63217ba790073a6bb1cfd8afd02fd91b7ff5",
+    "script/runner-proof/capture_tcc.py": "d0cc14dd564aded849598a08475594247b41735c4df297966943564940713ef6",
+    "script/runner-proof/inputs/capture-driver-files.json": "8ed094018ef9d9bc203c31cc32c15910f19b2c46f147ab5a11d9345d957ceeb1",
+    "script/runner-proof/inputs/capture-driver-handoff.json": "637748bf3543e561c7d66423df6d413de569b9ce89f14046922e7affb8a3c127",
+    "script/runner-proof/inputs/capture-driver.tar.gz": "d00e592b70e8272e441c0ab4159e636287d3aeb23185e19eae5d005574c41c62",
+    "script/runner-proof/inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9",
+    "script/runner-proof/mac_rosetta_preflight.py": "f2682a4466f334ba1a27be80fc02be5d0c15f59d7fc6e3492ce15e2fdbc6781b",
+    "script/runner-proof/sealed_runner.py": "2cc81992916cf51806fa47adc8d9dc8512a2bdb6358279356bec8f6a25c6d187",
+    "script/runner-proof/snapshot_manifest.py": "386719e42128d2c5565a40afba7ee87b1d02f1de209c6c3bdca6e9b8688ad064",
+    "script/runner-proof/universal_manifest.py": "3ce896a09383f713f50040a05eb416da64e9ea5980fd2a62f4c36bf64c2f2ffe"
+  }
+}
