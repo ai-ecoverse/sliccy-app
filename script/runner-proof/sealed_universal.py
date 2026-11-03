@@ -1,4 +1,4 @@
-"""Fixed hosted universal proof envelope. All subprocess output stays private."""
+
 from pathlib import Path, PurePosixPath
 import hashlib
 import json
@@ -71,7 +71,7 @@ def extract_sources(inputs, destination):
     if len(expected) != 21 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
         raise ValueError('driver file set')
     package = destination / 'test/nativeproof'
-    package.mkdir(mode=0o700)  # existing contents would violate the exact set
+    package.mkdir(mode=0o700)
     with tarfile.open(inputs / 'universal-driver.tar.gz') as archive:
         seen = set()
         for entry in archive.getmembers():
@@ -141,8 +141,8 @@ def run_owned(args, log, env, deadline, maximum=60, cwd=None, check=True):
     try:
         code = child.wait(timeout=remaining)
     finally:
-        # Signal only this unreaped owned process group. Native driver owns and
-        # asserts its actual app/CLI child cleanup; this is a final timeout bound.
+
+
         if child.returncode is None:
             try: os.killpg(child.pid, signal.SIGTERM)
             except ProcessLookupError: pass
@@ -176,7 +176,7 @@ def suite(root, evidence, log, env, deadline, workspace):
     for name in INPUTS:
         shutil.copy2(inputs / name, evidence / name)
     artifacts = root / 'artifact'; artifacts.mkdir(mode=0o700)
-    # No token reaches go, app or CLI. gh receives only its fixed read token.
+
     gh_env = dict(env, GH_TOKEN=os.environ['GH_TOKEN'])
     gh = shutil.which('gh', path=PATH)
     go = shutil.which('go', path=PATH)
@@ -189,7 +189,7 @@ def suite(root, evidence, log, env, deadline, workspace):
         raise ValueError('signed manifest checksum')
     run_owned(['/usr/bin/ditto', '-x', '-k', str(artifacts / 'Sliccy-0.1.0.zip'), str(artifacts)], log, env, deadline)
     app = artifacts / 'Sliccy.app'
-    # Verify with the exact static verifier used for this signed artifact, no execution.
+
     def bounded_static_check(args):
         remaining = min(10, deadline - time.monotonic())
         if remaining <= 0: raise subprocess.TimeoutExpired(args, 0)
@@ -235,9 +235,9 @@ def suite(root, evidence, log, env, deadline, workspace):
                 outcomes[label] = 'DRIVER_EXIT_0' if code == 0 else 'DRIVER_FAILED'
             except subprocess.TimeoutExpired:
                 outcomes[label] = 'DRIVER_TIMEOUT'
-        # Full driver evidence determines PASS; go exit0 alone is not elevated.
+
         (case / 'invocation.json').write_text(json.dumps({'entryTest': test, 'result': outcomes[label], 'CGO_ENABLED': '0'}) + '\n')
-    # Same immutable bytes/manifest must survive both trials.
+
     try:
         os.environ['GITHUB_SHA'] = APP_SOURCE
         if universal_manifest.manifest(app) != recorded:
@@ -275,7 +275,7 @@ def main():
                            '--tlsv1.2', '--max-time', '30', 'https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-darwin-arm64.tar.gz',
                            '--output', str(archive)], log, env, began + 255, maximum=35)
                 unpack_age(archive, age)
-                # Strip inherited telemetry/update toggles on the wrapper too.
+
                 os.environ['SLICC_NO_TELEMETRY'] = '1'; os.environ['SLICC_NO_UPDATE_CHECK'] = '1'
                 status = suite(root, evidence, log, env, began + 255, workspace)
             except Exception as error:

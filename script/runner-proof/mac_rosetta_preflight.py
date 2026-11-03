@@ -1,4 +1,4 @@
-"""Read-only hosted Mac-app translation preflight; no translated execution."""
+
 from pathlib import Path
 import json
 import os
@@ -33,7 +33,7 @@ def decide(receipt_ok, runtime_regular, runtime_apple_signed):
 
 
 def inspect():
-    # No subprocess/path observation occurs until this separate hosted-only gate.
+
     require_host(os.environ, platform.system(), platform.machine(), platform.mac_ver()[0])
     receipt_ok = runtime_regular = runtime_signed = False
     clean_env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'LANG': 'C'}
@@ -55,6 +55,3 @@ def inspect():
     except (OSError, subprocess.TimeoutExpired):
         pass
     return decide(receipt_ok, runtime_regular, runtime_signed)
-
-# Deliberately no __main__ path. The reviewed private harness records inspect()
-# inside the encrypted evidence envelope; this module never prints raw diagnostics.
