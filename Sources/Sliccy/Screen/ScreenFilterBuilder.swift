@@ -32,6 +32,9 @@ enum ScreenFilterBuilder {
         // Never turn an exclusion into an exception: SCK can re-include its owner.
         guard exceptingWindows.isEmpty else { throw ScreenFailure.protection }
         guard !selected.isEmpty, selected.allSatisfy({ !$0.bundleIdentifier.isEmpty && !protected.excludes(bundle: $0.bundleIdentifier, pid: $0.processID) }) else { throw ScreenFailure.protection }
+#if SLICCY_NATIVE_SCREEN_PROOF
+        ScreenProofFilterConstruction.reached()
+#endif
         let filter = SCContentFilter(display: display, including: selected, exceptingWindows: [])
         filter.includeMenuBar = false
         guard Set(filter.includedApplications.map(\.processID)) == Set(selected.map(\.processID)) else { throw ScreenFailure.protection }
@@ -41,6 +44,9 @@ enum ScreenFilterBuilder {
     static func window(_ window: SCWindow, protected: ScreenProtectedSet) throws -> SCContentFilter {
         guard let app = window.owningApplication, !app.bundleIdentifier.isEmpty,
               !protected.excludes(bundle: app.bundleIdentifier, pid: app.processID), window.windowLayer == 0 else { throw ScreenFailure.protection }
+#if SLICCY_NATIVE_SCREEN_PROOF
+        ScreenProofFilterConstruction.reached()
+#endif
         return SCContentFilter(desktopIndependentWindow: window)
     }
 

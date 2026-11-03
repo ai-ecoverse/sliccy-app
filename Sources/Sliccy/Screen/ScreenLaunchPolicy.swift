@@ -5,12 +5,17 @@ enum ScreenLaunchPolicy: Sendable {
     case production
 #if SLICCY_NATIVE_SCREEN_PROOF
     case noCaptureProof(root: URL)
+    case universalAppProof(root: URL)
 #endif
 
     var hashes: Set<Data> {
         switch self {
         case .production: return ScreenReleasePolicy.cliCodeDirectoryHashes
 #if SLICCY_NATIVE_SCREEN_PROOF
+        case .universalAppProof:
+            // The universal APP always owns the unchanged arm64 CLI resource,
+            // including when this app's x86_64 slice is executing under Rosetta.
+            return [Self.hash("5da1a3199bd3f895bce2e53023c28ca1c33d249e")]
         case .noCaptureProof:
             // Exact checksum-verified v1.59.0 release slices; diagnostic IPC only.
 #if arch(arm64)
@@ -20,10 +25,7 @@ enum ScreenLaunchPolicy: Sendable {
 #else
             return []
 #endif
-            return [Data(stride(from: 0, to: hex.count, by: 2).map {
-                let start = hex.index(hex.startIndex, offsetBy: $0)
-                return UInt8(hex[start..<hex.index(start, offsetBy: 2)], radix: 16)!
-            })]
+            return [Self.hash(hex)]
 #endif
         }
     }
@@ -31,7 +33,7 @@ enum ScreenLaunchPolicy: Sendable {
         switch self {
         case .production: ScreenReleasePolicy.identityProofApproved && !hashes.isEmpty
 #if SLICCY_NATIVE_SCREEN_PROOF
-        case .noCaptureProof: !hashes.isEmpty
+        case .noCaptureProof, .universalAppProof: !hashes.isEmpty
 #endif
         }
     }
@@ -41,11 +43,19 @@ enum ScreenLaunchPolicy: Sendable {
             return ["PATH=/usr/bin:/bin", "HOME=" + FileManager.default.homeDirectoryForCurrentUser.path,
                     "TMPDIR=" + NSTemporaryDirectory(), "LANG=en_US.UTF-8"]
 #if SLICCY_NATIVE_SCREEN_PROOF
-        case .noCaptureProof(let root):
+        case .noCaptureProof(let root), .universalAppProof(let root):
             return ["PATH=/usr/bin:/bin", "HOME=" + root.path, "TMPDIR=" + root.appending(path: "tmp").path + "/",
                     "SLICC_USER_DATA_DIR=" + root.appending(path: "config").path,
                     "SLICC_NO_TELEMETRY=1", "SLICC_NO_UPDATE_CHECK=1", "LANG=en_US.UTF-8"]
 #endif
         }
     }
+#if SLICCY_NATIVE_SCREEN_PROOF
+    private static func hash(_ hex: String) -> Data {
+        Data(stride(from: 0, to: hex.count, by: 2).map {
+            let start = hex.index(hex.startIndex, offsetBy: $0)
+            return UInt8(hex[start..<hex.index(start, offsetBy: 2)], radix: 16)!
+        })
+    }
+#endif
 }

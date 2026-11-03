@@ -13,11 +13,15 @@ BUNDLE_ID="ai.sliccy.mac"
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
 SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build")
 BUILD_NUMBER=1
-if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 ]]; then
+if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 ]]; then
   [[ "$MODE" == --build && "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == ai-ecoverse/sliccy-app && "${GITHUB_EVENT_NAME:-}" == push && "${GITHUB_REF:-}" == refs/heads/main ]] || { echo 'Build the diagnostic bundle through upstream main CI.' >&2; exit 2; }
   SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/native-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF)
   APP_BUNDLE="$ROOT_DIR/dist-proof/$APP_NAME.app"
   BUILD_NUMBER=6
+  if [[ "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 ]]; then
+    APP_BUNDLE="$ROOT_DIR/dist-universal-proof/$APP_NAME.app"
+    BUILD_NUMBER=7
+  fi
 fi
 SWIFT="${SLICCY_SWIFT:-$(/usr/bin/xcrun --find swift)}"
 cd "$ROOT_DIR"
@@ -26,11 +30,23 @@ export CLANG_MODULE_CACHE_PATH="$ROOT_DIR/.build/ModuleCache"
 if [[ "$MODE" != "--build" ]]; then
   /usr/bin/pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 fi
-"$SWIFT" build "${SWIFT_FLAGS[@]}" --product "$APP_NAME"
-BUILD_DIR="$("$SWIFT" build "${SWIFT_FLAGS[@]}" --show-bin-path)"
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
-cp "$BUILD_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
-if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 ]]; then
+if [[ "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 ]]; then
+  proof_slices=()
+  for proof_arch in arm64 x86_64; do
+    proof_flags=(--scratch-path "$ROOT_DIR/.build/universal-$proof_arch" --triple "$proof_arch-apple-macosx27.0" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_UNIVERSAL_SLICE_PROOF)
+    "$SWIFT" build "${proof_flags[@]}" --product "$APP_NAME"
+    proof_bin="$("$SWIFT" build "${proof_flags[@]}" --show-bin-path)"
+    proof_slices+=("$proof_bin/$APP_NAME")
+  done
+  /usr/bin/lipo -create "${proof_slices[@]}" -output "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+  /usr/bin/lipo -verify_arch arm64 x86_64 "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+else
+  "$SWIFT" build "${SWIFT_FLAGS[@]}" --product "$APP_NAME"
+  BUILD_DIR="$("$SWIFT" build "${SWIFT_FLAGS[@]}" --show-bin-path)"
+  cp "$BUILD_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+fi
+if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 && "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" != 1 ]]; then
   mkdir -p "$APP_BUNDLE/Contents/Helpers"
   /usr/bin/xcrun clang -Wall -Wextra -Werror Tests/NativeScreenFilterProbe/exec-helper.c \
     -framework Security -framework CoreFoundation -o "$APP_BUNDLE/Contents/Helpers/ScreenProofExecHelper"

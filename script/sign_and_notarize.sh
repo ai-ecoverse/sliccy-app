@@ -61,6 +61,10 @@ done
 /usr/bin/cmp "$input_app/Contents/Resources/slicc" "$signed_app/Contents/Resources/slicc"
 requirement='anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[subject.OU] = "S8LB56P782" and identifier "ai.sliccy.mac"'
 /usr/bin/codesign --verify --deep --strict -R "=$requirement" "$signed_app"
+if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 7 ]]; then
+  /usr/bin/codesign --verify --deep --strict --all-architectures -R "=$requirement" "$signed_app"
+  python3 "$(dirname "$0")/universal_manifest.py" "$signed_app" "$artifact_dir/universal-manifest.json"
+fi
 /usr/bin/ditto -c -k --keepParent "$signed_app" "$artifact_dir/Sliccy-notarize.zip"
 private_dir=$(mktemp -d "$RUNNER_TEMP/sliccy-notary.XXXXXX")
 trap 'rm -rf "$private_dir"' EXIT

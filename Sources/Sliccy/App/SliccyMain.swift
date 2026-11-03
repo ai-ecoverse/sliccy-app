@@ -4,6 +4,11 @@ import SwiftUI
 @main
 enum SliccyMain {
     @MainActor static func main() {
+#if SLICCY_UNIVERSAL_SLICE_PROOF
+        // This separately signed fixture has no workspace or other proof entry.
+        guard (try? ScreenUniversalCase.parse(Array(ProcessInfo.processInfo.arguments.dropFirst()))) != nil else { exit(2) }
+        ScreenUniversalProofApp.run()
+#else
         if ProcessInfo.processInfo.arguments.dropFirst().first == "--screen-proof" {
 #if SLICCY_NATIVE_SCREEN_PROOF
             ScreenProofApp.run()
@@ -14,5 +19,6 @@ enum SliccyMain {
             return
         }
         SliccyApp.main()
+#endif
     }
 }

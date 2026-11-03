@@ -26,6 +26,50 @@ struct ScreenProofTests {
     }
 
 #if SLICCY_NATIVE_SCREEN_PROOF
+    @Test func universalProofAlwaysPinsOnlyBundledArm64CLIAndHasClosedCases() throws {
+        let root = URL(fileURLWithPath: "/private/tmp/universal-unit-only")
+        let policy = ScreenLaunchPolicy.universalAppProof(root: root)
+        #expect(policy.hashes.count == 1)
+        #expect(policy.hashes.first?.map { String(format: "%02x", $0) }.joined() == "5da1a3199bd3f895bce2e53023c28ca1c33d249e")
+        #expect(ScreenLaunchPolicy.production.hashes.isEmpty && !ScreenLaunchPolicy.production.allowsIPC)
+        #expect(try ScreenUniversalCase.parse(["--screen-proof", "--case", "universal-native"]) == .native)
+        #expect(try ScreenUniversalCase.parse(["--screen-proof", "--case", "universal-translated"]) == .translated)
+        for args in [["--screen-proof"], ["--screen-proof", "--case", "frame-handoff"],
+                     ["--screen-proof", "--case", "universal-native", "--path", "/tmp/cli"]] {
+            #expect(throws: ScreenFailure.incompatible) { try ScreenUniversalCase.parse(args) }
+        }
+    }
+    @Test func universalRefusalRequiresRealReceiverRowAndCompleteWithoutLoss() {
+        var evidence = ScreenUniversalEvidence()
+        #expect(!evidence.nativePair && !evidence.peerRefused)
+        evidence.observe(.init(schema: 1, event: "native-screen-verification", seq: 1, stage: "check", lane: "safety", outcome: "refused", tokenMatched: nil, pidAgreed: nil, uidAgreed: nil, lost: false))
+        #expect(!evidence.peerRefused)
+        evidence.observe(.init(schema: 1, event: "native-screen-verification", seq: 2, stage: "complete", lane: nil, outcome: nil, tokenMatched: nil, pidAgreed: nil, uidAgreed: nil, lost: false))
+        #expect(evidence.peerRefused && !evidence.nativePair)
+        evidence.lost = true
+        #expect(!evidence.peerRefused)
+    }
+    @Test func protectedProbeCannotPassFromConstructionSuccessOrPostConstructionFailure() throws {
+        try ScreenProofProtectedProbe.requireRefusal { () throws -> Int in throw ScreenFailure.protection }
+        #expect(throws: ScreenProofProtectedProbe.Failure.unexpectedlyAccepted) {
+            try ScreenProofProtectedProbe.requireRefusal { 1 }
+        }
+        #expect(throws: ScreenProofProtectedProbe.Failure.constructionReached) {
+            try ScreenProofProtectedProbe.requireRefusal { () throws -> Int in
+                ScreenProofFilterConstruction.reached()
+                throw ScreenFailure.protection
+            }
+        }
+        #expect(throws: ScreenProofProtectedProbe.Failure.constructionReached) {
+            try ScreenProofProtectedProbe.requireRefusal {
+                ScreenProofFilterConstruction.reached()
+                return 1
+            }
+        }
+        #expect(throws: ScreenProofProtectedProbe.Failure.wrongRefusal) {
+            try ScreenProofProtectedProbe.requireRefusal { () throws -> Int in throw ScreenFailure.peerLost }
+        }
+    }
     @Test func onlyFixedDiagnosticCasesCanBeSelected() throws {
         #expect(try ScreenProofCase.parse(["--screen-proof"]) == .base)
         #expect(try ScreenProofCase.parse(["--screen-proof", "--case", "parent-exec"]) == .parentExec)

@@ -555,7 +555,7 @@ final class ScreenProofSession: @unchecked Sendable {
               url.path.hasPrefix("/join/"), !url.path.dropFirst(6).isEmpty else { throw ScreenFailure.incompatible }
         return raw
     }
-    private static func readJoin() throws -> String {
+    static func readJoin() throws -> String {
         let deadline = ContinuousClock.now.advanced(by: .seconds(5))
         var data = Data()
         while ContinuousClock.now < deadline, data.count <= 4096 {

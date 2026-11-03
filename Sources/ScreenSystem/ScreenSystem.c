@@ -20,6 +20,16 @@ OSStatus sliccy_screen_dynamic_status(SecCodeRef code, uint32_t *status) {
 #include <string.h>
 #include <arpa/inet.h>
 #include <libkern/OSByteOrder.h>
+#include <libproc.h>
+#include <sys/proc_info.h>
+
+int sliccy_screen_proof_self_arch(int32_t *cpu, int32_t *subtype) {
+    struct proc_archinfo info = {0};
+    _Static_assert(sizeof(info) == 8, "Unexpected proc_archinfo layout");
+    if (!cpu || !subtype || proc_pidinfo(getpid(), PROC_PIDARCHINFO, 0, &info, sizeof(info)) != (int)sizeof(info)) return EINVAL;
+    *cpu = info.p_cputype; *subtype = info.p_cpusubtype;
+    return 0;
+}
 
 ssize_t sliccy_screen_recv(int fd, void *buffer, size_t size) {
     union { struct cmsghdr aligned; unsigned char bytes[CMSG_SPACE(sizeof(int) * 256)]; } control;
