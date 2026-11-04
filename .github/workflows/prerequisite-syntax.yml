@@ -1,0 +1,59 @@
+name: Prerequisite syntax only
+
+on:
+  push:
+    branches: [proof/prerequisite-syntax-762ffd6]
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-only:
+    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'push' && github.ref == 'refs/heads/proof/prerequisite-syntax-762ffd6'
+    runs-on: xcode-27
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 762ffd6a4da51276e16b04b0dfc1ab59d51e5002
+          persist-credentials: false
+      - name: Verify frozen sources and check syntax only
+        run: |
+          python3 -B - <<'PY'
+          from pathlib import Path
+          import hashlib,json,os,subprocess
+          expected='762ffd6a4da51276e16b04b0dfc1ab59d51e5002'
+          assert subprocess.check_output(['/usr/bin/git','rev-parse','HEAD'],text=True).strip()==expected
+          assert os.environ['RUNNER_ENVIRONMENT']=='github-hosted' and os.environ['RUNNER_OS']=='macOS' and os.environ['RUNNER_ARCH']=='ARM64'
+          output=Path('syntax-results');output.mkdir(mode=0o700)
+          raw=Path('script/runner-proof/prerequisite-reviewed-sources.json').read_bytes()
+          assert hashlib.sha256(raw).hexdigest()=='305196b3b23276ee0bc6e263fd9b9db0e2612ae64b988b6fabde916602854a8c'
+          files=json.loads(raw)['files'];assert len(files)==30
+          def verify():
+              for name,digest in files.items():assert hashlib.sha256(Path(name).read_bytes()).hexdigest()==digest
+          verify()
+          record={'source':expected,'workflowSource':os.environ['GITHUB_SHA'],'run':os.environ['GITHUB_RUN_ID'],'attempt':os.environ['GITHUB_RUN_ATTEMPT'],'sourceMap':hashlib.sha256(raw).hexdigest(),'scope':'syntax only; no linked binary or observer execution','results':[]}
+          for name in ('platform','kernel'):
+              source='script/runner-proof/prerequisite_'+name+'.m'
+              args=['/usr/bin/xcrun','--sdk','macosx','clang','-fsyntax-only','-fobjc-arc','-Wall','-Wextra','-Werror',source]
+              try:
+                  result=subprocess.run(args,capture_output=True,timeout=60,env={'PATH':'/usr/bin:/bin:/usr/sbin:/sbin','TMPDIR':os.environ['RUNNER_TEMP']})
+                  status,stdout,stderr=result.returncode,result.stdout,result.stderr
+              except subprocess.TimeoutExpired as error:
+                  status,stdout,stderr=None,error.stdout or b'',error.stderr or b''
+              (output/(name+'.stdout')).write_bytes(stdout);(output/(name+'.stderr')).write_bytes(stderr)
+              record['results'].append({'source':source,'sourceSHA256':files[source],'args':args,'exit':status,'stdoutSHA256':hashlib.sha256(stdout).hexdigest(),'stderrSHA256':hashlib.sha256(stderr).hexdigest()})
+              verify()
+              (output/'summary.json').write_text(json.dumps(record,indent=2)+'\n')
+              if status!=0:raise SystemExit(1)
+          record['allPassedUnchanged']=True
+          (output/'summary.json').write_text(json.dumps(record,indent=2)+'\n')
+          PY
+      - name: Retain syntax evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: prerequisite-syntax-results
+          path: syntax-results/
+          if-no-files-found: error
+          retention-days: 14
