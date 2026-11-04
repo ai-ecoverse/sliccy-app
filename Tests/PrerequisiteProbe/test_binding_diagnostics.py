@@ -43,7 +43,7 @@ class BindingDiagnosticsTests(TestCase):
                 row = case['rows'][case['fault']]
                 self.assertEqual(row['comparison'], names[case['fault']])
                 self.assertIs(row['matched'], False)
-                self.assertIs(row['affectsVerdict'], True)
+                self.assertIs(row['affectsVerdict'], row['comparison'] != 'live-static-cdhash')
 
     def test_optional_expected_pin_retains_original_semantics(self):
         for row in self.result['optional']: binding.comparison(row)
@@ -126,12 +126,13 @@ class BindingDiagnosticsTests(TestCase):
     def test_static_strict_diagnostic(self):
         self.check_static_result('static-strict', 16, 3)
 
-    def test_original_native_decision_expression_unchanged(self):
+    def test_native_decision_replaces_only_default_slice_comparison(self):
         text=(SCRIPTS/'prerequisite_kernel.m').read_text()
-        expected='''        require(kernelStatus == 0 && [ah isKindOfClass:NSData.class] && ah.length == 20 && [ah isEqual:bh] &&
+        expected='''        require(kernelStatus == 0 && [ah isKindOfClass:NSData.class] && ah.length == 20 && sliceBound &&
             [ah isEqual:kernelHash] && (!expected || [ah isEqual:expected]) && [ai isEqual:identifier] && [bi isEqual:identifier] &&
             [image.path isEqual:path], @"code-binding");'''
         self.assertEqual(text.count(expected),1)
+        self.assertIn('BOOL sliceBound=bindUniqueSlice(pid,guest,requirement,a,path,identifier,kernelHash);',text)
         self.assertIn('SecStaticCodeCheckValidity(file, kSecCSStrictValidate | kSecCSCheckAllArchitectures | kSecCSCheckNestedCode, requirement)',text)
         self.assertIn('SecCodeCheckValidity(guest, kSecCSStrictValidate, requirement)',text)
         self.assertIn('return SecStaticCodeCheckValidity(file, flags, requirement);',text)

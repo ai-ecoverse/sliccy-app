@@ -1,0 +1,28 @@
+Hosted synthetic slice tests
+
+This push-only test workflow is confined to proof/slice-binding-tests-v1.
+It compiles and executes only the synthetic Foundation slice policy fixture,
+then its six fixed fault overlays and the slice component tests. It does not
+compile or execute the native prerequisite observers, download signed subjects,
+use signing secrets, invoke sudo, stage a bundle, query process identities, or
+run a capture/probe. Passing these tests is not acceptance-review clearance.
+
+The local unique-match overlay previously exited with SIGKILL and disappeared.
+Unified logs correlate the three local failures with CrowdStrike Falcon
+notifications, but do not establish the successful killer or deletion actor.
+Attribution remains incomplete. No local SIGKILL is a runtime RED result.
+No local native test/observer/mutant build or execution is permitted; all such
+validation is hosted. Local harness tests mock every subprocess.
+
+Each hosted mutation must compile successfully, exit 1 with its exact named
+assertion, and emit no stdout. Compile errors, signals, timeouts and unrelated
+assertions fail validation. The original fixture must pass before and after
+the mutations. Original source bytes are never replaced. All results and
+compiler/runtime streams are retained in the synthetic-test artifact. They
+contain generated fixtures and source-test output, not machine identity or
+capture diagnostics. No raw local unified logs are uploaded.
+
+Acceptance source remains a draft pending both reads. The signed build12
+child is untouched. The held capture caller changes remain a later reviewed
+and signed round. No prerequisite or capture dispatch is authorized by this
+workflow.

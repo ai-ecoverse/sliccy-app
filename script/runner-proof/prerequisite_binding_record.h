@@ -28,7 +28,7 @@ static NSArray *sliccy_binding_rows(int kernelStatus, id liveHash, id staticHash
         sliccy_binding_row(@"kernel-status-zero", @(kernelStatus), @0, kernelStatus == 0, YES),
         sliccy_binding_row(@"live-cdhash-type", data ? @"data" : @"not-data", @"data", data, YES),
         sliccy_binding_row(@"live-cdhash-length", length, @20, data && [liveHash length] == 20, YES),
-        sliccy_binding_row(@"live-static-cdhash", liveHash, staticHash, [liveHash isEqual:staticHash], YES),
+        sliccy_binding_row(@"live-static-cdhash", liveHash, staticHash, [liveHash isEqual:staticHash], NO),
         sliccy_binding_row(@"live-kernel-cdhash", liveHash, kernelHash, [liveHash isEqual:kernelHash], YES),
         sliccy_binding_row(@"live-expected-cdhash", liveHash, expectedHash, !expectedHash || [liveHash isEqual:expectedHash], expectedHash != nil),
         sliccy_binding_row(@"live-identifier", liveIdentifier, expectedIdentifier, [liveIdentifier isEqual:expectedIdentifier], YES),

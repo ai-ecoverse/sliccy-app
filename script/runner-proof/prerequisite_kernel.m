@@ -107,6 +107,7 @@ static void bindingMetadata(pid_t pid, SecCodeRef guest, SecRequirementRef requi
     emit(@"binding-comparison", @"completed", sliccy_inode_row(@"filesystem-live-static-inode", live, file));
 }
 #include "prerequisite_image_native.h"
+#include "prerequisite_slice_native.h"
 static NSDictionary *code(pid_t pid, NSString *path, NSString *rule, NSString *identifier, NSData *expected, BOOL designated) {
     SecRequirementRef requirement = NULL;
     SecCodeRef guest = NULL;
@@ -150,7 +151,8 @@ static NSDictionary *code(pid_t pid, NSString *path, NSString *rule, NSString *i
             emit(@"binding-comparison", @"completed", comparison);
         bindingMetadata(pid, guest, requirement, a, b, path);
         if (!expected) imageDiagnostics(pid, requirement, a, b, path, kernelHash);
-        require(kernelStatus == 0 && [ah isKindOfClass:NSData.class] && ah.length == 20 && [ah isEqual:bh] &&
+        BOOL sliceBound=bindUniqueSlice(pid,guest,requirement,a,path,identifier,kernelHash);
+        require(kernelStatus == 0 && [ah isKindOfClass:NSData.class] && ah.length == 20 && sliceBound &&
             [ah isEqual:kernelHash] && (!expected || [ah isEqual:expected]) && [ai isEqual:identifier] && [bi isEqual:identifier] &&
             [image.path isEqual:path], @"code-binding");
         result = @{@"identifier": ai, @"path": path, @"hash": [ah base64EncodedStringWithOptions:0], @"matched": @YES};

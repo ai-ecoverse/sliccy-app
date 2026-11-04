@@ -28,7 +28,7 @@ def comparison(row):
     require(name in POLICY | FILESYSTEM and type(row['affectsVerdict']) is bool, 'binding-row-name')
     if name in POLICY:
         require(row['status'] == 'compared' and type(row['matched']) is bool, 'binding-row-result')
-        require(row['affectsVerdict'] is True or name == 'live-expected-cdhash', 'binding-policy-label')
+        require(row['affectsVerdict'] is False if name == 'live-static-cdhash' else row['affectsVerdict'] is True or name == 'live-expected-cdhash', 'binding-policy-label')
         typed(row['left']); typed(row['right'])
     else:
         require(row['affectsVerdict'] is False and row['status'] in ('compared', 'unavailable'), 'binding-filesystem-label')
