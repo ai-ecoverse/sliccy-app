@@ -25,7 +25,6 @@ jobs:
         shell: bash
         env:
           SLICCY_RUNNER_ENVIRONMENT: ${{ runner.environment }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           set +x
           umask 077
