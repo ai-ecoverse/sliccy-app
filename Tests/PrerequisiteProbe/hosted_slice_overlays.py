@@ -15,7 +15,7 @@ CHANGES = (
     ('zero-match', '&& matches!=1)', '&& matches>1)'),
     ('multiple-match', '&& matches!=1)', '&& matches==0)'),
     ('wrong-hash-type', '[candidateType isEqual:type] && [item[@"hash"] isEqual:hash]', '([candidateType isEqual:type] || ![candidateType isEqual:type]) && [item[@"hash"] isEqual:hash]'),
-    ('identity-full-prefix', '![[value subdataWithRange:NSMakeRange(0,20)] isEqual:hash]', 'NO && ![[value subdataWithRange:NSMakeRange(0,20)] isEqual:hash]'),
+    ('identity-full-prefix', '![[value subdataWithRange:NSMakeRange(0,20)] isEqual:hash]', '(NO && ![[value subdataWithRange:NSMakeRange(0,20)] isEqual:hash])'),
     ('changed-file', 'a->st_ino==b->st_ino', '(a->st_ino==b->st_ino || a->st_ino!=b->st_ino)'),
 )
 
