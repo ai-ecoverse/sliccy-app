@@ -7,14 +7,15 @@ from prerequisite_probe import sample
 import prerequisite_binding as binding
 import prerequisite_image as image
 import prerequisite_slice as slices
+import prerequisite_sysctl as sysctl_diagnostic
 
 APP_HASH = 'stPyiHVvDcejjgvo90frsO5TZ2c='
 PAIRED = {'placement', 'bsd', 'pidpath', 'file-static', 'requirement', 'static-validity', 'file-info',
           'guest', 'dynamic-validity', 'guest-static', 'live-info', 'kernel-hash', 'spawn', 'hello', 'facts', 'reap', 'root-exit-bsd', 'binding-requirement-text', 'binding-apple-requirement',
           'binding-static-validity', 'binding-live-apple-anchor', 'binding-kernel-flags', 'binding-path-resolve', 'binding-path-stat'}
-PAIRED |= image.PAIRED | slices.PAIRED
+PAIRED |= image.PAIRED | slices.PAIRED | sysctl_diagnostic.PAIRED
 SINGLES = {'target-before', 'target-after', 'candidate', 'ack', 'failure', 'result', 'binding-code-info', 'binding-comparison'}
-SINGLES |= image.SINGLES | slices.SINGLES
+SINGLES |= image.SINGLES | slices.SINGLES | sysctl_diagnostic.SINGLES
 
 
 def require(value, reason):
@@ -27,6 +28,7 @@ def parse(data):
     rows = [json.loads(line, object_pairs_hook=boundary.unique_object) for line in data.splitlines()]
     require(0 < len(rows) <= 512, 'kernel-row-bound')
     pending, clock = [], -1
+    sysctl_records=sysctl_diagnostic.Records()
     for index, row in enumerate(rows, 1):
         require(type(row) is dict and set(row) == {'schema', 'seq', 'phase', 'state', 'elapsedMs', 'facts'}
                 and type(row['schema']) is int and row['schema'] == 2 and type(row['seq']) is int and row['seq'] == index,
@@ -35,6 +37,8 @@ def parse(data):
                 'kernel-clock')
         clock = row['elapsedMs']
         require(type(row['facts']) is dict, 'kernel-facts')
+        if row['phase'] in sysctl_diagnostic.PAIRED | sysctl_diagnostic.SINGLES:
+            sysctl_records.accept(row['phase'],row['state'],row['facts'])
         if row['phase'] == 'binding-static-validity':
             binding.static_validity(row['state'], row['facts'])
         if row['state'] == 'completed' and row['phase'] in slices.PAIRED | slices.SINGLES:

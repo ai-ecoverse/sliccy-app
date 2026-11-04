@@ -106,6 +106,7 @@ static void bindingMetadata(pid_t pid, SecCodeRef guest, SecRequirementRef requi
     emit(@"binding-comparison", @"completed", sliccy_inode_row(@"filesystem-input-static-inode", input, file));
     emit(@"binding-comparison", @"completed", sliccy_inode_row(@"filesystem-live-static-inode", live, file));
 }
+#include "prerequisite_sysctl_native.h"
 #include "prerequisite_image_native.h"
 #include "prerequisite_slice_native.h"
 static NSDictionary *code(pid_t pid, NSString *path, NSString *rule, NSString *identifier, NSData *expected, BOOL designated) {
@@ -246,10 +247,15 @@ int main(int argc, const char **argv) {
             pid_t target = launch.target_pid;
             NSString *executable = [NSString stringWithUTF8String:launch.executable];
             emit(@"placement", @"completed", @{@"run": run, @"target": @(target), @"executable": executable});
+            pid_t observerPID=getpid(),wrapperPID=getppid();
+            sysctlDiagnostics(observerPID,@"observer-control",sample(observerPID),0);
+            sysctlDiagnostics(wrapperPID,@"wrapper-control",sample(wrapperPID),0);
             NSDictionary *targetBefore = sample(target);
+            sysctlDiagnostics(target,@"windowserver-before",targetBefore,0);
             require([targetBefore[@"pathStatus"] intValue] == 0, @"target-path");
             NSDictionary *targetCode = code(target, targetBefore[@"path"], @"anchor apple and identifier \"com.apple.WindowServer\"", @"com.apple.WindowServer", nil, NO);
             NSDictionary *targetAfter = sample(target);
+            sysctlDiagnostics(target,@"windowserver-after",targetAfter,0);
             require([targetBefore isEqual:targetAfter], @"target-prelaunch-change");
             emit(@"target-before", @"completed", @{@"sample": targetBefore, @"code": targetCode});
             NSData *expected = [[NSData alloc] initWithBase64EncodedString:@"stPyiHVvDcejjgvo90frsO5TZ2c=" options:0];
@@ -265,12 +271,14 @@ int main(int argc, const char **argv) {
             require(integer(hello[@"schema"]) && [hello[@"schema"] intValue] == 1 && integer(hello[@"pid"]) && [hello[@"pid"] longLongValue] > 0 && [hello[@"pid"] longLongValue] <= INT32_MAX, @"hello-types");
             rootPID = [hello[@"pid"] intValue];
             NSDictionary *rootBefore = sample(rootPID);
+            sysctlDiagnostics(rootPID,@"root-before",rootBefore,child);
             require([rootBefore[@"bsdStatus"] intValue] == 0 && [rootBefore[@"bsd"][@"uid"] intValue] == 0 && [rootBefore[@"path"] isEqual:executable], @"root-identity");
             double start = [rootBefore[@"bsd"][@"seconds"] doubleValue] + [rootBefore[@"bsd"][@"microseconds"] doubleValue] / 1000000;
             require(start >= launchWall && start <= NSDate.date.timeIntervalSince1970, @"root-start");
             NSArray *beforeChain = chain(rootPID, child);
             NSDictionary *rootCode = code(rootPID, executable, @"staged-build12-designated-requirement", @"ai.sliccy.mac", expected, YES);
             NSDictionary *rootAfter = sample(rootPID); NSArray *afterChain = chain(rootPID, child);
+            sysctlDiagnostics(rootPID,@"root-after",rootAfter,child);
             require([rootBefore isEqual:rootAfter] && [beforeChain isEqual:afterChain], @"root-changed");
             emit(@"candidate", @"completed", @{@"sudoPID": @(child), @"launchWall": @(launchWall), @"before": rootBefore, @"after": rootAfter,
                 @"chain": beforeChain, @"chainAfter": afterChain, @"code": rootCode});
@@ -283,6 +291,7 @@ int main(int argc, const char **argv) {
             keys(facts, @[@"schema", @"sample", @"path", @"hash"]);
             require(integer(facts[@"schema"]) && [facts[@"schema"] intValue] == 1 && [facts[@"path"] isEqual:targetCode[@"path"]] && [facts[@"hash"] isEqual:targetCode[@"hash"]], @"target-facts-code");
             NSDictionary *targetRecheck = sample(target);
+            sysctlDiagnostics(target,@"windowserver-final",targetRecheck,0);
             NSDictionary *targetCodeAfter = code(target, targetCode[@"path"], @"anchor apple and identifier \"com.apple.WindowServer\"", @"com.apple.WindowServer", nil, NO);
             require([targetCode isEqual:targetCodeAfter] && [targetBefore isEqual:targetRecheck], @"target-after-change");
             emit(@"target-after", @"completed", @{@"sample": targetRecheck, @"code": targetCodeAfter});
