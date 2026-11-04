@@ -1,0 +1,102 @@
+import gzip
+import hashlib
+import io
+import json
+import os
+from pathlib import Path
+import subprocess
+import tarfile
+import tempfile
+import time
+import urllib.request
+
+root = Path('Tests/DriverSchema6')
+results = Path('driver-schema6-results').resolve()
+results.mkdir()
+records = []
+start = time.monotonic()
+assert os.environ['RUNNER_ENVIRONMENT'] == 'github-hosted' and os.environ['RUNNER_OS'] == 'macOS' and os.environ['RUNNER_ARCH'] == 'ARM64'
+assert os.environ['GITHUB_REF'] == 'refs/heads/proof/independent-driver-schema6-v1' and os.environ['GITHUB_EVENT_NAME'] == 'push'
+private = Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP'], prefix='driver-schema6-'))
+env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'HOME': str(private / 'home'), 'TMPDIR': str(private / 'tmp'), 'CGO_ENABLED': '0', 'GOTOOLCHAIN': 'local', 'SLICC_NO_TELEMETRY': '1', 'SLICC_NO_UPDATE_CHECK': '1', 'GOFLAGS': '-mod=readonly', 'GOPATH': str(private / 'gopath'), 'GOCACHE': str(private / 'gocache')}
+for name in ['home', 'tmp']:
+    (private / name).mkdir()
+sha = lambda data: hashlib.sha256(data).hexdigest()
+manifest = json.loads((root / 'inputs.json').read_text())
+for name, digest in manifest['inputs'].items():
+    assert sha((root / name).read_bytes()) == digest
+assert sha((root / 'ReceiptFixture.swift').read_bytes()) == manifest['fixtureSHA256']
+for name, digest in manifest['actualEncoderSources'].items():
+    assert sha(Path(name).read_bytes()) == digest
+
+
+def command(label, args, maximum=240):
+    row = {'label': label, 'args': args, 'beginMs': (time.monotonic()-start)*1000}
+    records.append(row)
+    try:
+        remaining = min(maximum, 600-(time.monotonic()-start))
+        assert remaining > 0
+        result = subprocess.run(args, stdin=subprocess.DEVNULL, capture_output=True, env=env, timeout=remaining)
+        row['returncode'] = result.returncode
+        assert len(result.stdout) <= 8*1024*1024 and len(result.stderr) <= 8*1024*1024
+        for suffix, data in [('stdout', result.stdout), ('stderr', result.stderr)]:
+            (results / (label+'.'+suffix)).write_bytes(data)
+            row[suffix+'SHA256'] = sha(data)
+        return result
+    finally:
+        row['endMs'] = (time.monotonic()-start)*1000
+
+
+def expand(path, destination, limit, members_limit):
+    with tarfile.open(path) as tar:
+        seen = set()
+        total = 0
+        for member in tar.getmembers():
+            parts = Path(member.name).parts
+            assert not Path(member.name).is_absolute() and '..' not in parts and member.name not in seen
+            seen.add(member.name)
+            total += member.size
+            assert total <= limit and len(seen) <= members_limit and (member.isfile() or member.isdir())
+            target = destination / member.name
+            if member.isdir():
+                target.mkdir(parents=True, exist_ok=True)
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with target.open('xb') as output:
+                    output.write(tar.extractfile(member).read())
+                target.chmod(member.mode & 0o777)
+
+
+try:
+    with urllib.request.urlopen('https://go.dev/dl/go1.26.5.darwin-arm64.tar.gz', timeout=60) as response:
+        data = response.read(64738543)
+    assert len(data) == 64738542 and sha(data) == 'efb87ff28af9a188d0536ef5d42e63dd52ba8263cd7344a993cc48dd11dedb6a'
+    archive = private / 'go.tar.gz'
+    archive.write_bytes(data)
+    expand(archive, private, 320*1024*1024, 24000)
+    env['GOROOT'] = str(private / 'go')
+    env['PATH'] = str(private / 'go/bin')+':'+env['PATH']
+    go = str(private / 'go/bin/go')
+    assert command('go-version', [go, 'version'], 10).stdout.strip() == b'go version go1.26.5 darwin/arm64'
+    expand(root / 'inputs/slicc-v1.59.0.tar.gz', private / 'source', 64*1024*1024, 10000)
+    source = private / 'source/ai-ecoverse-slicc-cli-cea8ec1'
+    target = source / 'test/nativeproof'
+    target.mkdir(parents=True)
+    expand(root / 'inputs/driver-source.tar.gz', target, 4*1024*1024, 128)
+    assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == manifest['files']
+    fixture = str(private / 'receipt-fixture')
+    compiled = command('foundation-compile', ['/usr/bin/xcrun', 'swiftc', '-D', 'SLICCY_CAPTURE_RUNNER_PROOF', 'Sources/Sliccy/Screen/ScreenRunnerReceiptLedger.swift', 'Sources/Sliccy/Screen/ScreenRunnerJournal.swift', str(root / 'ReceiptFixture.swift'), '-o', fixture], 120)
+    assert compiled.returncode == 0
+    encoded = command('foundation-encode', [fixture], 10)
+    assert encoded.returncode == 0 and 0 < len(encoded.stdout) <= 32768 and encoded.stderr == b''
+    fixture_path = results.resolve() / 'foundation-encode.stdout'
+    env['SLICCY_RECEIPT_FIXTURE'] = str(fixture_path)
+    os.chdir(source)
+    test = command('go-components', [go, 'test', '-count=1', '-timeout=30s', './test/nativeproof', '-run', '^(TestRunnerBSDReceipt.*|TestRunnerReceiptBook.*|TestRunnerReceiptFoundationEncoderInteroperability|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission)$'], 300)
+    assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == manifest['files']
+    (results / 'after-source-map.json').write_text(json.dumps(manifest['files'], indent=2))
+    assert test.returncode == 0
+finally:
+    output = Path(os.environ['GITHUB_WORKSPACE']) / 'driver-schema6-results'
+    (output / 'commands.json').write_text(json.dumps(records, indent=2))
+    (output / 'input-manifest.json').write_text(json.dumps(manifest, indent=2))
