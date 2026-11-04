@@ -2,6 +2,7 @@
 import Foundation
 import Darwin
 import Security
+import CryptoKit
 
 final class ScreenRunnerOwnedProcess: @unchecked Sendable {
     let pid: pid_t
@@ -24,6 +25,9 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
     static func surface(home: URL, ended: @escaping @Sendable (pid_t, Bool) -> Void) throws -> ScreenRunnerOwnedProcess {
         _ = try ScreenRunnerHost.require()
         let app = Bundle.main.bundleURL.appending(path: "Contents/Helpers/ScreenProofSurface.app")
+        let executable = app.appending(path: "Contents/MacOS/ScreenProofSurface")
+        guard SHA256.hash(data: try Data(contentsOf: executable)).map({ String(format: "%02x", $0) }).joined() ==
+              "baff7b8b21264018138c9f7e2e7f6b8052bdcaf6e10b8ffa06dde854ac2b20c9" else { throw ScreenFailure.peerUntrusted }
         return try ScreenRunnerOwnedProcess(executable: app.appending(path: "Contents/MacOS/ScreenProofSurface"),
             identifier: "ai.sliccy.proof-helper", team: "S8LB56P782", arguments: [], home: home, ended: ended)
     }
@@ -36,7 +40,7 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
         return try ScreenRunnerOwnedProcess(executable: URL(fileURLWithPath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
             identifier: "com.google.Chrome", team: ScreenRunnerChromePolicy.team,
             arguments: ["--user-data-dir=" + home.appending(path: "config/chrome-" + window.profile).path,
-                        "--no-first-run", "--no-default-browser-check", "--disable-background-networking",
+                        "--no-first-run", "--no-default-browser-check", "--use-mock-keychain", "--disable-background-networking",
                         "--disable-component-update", "--disable-sync", "--disable-default-apps",
                         "--window-position=\(Int(rect.minX)),\(Int(rect.minY))", "--window-size=288,224", "--app=" + page.absoluteString],
             home: home, chromeEvidence: evidence, evidenceLost: evidenceLost, ended: ended)
@@ -55,11 +59,8 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
         var code: SecStaticCode?
         guard SecStaticCodeCreateWithPath(executable as CFURL, [], &code) == errSecSuccess, let code else { throw ScreenFailure.peerUntrusted }
         let rule = try Self.rule(identifier: identifier, team: team)
-        if identifier == ScreenRunnerChromePolicy.identifier {
-            try ScreenRunnerChromePolicy.verify(code, record: { chromeEvidence("preflight", $0) })
-        } else {
-            guard SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate), rule) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
-        }
+        try ScreenRunnerChromePolicy.verify(code, identifier: identifier, site: .preflight, ordinary: rule,
+            record: { chromeEvidence("preflight", $0) })
         var info: CFDictionary?
         guard SecCodeCopySigningInformation(code, [], &info) == errSecSuccess,
               let hash = (info as? [String: Any])?[kSecCodeInfoUnique as String] as? Data else { throw ScreenFailure.peerUntrusted }
@@ -142,16 +143,24 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
                   let guest, SecCodeCheckValidity(guest, [], try Self.rule(identifier: identifier, team: team)) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
             var staticCode: SecStaticCode?
             guard SecCodeCopyStaticCode(guest, [], &staticCode) == errSecSuccess, let staticCode else { throw ScreenFailure.peerUntrusted }
-            if identifier == ScreenRunnerChromePolicy.identifier {
-                try ScreenRunnerChromePolicy.verify(staticCode, record: { batch.collect("live-copy", $0) })
-            } else {
-                guard SecStaticCodeCheckValidity(staticCode, SecCSFlags(rawValue: kSecCSStrictValidate), try Self.rule(identifier: identifier, team: team)) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
-            }
+            try ScreenRunnerChromePolicy.verify(staticCode, identifier: identifier, site: .liveCopy,
+                ordinary: try Self.rule(identifier: identifier, team: team), record: { batch.collect("live-copy", $0) })
             var info: CFDictionary?
             guard SecCodeCopySigningInformation(staticCode, [], &info) == errSecSuccess,
                   let values = info as? [String: Any], values[kSecCodeInfoUnique as String] as? Data == staticHash,
                   (values[kSecCodeInfoMainExecutable as String] as? URL)?.standardizedFileURL == executable.standardizedFileURL else { throw ScreenFailure.peerUntrusted }
         }
+    }
+
+    func inventoryIdentity() throws -> ScreenRunnerInventoryBoundary.Identity {
+        guard let original = recordedIdentity else { throw ScreenFailure.peerUntrusted }
+        let before = try ScreenRunnerProcessSample.read(pid)
+        try verifyLive()
+        let path = try ScreenRunnerKernelSample.path(pid), hash = try ScreenRunnerKernelSample.hash(pid)
+        guard before == original.sample, try ScreenRunnerProcessSample.read(pid) == before,
+              path == executable.path, hash == original.hash else { throw ScreenFailure.peerUntrusted }
+        return .init(pid: pid, parent: before.parent, uid: before.uid, seconds: before.seconds, microseconds: before.microseconds,
+                     identifier: identifier, path: path, hash: hash, appleAnchored: false, verified: true, privilegedBracket: false)
     }
 
     func stop() {
@@ -185,7 +194,7 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
         guard let identity else { signalRefused = true; return false }
         let accepted = identity.signal(value, owned: ownsPID, reaped: reaped,
             sample: { try ScreenRunnerProcessSample.read(pid) },
-            role: { try ScreenRunnerProcessIdentity.verifyRole(pid: pid, identifier: identifier, team: team, hash: staticHash, chromeEvidence: { evidence.collect("signal", $0) }) },
+            role: { try ScreenRunnerProcessIdentity.verifyRole(pid: pid, identifier: identifier, team: team, hash: staticHash, site: .signal, chromeEvidence: { evidence.collect("signal", $0) }) },
             send: { kill($0, $1) })
         if !accepted { signalRefused = true }
         return accepted

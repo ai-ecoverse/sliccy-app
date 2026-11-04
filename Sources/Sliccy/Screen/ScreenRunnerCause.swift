@@ -12,7 +12,7 @@ enum ScreenRunnerInventoryIssue: String, CaseIterable, Error, Sendable {
     case browserWindowCount = "browser-window-count", windowIdentity = "window-identity", appWindows = "app-windows"
     case authorizationRequester = "authorization-requester", authorizationMissing = "authorization-missing"
     case authorizationAmbiguous = "authorization-ambiguous", authorizationIdentity = "authorization-identity"
-    case sourceChanged = "source-changed", unknown
+    case sourceChanged = "source-changed", unclassifiedOwner = "unclassified-owner", unknown
 }
 
 enum ScreenRunnerCauseReason: Sendable {

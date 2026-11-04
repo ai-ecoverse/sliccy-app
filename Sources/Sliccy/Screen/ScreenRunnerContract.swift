@@ -33,7 +33,7 @@ enum ScreenRunnerHost {
 
 enum ScreenRunnerBrowserWindow: String, CaseIterable, Sendable {
     case a1 = "host-a-1", a2 = "host-a-2", b1 = "host-b-1", b2 = "host-b-2"
-    var profile: String { self == .a1 || self == .a2 ? "a" : "b" }
+    var profile: String { rawValue.replacingOccurrences(of: "host-", with: "") }
     var title: String {
         switch self { case .a1: "Sliccy proof host A1"; case .a2: "Sliccy proof host A2"
         case .b1: "Sliccy proof host B1"; case .b2: "Sliccy proof host B2" }

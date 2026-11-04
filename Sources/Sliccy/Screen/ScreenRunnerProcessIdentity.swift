@@ -37,15 +37,15 @@ struct ScreenRunnerProcessIdentity: Sendable {
         let sample = try ScreenRunnerProcessSample.read(pid)
         try sample.requireChild(parent: getpid(), uid: geteuid())
         let record = Self(sample: sample, role: role, hash: hash)
-        try record.verify(identifier: identifier, team: team, chromeEvidence: chromeEvidence)
+        try record.verify(identifier: identifier, team: team, site: .initialLive, chromeEvidence: chromeEvidence)
         return record
     }
-    func verify(identifier: String, team: String?, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in }) throws {
+    func verify(identifier: String, team: String?, site: ScreenRunnerChromePolicy.Site = .live, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in }) throws {
         try requireMatch(sample: { try ScreenRunnerProcessSample.read(sample.pid) }, role: {
-            try Self.verifyRole(pid: sample.pid, identifier: identifier, team: team, hash: hash, chromeEvidence: chromeEvidence)
+            try Self.verifyRole(pid: sample.pid, identifier: identifier, team: team, hash: hash, site: site, chromeEvidence: chromeEvidence)
         })
     }
-    static func verifyRole(pid: pid_t, identifier: String, team: String?, hash: Data, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in }) throws {
+    static func verifyRole(pid: pid_t, identifier: String, team: String?, hash: Data, site: ScreenRunnerChromePolicy.Site = .live, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in }) throws {
         var requirement: SecRequirement?, guest: SecCode?, staticCode: SecStaticCode?, info: CFDictionary?
         var text = "anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and identifier \"" + identifier + "\""
         if identifier == "com.apple.osascript" { text = "anchor apple and identifier \"com.apple.osascript\"" }
@@ -56,11 +56,7 @@ struct ScreenRunnerProcessIdentity: Sendable {
               SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributePid as String: pid] as CFDictionary, [], &guest) == errSecSuccess,
               let guest, SecCodeCheckValidity(guest, chrome ? [] : SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess,
               SecCodeCopyStaticCode(guest, [], &staticCode) == errSecSuccess, let staticCode else { throw ScreenFailure.peerUntrusted }
-        if chrome {
-            try ScreenRunnerChromePolicy.verify(staticCode, record: chromeEvidence)
-        } else {
-            guard SecStaticCodeCheckValidity(staticCode, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
-        }
+        try ScreenRunnerChromePolicy.verify(staticCode, identifier: identifier, site: site, ordinary: requirement, record: chromeEvidence)
         guard SecCodeCopySigningInformation(staticCode, [], &info) == errSecSuccess,
               (info as? [String: Any])?[kSecCodeInfoUnique as String] as? Data == hash else { throw ScreenFailure.peerUntrusted }
     }

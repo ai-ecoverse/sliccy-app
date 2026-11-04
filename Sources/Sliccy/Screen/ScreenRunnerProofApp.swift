@@ -7,7 +7,9 @@ import Darwin
 final class ScreenRunnerProofApp: NSObject, NSApplicationDelegate {
     private var session: ScreenRunnerSession?
     static func run() {
-        guard (try? ScreenRunnerHost.require()) != nil else { exit(2) }
+        guard (try? ScreenRunnerHost.require()) != nil, geteuid() != 0,
+              let path = try? ScreenRunnerKernelSample.path(getpid()),
+              (try? ScreenRunnerKernelChild.immutableExecutable(path)) != nil else { exit(2) }
         signal(SIGPIPE, SIG_IGN); umask(0o077)
         let delegate = ScreenRunnerProofApp(), app = NSApplication.shared
         app.delegate = delegate; app.setActivationPolicy(.accessory)
@@ -79,6 +81,9 @@ final class ScreenRunnerSession {
             let join = try await Task.detached { try ScreenProofSession.readJoin() }.value
             let home = try prepareHome()
             audit = try ScreenAudit(base: home.appending(path: "Library/Application Support"))
+            let kernelRecord: @Sendable (ScreenRunnerKernelChild.Evidence) -> Void = { [journal] evidence in
+                journal.emit("kernel-child", evidence.fields, at: evidence.at)
+            }
             let surface = try ScreenRunnerOwnedProcess.surface(home: home, ended: surfaceEnded("allowed"))
             owned.append(("allowed", surface)); primaries.append(surface)
             try reportOwned(surface.recordedIdentity)
@@ -94,17 +99,20 @@ final class ScreenRunnerSession {
                     owned.append((label, child))
                     try reportOwned(child.recordedIdentity)
                     journal.emit("surface-launcher-started", ["label": label, "pid": child.pid])
-                    if window == .a1 || window == .b1 {
-                        browsers.append(child); primaries.append(child)
-                        journal.emit("surface-process", ["label": label, "pid": child.pid, "bundleIdentifier": "com.google.Chrome"])
-                    }
+                    browsers.append(child); primaries.append(child)
+                    journal.emit("surface-process", ["label": label, "pid": child.pid, "bundleIdentifier": "com.google.Chrome"])
                 }
             }
             var authorization: ScreenRunnerOwnedProcess?
+            var correlation: ScreenRunnerInventory.Authorization?
             if selected == .authorizationExclusion {
-                guard try await !ScreenRunnerInventory.authorizationWindowExists() else { reason = "authorization-preexisting"; exitCode = 2; throw ScreenFailure.protection }
+                let before = try await ScreenRunnerInventory.authorizationBaseline(surface: surface, browsers: browsers, kernelRecord: kernelRecord)
+                guard before.isEmpty else { reason = "authorization-preexisting"; exitCode = 2; throw ScreenFailure.protection }
+                let requestedAt = ContinuousClock.now
                 let requester = try ScreenRunnerOwnedProcess.authorization(home: home, ended: surfaceEnded("authorization-requester"))
                 owned.append(("authorization-requester", requester)); authorization = requester
+                correlation = .init(before: before, requestedAt: requestedAt)
+                journal.emit("authorization-requested", ["pid": requester.pid, "baselineWindows": before.count], at: requestedAt)
                 try reportOwned(requester.recordedIdentity)
                 journal.emit("surface-launcher-started", ["label": "authorization-requester", "pid": requester.pid])
             }
@@ -137,7 +145,7 @@ final class ScreenRunnerSession {
             let inventoryDeadline = ContinuousClock.now.advanced(by: .seconds(5))
             while inventory == nil, ContinuousClock.now < inventoryDeadline {
                 try check()
-                do { inventory = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization) }
+                do { inventory = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization, correlation: correlation, kernelRecord: kernelRecord) }
                 catch { inventoryIssue = error as? ScreenRunnerInventoryIssue ?? .unknown }
                 if inventory == nil { try await Task.sleep(for: .milliseconds(50)) }
             }
@@ -155,7 +163,7 @@ final class ScreenRunnerSession {
             causes.advance(.consent)
             try audit?.record(.consent, reason: "active", scope: selected.scope, session: nil)
             let refreshed: ScreenRunnerInventory
-            do { refreshed = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization) }
+            do { refreshed = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization, correlation: correlation, kernelRecord: kernelRecord) }
             catch { reportInventoryUnavailable(error as? ScreenRunnerInventoryIssue ?? .unknown); throw error }
             guard inventory.fingerprint == refreshed.fingerprint else { throw ScreenFailure.sourceChanged }
             journal.emit("surfaces-confirmed")
@@ -172,7 +180,7 @@ final class ScreenRunnerSession {
                     do {
                         try await Task.sleep(for: .milliseconds(250))
                         guard let self, !self.cleaning, !self.stopping, !Task.isCancelled else { return }
-                        let next = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: self.selected, authorization: authorization)
+                        let next = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: self.selected, authorization: authorization, correlation: correlation, kernelRecord: kernelRecord)
                         guard !Task.isCancelled, !self.cleaning, !self.stopping else { return }
                         guard next.fingerprint == frozenInventory else { throw ScreenFailure.sourceChanged }
                         connection.health.renewSource()
@@ -256,6 +264,7 @@ final class ScreenRunnerSession {
                 if let pid = try await Task.detached(operation: { try connection.stopAndReap() }).value { reportNativeReap(pid) }
             } catch { cleaned = false; causes.record(.failure, reason: .error(error), origin: .nativeChild) }
         }
+        await sourceMonitor?.value
         drainReverse()
         for (_, process) in owned { process.stop() }
         let cleanupRemaining = max(0, 45 - ScreenRunnerJournal.ms(journal.began.duration(to: .now)) / 1000)
@@ -264,6 +273,9 @@ final class ScreenRunnerSession {
             do { try await Task.detached { try process.stopAndReap(until: min(cleanupDeadline, .now() + 3)) }.value } catch { cleaned = false; causes.record(.failure, reason: .error(error), origin: .launcher) }
             if process.hasReaped { reportReap(pid: process.pid, label: label) }
         }
+        let kernelCleaned = await Task.detached { ScreenRunnerKernelChild.finishOwned(until: cleanupDeadline) }.value
+        journal.emit("kernel-children-cleaned", ["complete": kernelCleaned])
+        if !kernelCleaned { cleaned = false; causes.record(.failure, reason: .screen(.stalled), origin: .fixture) }
         if !removeHome() { cleaned = false; causes.record(.failure, reason: .screen(.audit), origin: .fixture) }
         if !cleaned || journal.began.duration(to: .now) > .seconds(45) || journal.failed { outcome = "failed"; reason = "cleanup-failed"; exitCode = 1 }
         if journal.failed { outcome = "failed-to-demonstrate"; reason = "diagnostic-loss"; exitCode = 2 }
@@ -389,6 +401,20 @@ final class ScreenRunnerSession {
         }.value
     }
     private func report(_ inventory: ScreenRunnerInventory) {
+        for owner in inventory.fingerprint.owners {
+            journal.emit("inventory-owner", ["pid": owner.pid, "parent": owner.parent, "uid": owner.uid,
+                "startSeconds": String(owner.seconds), "startMicroseconds": owner.microseconds,
+                "identifier": owner.identifier, "cdHash": owner.hash.map { String(format: "%02x", $0) }.joined(),
+                "appleAnchored": owner.appleAnchored, "verified": owner.verified, "privilegedBracket": owner.privilegedBracket])
+        }
+        for window in inventory.fingerprint.windows {
+            journal.emit("inventory-window", ["windowID": window.id, "pid": window.pid, "identifier": window.bundle,
+                "kind": window.kind.rawValue, "inCG": window.inCG, "inSCK": window.inSCK, "selectable": window.kind.selectable,
+                "layer": window.layer, "rect": ["x": window.rect.minX, "y": window.rect.minY, "width": window.rect.width, "height": window.rect.height]])
+        }
+        if selected == .authorizationExclusion {
+            for id in inventory.validated.authorizationNew.sorted() { journal.emit("authorization-observed", ["windowID": id, "correlation": "post-request-new-window"]) }
+        }
         for window in inventory.windows {
             let frame = window.value.frame
             journal.emit("surface-window", ["label": window.label, "profile": window.profile, "pid": window.value.owningApplication!.processID,

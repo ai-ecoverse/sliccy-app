@@ -13,6 +13,10 @@ enum ScreenProofProtectedProbe {
     enum Label: String, Sendable, CaseIterable {
         case app
         case chromeA = "chrome-a", chromeB = "chrome-b"
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        case chromeA1 = "chrome-a-1", chromeA2 = "chrome-a-2", chromeB1 = "chrome-b-1", chromeB2 = "chrome-b-2"
+        case windowManager = "window-manager", dock, finder, windowServer = "window-server"
+#endif
         case authorization
         case systemSettings = "system-settings"
         case tcc, password
@@ -63,11 +67,17 @@ enum ScreenProofProtectedProbe {
     static func check(display: SCDisplay, targets: [Target], protected: ScreenProtectedSet,
                       refused: (Refusal) -> Void) throws {
         guard !targets.isEmpty, targets.count <= 16 else { throw Failure.unresolvedOwner }
+        var owners = Set<pid_t>()
+#if !SLICCY_CAPTURE_RUNNER_PROOF
         var labels = Set<Label>()
+#endif
         var observedWindows = Set<UInt32>()
         for target in targets {
             let app = target.application
-            guard labels.insert(target.label).inserted, app.processID > 0,
+#if !SLICCY_CAPTURE_RUNNER_PROOF
+            guard labels.insert(target.label).inserted else { throw Failure.unresolvedOwner }
+#endif
+            guard owners.insert(app.processID).inserted, app.processID > 0,
                   !app.bundleIdentifier.isEmpty, !target.windows.isEmpty,
                   target.windows.count <= 64 else { throw Failure.unresolvedOwner }
             for window in target.windows {

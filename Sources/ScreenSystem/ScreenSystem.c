@@ -251,3 +251,84 @@ int sliccy_screen_proof_handoff(int channel, int safety, pid_t cli, const void *
     ssize_t sent = sendmsg(channel, &message, MSG_DONTWAIT);
     return sent == (ssize_t)(size + 12) ? 0 : (sent < 0 ? errno : EIO);
 }
+
+#if defined(SLICCY_CAPTURE_RUNNER_PROOF)
+#include <sys/acl.h>
+#include <sys/wait.h>
+extern int csops(pid_t, unsigned int, void *, size_t);
+int sliccy_runner_spawn_kernel(const char *executable, const char *target, pid_t *pid, int *input, int *output) {
+    if (geteuid() == 0 || !executable || !target || !pid || !input || !output) return EINVAL;
+    int in[2] = {-1, -1}, out[2] = {-1, -1};
+    int result = private_pipe(in);
+    if (result) return result;
+    result = private_pipe(out);
+    if (result) { close(in[0]); close(in[1]); return result; }
+    posix_spawn_file_actions_t actions;
+    posix_spawnattr_t attributes;
+    int have_actions = 0, have_attributes = 0;
+    if ((result = posix_spawn_file_actions_init(&actions))) goto done;
+    have_actions = 1;
+    if ((result = posix_spawnattr_init(&attributes))) goto done;
+    have_attributes = 1;
+    if ((result = posix_spawnattr_setflags(&attributes, POSIX_SPAWN_CLOEXEC_DEFAULT))) goto done;
+    if ((result = posix_spawn_file_actions_adddup2(&actions, in[0], STDIN_FILENO))) goto done;
+    if ((result = posix_spawn_file_actions_adddup2(&actions, out[1], STDOUT_FILENO))) goto done;
+    if ((result = posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0))) goto done;
+    char *arguments[] = {"/usr/bin/sudo", "-n", "--preserve-env=GITHUB_ACTIONS,GITHUB_EVENT_NAME,GITHUB_REF,GITHUB_REPOSITORY,SLICCY_RUNNER_ENVIRONMENT",
+                         "--", (char *)executable, "--runner-kernel", (char *)target, NULL};
+    char *environment[] = {"GITHUB_ACTIONS=true", "GITHUB_EVENT_NAME=workflow_dispatch", "GITHUB_REF=refs/heads/proof/runner-capture-v1",
+                          "GITHUB_REPOSITORY=ai-ecoverse/sliccy-app", "SLICCY_RUNNER_ENVIRONMENT=github-hosted", NULL};
+    result = posix_spawn(pid, "/usr/bin/sudo", &actions, &attributes, arguments, environment);
+done:
+    if (have_actions) posix_spawn_file_actions_destroy(&actions);
+    if (have_attributes) posix_spawnattr_destroy(&attributes);
+    close(in[0]); close(out[1]);
+    if (result) { close(in[1]); close(out[0]); }
+    else { *input = in[1]; *output = out[0]; }
+    return result;
+}
+int sliccy_runner_wait_kernel(pid_t pid, int *kind, int *status) {
+    if (pid <= 0 || !kind || !status) return EINVAL;
+    int value = 0;
+    pid_t result;
+    do { result = waitpid(pid, &value, 0); } while (result < 0 && errno == EINTR);
+    if (result != pid) return errno ? errno : ECHILD;
+    if (WIFEXITED(value)) { *kind = 0; *status = WEXITSTATUS(value); }
+    else if (WIFSIGNALED(value)) { *kind = 1; *status = WTERMSIG(value); }
+    else { *kind = 2; *status = value; }
+    return 0;
+}
+int sliccy_runner_identity(pid_t pid, struct sliccy_screen_process_identity *identity) {
+    if (!identity || pid <= 0) return EINVAL;
+    struct proc_bsdinfo value = {0};
+    errno = 0;
+    int count = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &value, sizeof(value));
+    if (count < 0 || (size_t)count != sizeof(value)) return errno ? errno : EINVAL;
+    if (value.pbi_pid != (uint32_t)pid || !value.pbi_start_tvsec || value.pbi_start_tvusec >= 1000000) return EINVAL;
+    identity->pid = pid; identity->parent = value.pbi_ppid; identity->uid = value.pbi_uid;
+    identity->seconds = value.pbi_start_tvsec; identity->microseconds = value.pbi_start_tvusec;
+    return 0;
+}
+int sliccy_runner_path(pid_t pid, char *path, uint32_t size) {
+    if (!path || size < PROC_PIDPATHINFO_MAXSIZE) return EINVAL;
+    errno = 0;
+    int count = proc_pidpath(pid, path, size);
+    return count > 0 && (uint32_t)count < size ? 0 : (errno ? errno : EINVAL);
+}
+int sliccy_runner_hash(pid_t pid, unsigned char *hash) {
+    errno = 0;
+    return hash && csops(pid, 5, hash, 20) == 0 ? 0 : (errno ? errno : EINVAL);
+}
+int sliccy_runner_no_acl(const char *path) {
+    acl_t acl = acl_get_file(path, ACL_TYPE_EXTENDED);
+    if (!acl) return errno == ENOENT ? 0 : EINVAL;
+    if (acl_valid(acl) != 0) { acl_free(acl); return EINVAL; }
+    acl_entry_t entry;
+    errno = 0;
+    int result = acl_get_entry(acl, ACL_FIRST_ENTRY, &entry);
+    int absent = result == -1 && errno == EINVAL;
+    acl_free(acl);
+    return absent ? 0 : EINVAL;
+}
+
+#endif

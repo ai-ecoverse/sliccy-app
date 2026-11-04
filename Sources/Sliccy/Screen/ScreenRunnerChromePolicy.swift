@@ -3,6 +3,7 @@ import Foundation
 import Security
 
 struct ScreenRunnerChromePolicy {
+    enum Site: String, CaseIterable, Sendable { case preflight, initialLive = "initial-live", live, liveCopy = "live-copy", signal }
     static let identifier = "com.google.Chrome"
     static let team = "EQHXZ8M8AV"
     static let requirementText = "anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and identifier \"com.google.Chrome\" and certificate leaf[subject.OU] = \"EQHXZ8M8AV\""
@@ -24,16 +25,33 @@ struct ScreenRunnerChromePolicy {
         guard SecRequirementCreateWithString(requirementText as CFString, [], &value) == errSecSuccess, let value else { throw ScreenFailure.peerUntrusted }
         return value
     }
-    static func verify(_ guest: SecStaticCode, record: @Sendable (Evidence) -> Void) throws {
-        let requirement = try requirement()
-        var bundle: SecStaticCode?
-        guard SecStaticCodeCreateWithPath(URL(fileURLWithPath: "/Applications/Google Chrome.app") as CFURL, [], &bundle) == errSecSuccess, let bundle else { throw ScreenFailure.peerUntrusted }
-        let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSCheckNestedCode)
-        let evidence = Evidence(identityStatus: SecStaticCodeCheckValidity(bundle, flags, requirement),
-            strictStatus: SecStaticCodeCheckValidity(bundle, SecCSFlags(rawValue: flags.rawValue | kSecCSStrictValidate), requirement),
-            guestStatus: SecStaticCodeCheckValidity(guest, [], requirement))
+    static func validate<Code, Rule>(_ guest: Code, identifier: String, site: Site, ordinary: Rule,
+                                    makeRule: (String) throws -> Rule, bundle: (String) throws -> Code,
+                                    check: (Code, UInt32, Rule) -> OSStatus, record: (Evidence) -> Void) throws {
+        guard identifier == Self.identifier else {
+            guard check(guest, 16, ordinary) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
+            return
+        }
+        let requirement = try makeRule(requirementText)
+        let all = try bundle("/Applications/Google Chrome.app")
+        let evidence = Evidence(identityStatus: check(all, 9, requirement), strictStatus: check(all, 25, requirement),
+                                guestStatus: check(guest, 0, requirement))
         record(evidence)
         guard evidence.accepted else { throw ScreenFailure.peerUntrusted }
+    }
+    static func verify(_ guest: SecStaticCode, identifier: String, site: Site, ordinary: SecRequirement,
+                       record: @Sendable (Evidence) -> Void) throws {
+        guard (kSecCSCheckAllArchitectures | kSecCSCheckNestedCode) == 9,
+              kSecCSStrictValidate == 16 else { throw ScreenFailure.incompatible }
+        try validate(guest, identifier: identifier, site: site, ordinary: ordinary, makeRule: { text in
+            var rule: SecRequirement?
+            guard SecRequirementCreateWithString(text as CFString, [], &rule) == errSecSuccess, let rule else { throw ScreenFailure.peerUntrusted }
+            return rule
+        }, bundle: { path in
+            var code: SecStaticCode?
+            guard SecStaticCodeCreateWithPath(URL(fileURLWithPath: path) as CFURL, [], &code) == errSecSuccess, let code else { throw ScreenFailure.peerUntrusted }
+            return code
+        }, check: { code, flags, rule in SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: flags), rule) }, record: record)
     }
 }
 #endif

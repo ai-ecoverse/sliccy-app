@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: signed-app-main
@@ -38,8 +39,14 @@ jobs:
             /usr/bin/xcrun swift test --scratch-path .build/hosted-pid-tests -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_HOSTED_PID_PROOF --filter 'Screen'
           fi
           if [[ '${{ matrix.variant }}' == capture-proof ]]; then
-            /usr/bin/xcrun swift test --scratch-path .build/capture-tests -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_CAPTURE_RUNNER_PROOF --filter 'Screen'
+            python3 -m unittest discover -s Tests/RunnerStaging -p 'test_*.py'
+            /usr/bin/xcrun swift test --scratch-path .build/capture-tests -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_CAPTURE_RUNNER_PROOF -Xcc -DSLICCY_CAPTURE_RUNNER_PROOF --filter 'Screen'
           fi
+      - name: Fetch immutable signed surface
+        if: matrix.variant == 'capture-proof'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 script/fetch_surface.py
       - name: Build app with pinned CLI
         env:
           SLICCY_NATIVE_SCREEN_PROOF: ${{ matrix.variant == 'ipc-proof' && '1' || '0' }}
