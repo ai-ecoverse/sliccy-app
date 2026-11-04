@@ -36,6 +36,19 @@ static NSString *hex(const unsigned char *bytes, size_t count) {
     for (size_t i = 0; i < count; i++) [value appendFormat:@"%02x", bytes[i]];
     return value;
 }
+static NSDictionary *kernelRecord(pid_t pid, struct proc_bsdinfo info, int size, int infoError,
+    const char *path, int pathSize, int pathError, uint32_t flags, int status, int statusError,
+    const unsigned char *hash, int hashStatus, int hashError) {
+    BOOL valid = size == (int)sizeof(info) && info.pbi_pid == (uint32_t)pid && info.pbi_start_tvsec > 0 && info.pbi_start_tvusec < 1000000;
+    return @{@"pid": @(pid), @"processInfoAvailable": @(valid), @"processInfoError": @(infoError),
+        @"parent": valid ? @(info.pbi_ppid) : absent(), @"uid": valid ? @(info.pbi_uid) : absent(),
+        @"startSeconds": valid ? [NSString stringWithFormat:@"%llu", info.pbi_start_tvsec] : absent(),
+        @"startMicroseconds": valid ? @(info.pbi_start_tvusec) : absent(),
+        @"path": pathSize > 0 ? ([NSString stringWithUTF8String:path] ?: absent()) : absent(), @"pathError": @(pathError),
+        @"codeStatus": status == 0 ? @(flags) : absent(), @"codeStatusError": @(statusError),
+        @"platformBinary": status == 0 ? ((flags & 0x04000000) != 0 ? @YES : @NO) : absent(),
+        @"cdHash": hashStatus == 0 ? hex(hash, 20) : absent(), @"cdHashError": @(hashError)};
+}
 static NSDictionary *kernel(pid_t pid) {
     struct proc_bsdinfo info = {0};
     int size = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, sizeof(info));
@@ -49,15 +62,7 @@ static NSDictionary *kernel(pid_t pid) {
     unsigned char hash[20] = {0};
     int hashStatus = csops(pid, 5, hash, sizeof(hash));
     int hashError = hashStatus == 0 ? 0 : errno;
-    BOOL valid = size == (int)sizeof(info) && info.pbi_pid == (uint32_t)pid && info.pbi_start_tvsec > 0 && info.pbi_start_tvusec < 1000000;
-    return @{@"pid": @(pid), @"processInfoAvailable": @(valid), @"processInfoError": @(infoError),
-        @"parent": valid ? @(info.pbi_ppid) : absent(), @"uid": valid ? @(info.pbi_uid) : absent(),
-        @"startSeconds": valid ? [NSString stringWithFormat:@"%llu", info.pbi_start_tvsec] : absent(),
-        @"startMicroseconds": valid ? @(info.pbi_start_tvusec) : absent(),
-        @"path": pathSize > 0 ? ([NSString stringWithUTF8String:path] ?: absent()) : absent(), @"pathError": @(pathError),
-        @"codeStatus": status == 0 ? @(flags) : absent(), @"codeStatusError": @(statusError),
-        @"platformBinary": status == 0 ? @((flags & 0x04000000) != 0) : absent(),
-        @"cdHash": hashStatus == 0 ? hex(hash, sizeof(hash)) : absent(), @"cdHashError": @(hashError)};
+    return kernelRecord(pid, info, size, infoError, path, pathSize, pathError, flags, status, statusError, hash, hashStatus, hashError);
 }
 static NSString *chromeRule(void) {
     return @"anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and identifier \"com.google.Chrome\" and certificate leaf[subject.OU] = \"EQHXZ8M8AV\"";

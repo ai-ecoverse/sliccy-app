@@ -27,6 +27,36 @@ def same_owned(record, current, pid, parent, uid, role, digest):
     return all(record['before'][key] == current['before'][key] for key in ['pid', 'parent', 'uid', 'startSeconds', 'startMicroseconds', 'cdHash', 'path'])
 
 
+def kernel_record_shape(value):
+    integers = {'pid', 'processInfoError', 'pathError', 'codeStatusError', 'cdHashError'}
+    nullable_integers = {'parent', 'uid', 'startMicroseconds', 'codeStatus'}
+    nullable_strings = {'startSeconds', 'path', 'cdHash'}
+    keys = integers | nullable_integers | nullable_strings | {'processInfoAvailable', 'platformBinary'}
+    if type(value) is not dict or set(value) != keys:
+        raise ValueError('kernel-record-fields')
+    for key in integers:
+        if type(value[key]) is not int:
+            raise ValueError('kernel-record-type-' + key)
+    for fields, expected in [(nullable_integers, int), (nullable_strings, str), ({'platformBinary'}, bool)]:
+        for key in fields:
+            if value[key] is not None and type(value[key]) is not expected:
+                raise ValueError('kernel-record-type-' + key)
+    if type(value['processInfoAvailable']) is not bool:
+        raise ValueError('kernel-record-type-processInfoAvailable')
+    return value
+
+
+def observation_kernel_shapes(value, pid):
+    owners = [value] if pid is not None else value.get('owners')
+    if type(owners) is not list:
+        raise ValueError('kernel-owner-records')
+    for owner in owners:
+        if type(owner) is not dict:
+            raise ValueError('kernel-owner-record')
+        for side in ['before', 'after']:
+            kernel_record_shape(owner.get(side))
+
+
 class Observer:
     def __init__(self, binary, evidence, env, deadline, journal):
         self.binary, self.evidence, self.env, self.deadline = binary, evidence, env, deadline
@@ -52,6 +82,7 @@ class Observer:
             index.write(json.dumps({'phase': phase, 'pid': pid, 'file': target.name, 'sha256': shared.sha(target), 'monotonicSeconds': time.monotonic()}) + '\n')
         if pid is None and (value.get('available') is not True or value.get('allWindowRowsClassifiable') is not True):
             raise ValueError('window-inventory-unavailable')
+        observation_kernel_shapes(value, pid)
         return value
 
 

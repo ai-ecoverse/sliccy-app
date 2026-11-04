@@ -29,8 +29,20 @@ int main(void) {
         [records addObject:@{@"name": @"wrong-team", @"record": chromeIdentityRecord(0, 0, 0, clean, wrong)}];
         wrong = [info mutableCopy]; wrong[(__bridge NSString *)kSecCodeInfoUnique] = [NSData dataWithBytes:digest length:19];
         [records addObject:@{@"name": @"wrong-digest-length", @"record": chromeIdentityRecord(0, 0, 0, clean, wrong)}];
+        struct proc_bsdinfo sample = {0};
+        sample.pbi_pid = 42; sample.pbi_ppid = 10; sample.pbi_uid = 501;
+        sample.pbi_start_tvsec = 123; sample.pbi_start_tvusec = 456;
+        NSMutableArray *kernels = [NSMutableArray array];
+        for (NSNumber *flags in @[@0, @0x04000000]) {
+            [kernels addObject:kernelRecord(42, sample, sizeof(sample), 0, "/synthetic", 10, 0,
+                flags.unsignedIntValue, 0, 0, digest, 0, 0)];
+        }
+        [kernels addObject:kernelRecord(42, sample, 0, ESRCH, "", 0, ESRCH, 0, -1, ESRCH, digest, -1, ESRCH)];
+        sample.pbi_pid = 43;
+        [kernels addObject:kernelRecord(42, sample, sizeof(sample), 0, "/synthetic", 10, 0,
+            0, 0, 0, digest, 0, 0)];
         NSError *error = nil;
-        NSData *data = encodeRecord(records, &error);
+        NSData *data = encodeRecord(@{@"staticRecords": records, @"kernelRecords": kernels}, &error);
         CFRelease(detritus); CFRelease(broken);
         if (!data || data.length > 65536) return 1;
         if (fwrite(data.bytes, 1, data.length, stdout) != data.length || fputc('\n', stdout) == EOF || fflush(stdout) == EOF) return 1;
