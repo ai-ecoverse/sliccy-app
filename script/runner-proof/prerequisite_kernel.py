@@ -4,11 +4,13 @@ import math
 import re
 import capture_stage_root as boundary
 from prerequisite_probe import sample
+import prerequisite_binding as binding
 
 APP_HASH = 'stPyiHVvDcejjgvo90frsO5TZ2c='
 PAIRED = {'placement', 'bsd', 'pidpath', 'file-static', 'requirement', 'static-validity', 'file-info',
-          'guest', 'dynamic-validity', 'guest-static', 'live-info', 'kernel-hash', 'spawn', 'hello', 'facts', 'reap', 'root-exit-bsd'}
-SINGLES = {'target-before', 'target-after', 'candidate', 'ack', 'failure', 'result'}
+          'guest', 'dynamic-validity', 'guest-static', 'live-info', 'kernel-hash', 'spawn', 'hello', 'facts', 'reap', 'root-exit-bsd', 'binding-requirement-text', 'binding-apple-requirement',
+          'binding-live-apple-anchor', 'binding-kernel-flags', 'binding-path-resolve', 'binding-path-stat'}
+SINGLES = {'target-before', 'target-after', 'candidate', 'ack', 'failure', 'result', 'binding-code-info', 'binding-comparison'}
 
 
 def require(value, reason):
@@ -29,6 +31,11 @@ def parse(data):
                 'kernel-clock')
         clock = row['elapsedMs']
         require(type(row['facts']) is dict, 'kernel-facts')
+        if row['state'] == 'completed':
+            if row['phase'] == 'binding-comparison':
+                binding.comparison(row['facts'])
+            elif row['phase'] in ('binding-kernel-flags', 'binding-live-apple-anchor'):
+                binding.supplemental(row['phase'], row['facts'])
         phase = row['phase']
         require(phase in PAIRED | SINGLES, 'kernel-phase')
         if row['state'] == 'entered':

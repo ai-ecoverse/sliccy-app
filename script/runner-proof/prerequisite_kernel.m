@@ -3,6 +3,8 @@
 #include <libproc.h>
 #include <sys/proc_info.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <limits.h>
 #include <spawn.h>
 #include <poll.h>
 #include <fcntl.h>
@@ -14,6 +16,7 @@
 #include <unistd.h>
 #include "prerequisite_bsd_boundary.h"
 #include "prerequisite_launch_boundary.h"
+#include "prerequisite_binding_record.h"
 extern int csops(pid_t, unsigned int, void *, size_t);
 
 static uint64_t sequence;
@@ -47,6 +50,61 @@ static NSDictionary *sample(pid_t pid) {
 static void completed(NSString *phase, OSStatus status) {
     emit(phase, @"completed", @{@"status": @(status)});
     require(status == errSecSuccess, phase);
+}
+static NSDictionary *pathFacts(NSString *label, NSString *path) {
+    if (![path isKindOfClass:NSString.class] || !path.length || path.length > 4096)
+        return @{@"label": label, @"path": sliccy_binding_value(path), @"resolveStatus": NSNull.null,
+                 @"resolved": NSNull.null, @"statStatus": NSNull.null, @"device": NSNull.null, @"inode": NSNull.null};
+    emit(@"binding-path-resolve", @"entered", @{@"label": label, @"path": path});
+    char resolved[PATH_MAX] = {0}; errno = 0;
+    char *result = realpath(path.fileSystemRepresentation, resolved); int resolutionError = errno;
+    id real = result ? [NSString stringWithUTF8String:resolved] : (id)NSNull.null;
+    emit(@"binding-path-resolve", @"completed", @{@"label": label, @"status": result ? @0 : @(-1), @"errno": @(resolutionError), @"resolved": real});
+    emit(@"binding-path-stat", @"entered", @{@"label": label, @"path": path});
+    struct stat value = {0}; errno = 0;
+    int status = stat(path.fileSystemRepresentation, &value), error = errno;
+    NSDictionary *facts = @{@"label": label, @"path": path, @"resolveStatus": result ? @0 : @(-1),
+        @"resolved": real, @"resolveErrno": @(resolutionError), @"statStatus": @(status), @"statErrno": @(error),
+        @"device": status ? (id)NSNull.null : @(value.st_dev), @"inode": status ? (id)NSNull.null : @(value.st_ino)};
+    emit(@"binding-path-stat", @"completed", facts);
+    return facts;
+}
+static void bindingMetadata(pid_t pid, SecCodeRef guest, SecRequirementRef requirement,
+                            NSDictionary *liveInfo, NSDictionary *staticInfo, NSString *path) {
+    CFStringRef text = NULL;
+    emit(@"binding-requirement-text", @"entered", @{});
+    OSStatus status = SecRequirementCopyString(requirement, 0, &text);
+    emit(@"binding-requirement-text", @"completed", @{@"status": @(status), @"value": sliccy_binding_value((__bridge id)text)});
+    if (text) CFRelease(text);
+    for (NSString *lane in @[@"live", @"static"]) {
+        NSDictionary *info = [lane isEqual:@"live"] ? liveInfo : staticInfo;
+        id image = info[(__bridge NSString *)kSecCodeInfoMainExecutable];
+        emit(@"binding-code-info", @"completed", @{@"lane": lane,
+            @"identifier": sliccy_binding_value(info[(__bridge NSString *)kSecCodeInfoIdentifier]),
+            @"cdhash": sliccy_binding_value(info[(__bridge NSString *)kSecCodeInfoUnique]),
+            @"imagePath": sliccy_binding_value([image isKindOfClass:NSURL.class] ? [image path] : nil)});
+    }
+    SecRequirementRef apple = NULL;
+    emit(@"binding-apple-requirement", @"entered", @{@"rule": @"anchor apple"});
+    status = SecRequirementCreateWithString(CFSTR("anchor apple"), 0, &apple);
+    emit(@"binding-apple-requirement", @"completed", @{@"status": @(status), @"available": apple ? @YES : @NO});
+    emit(@"binding-live-apple-anchor", @"entered", @{@"flags": @16, @"affectsVerdict": @NO});
+    BOOL queried = status == errSecSuccess && apple != NULL;
+    OSStatus anchorStatus = queried ? SecCodeCheckValidity(guest, kSecCSStrictValidate, apple) : status;
+    emit(@"binding-live-apple-anchor", @"completed", sliccy_anchor_record(queried, anchorStatus));
+    if (apple) CFRelease(apple);
+    uint32_t flags = 0;
+    emit(@"binding-kernel-flags", @"entered", @{@"pid": @(pid), @"operation": @0});
+    errno = 0; int kernelStatus = csops(pid, 0, &flags, sizeof(flags)), kernelError = errno;
+    emit(@"binding-kernel-flags", @"completed", sliccy_platform_record(kernelStatus, kernelError, flags));
+    id liveImage = liveInfo[(__bridge NSString *)kSecCodeInfoMainExecutable];
+    id staticImage = staticInfo[(__bridge NSString *)kSecCodeInfoMainExecutable];
+    NSDictionary *input = pathFacts(@"static-input", path);
+    NSDictionary *live = pathFacts(@"live-image", [liveImage isKindOfClass:NSURL.class] ? [liveImage path] : nil);
+    NSDictionary *file = pathFacts(@"static-image", [staticImage isKindOfClass:NSURL.class] ? [staticImage path] : nil);
+    emit(@"binding-comparison", @"completed", sliccy_inode_row(@"filesystem-input-live-inode", input, live));
+    emit(@"binding-comparison", @"completed", sliccy_inode_row(@"filesystem-input-static-inode", input, file));
+    emit(@"binding-comparison", @"completed", sliccy_inode_row(@"filesystem-live-static-inode", live, file));
 }
 static NSDictionary *code(pid_t pid, NSString *path, NSString *rule, NSString *identifier, NSData *expected, BOOL designated) {
     SecRequirementRef requirement = NULL;
@@ -82,6 +140,9 @@ static NSDictionary *code(pid_t pid, NSString *path, NSString *rule, NSString *i
         errno = 0; int kernelStatus = csops(pid, 5, hash, sizeof(hash)), kernelError = errno;
         NSData *kernelHash = [NSData dataWithBytes:hash length:sizeof(hash)];
         emit(@"kernel-hash", @"completed", @{@"status": @(kernelStatus), @"errno": @(kernelError), @"hash": [kernelHash base64EncodedStringWithOptions:0]});
+        for (NSDictionary *comparison in sliccy_binding_rows(kernelStatus, ah, bh, kernelHash, expected, ai, bi, identifier, image, path))
+            emit(@"binding-comparison", @"completed", comparison);
+        bindingMetadata(pid, guest, requirement, a, b, path);
         require(kernelStatus == 0 && [ah isKindOfClass:NSData.class] && ah.length == 20 && [ah isEqual:bh] &&
             [ah isEqual:kernelHash] && (!expected || [ah isEqual:expected]) && [ai isEqual:identifier] && [bi isEqual:identifier] &&
             [image.path isEqual:path], @"code-binding");
