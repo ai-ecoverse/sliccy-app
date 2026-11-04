@@ -29,7 +29,7 @@ def candidate():
     parent['path'] = '/usr/bin/sudo'
     return dict(sudoPID=11, launchWall=100.1, before=child, after=copy.deepcopy(child),
                 code=dict(matched=True, identifier='com.apple.sleep', cdHashBase64=base64.b64encode(bytes(20)).decode()),
-                chain=[parent, child], chainAfter=copy.deepcopy([parent, child]))
+                chain=copy.deepcopy([parent, child]), chainAfter=copy.deepcopy([parent, child]))
 
 
 def records():
@@ -101,12 +101,16 @@ class BoundaryTests(TestCase):
         for key, value in [('uid', 501), ('parent', 99), ('seconds', '101'), ('microseconds', 1)]:
             item = candidate()
             for side in ('chain', 'chainAfter'): item[side][1]['bsd'][key] = value
+            self.assertEqual(item['before'], sample())
+            self.assertEqual(item['after'], sample())
             with self.subTest(key=key), self.assertRaises(ValueError): probe.candidate(item)
             rows = records(); rows[2]['facts'] = item
             with self.assertRaises(ValueError): probe.visibility_records(encode(rows), 0)
         for key, value in [('path', '/wrong'), ('bsdStatus', 1), ('pathStatus', 1), ('pid', 55)]:
             item = candidate()
             for side in ('chain', 'chainAfter'): item[side][1][key] = value
+            self.assertEqual(item['before'], sample())
+            self.assertEqual(item['after'], sample())
             with self.subTest(key=key), self.assertRaises(ValueError): probe.candidate(item)
         item = candidate(); item['chain'] = [item['before']]; item['chainAfter'] = copy.deepcopy(item['chain']); item['sudoPID'] = item['before']['pid']
         self.assertTrue(probe.candidate(item))
