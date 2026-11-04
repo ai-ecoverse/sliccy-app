@@ -33,29 +33,35 @@ struct ScreenRunnerProcessIdentity: Sendable {
         do { try requireMatch(sample: read, role: check) } catch { return false }
         return send(sample.pid, signal) == 0
     }
-    static func capture(pid: pid_t, role: Role, hash: Data, identifier: String, team: String?) throws -> Self {
+    static func capture(pid: pid_t, role: Role, hash: Data, identifier: String, team: String?, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in }) throws -> Self {
         let sample = try ScreenRunnerProcessSample.read(pid)
         try sample.requireChild(parent: getpid(), uid: geteuid())
         let record = Self(sample: sample, role: role, hash: hash)
-        try record.verify(identifier: identifier, team: team)
+        try record.verify(identifier: identifier, team: team, chromeEvidence: chromeEvidence)
         return record
     }
-    func verify(identifier: String, team: String?) throws {
+    func verify(identifier: String, team: String?, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in }) throws {
         try requireMatch(sample: { try ScreenRunnerProcessSample.read(sample.pid) }, role: {
-            try Self.verifyRole(pid: sample.pid, identifier: identifier, team: team, hash: hash)
+            try Self.verifyRole(pid: sample.pid, identifier: identifier, team: team, hash: hash, chromeEvidence: chromeEvidence)
         })
     }
-    static func verifyRole(pid: pid_t, identifier: String, team: String?, hash: Data) throws {
+    static func verifyRole(pid: pid_t, identifier: String, team: String?, hash: Data, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in }) throws {
         var requirement: SecRequirement?, guest: SecCode?, staticCode: SecStaticCode?, info: CFDictionary?
         var text = "anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and identifier \"" + identifier + "\""
         if identifier == "com.apple.osascript" { text = "anchor apple and identifier \"com.apple.osascript\"" }
         if let team { text += " and certificate leaf[subject.OU] = \"" + team + "\"" }
+        let chrome = identifier == ScreenRunnerChromePolicy.identifier
+        if chrome { text = ScreenRunnerChromePolicy.requirementText }
         guard SecRequirementCreateWithString(text as CFString, [], &requirement) == errSecSuccess, let requirement,
               SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributePid as String: pid] as CFDictionary, [], &guest) == errSecSuccess,
-              let guest, SecCodeCheckValidity(guest, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess,
-              SecCodeCopyStaticCode(guest, [], &staticCode) == errSecSuccess, let staticCode,
-              SecStaticCodeCheckValidity(staticCode, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess,
-              SecCodeCopySigningInformation(staticCode, [], &info) == errSecSuccess,
+              let guest, SecCodeCheckValidity(guest, chrome ? [] : SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess,
+              SecCodeCopyStaticCode(guest, [], &staticCode) == errSecSuccess, let staticCode else { throw ScreenFailure.peerUntrusted }
+        if chrome {
+            try ScreenRunnerChromePolicy.verify(staticCode, record: chromeEvidence)
+        } else {
+            guard SecStaticCodeCheckValidity(staticCode, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
+        }
+        guard SecCodeCopySigningInformation(staticCode, [], &info) == errSecSuccess,
               (info as? [String: Any])?[kSecCodeInfoUnique as String] as? Data == hash else { throw ScreenFailure.peerUntrusted }
     }
 }

@@ -87,7 +87,10 @@ final class ScreenRunnerSession {
             if selected.needsBrowser {
                 for window in ScreenRunnerBrowserWindow.allCases {
                     let label = "chrome-" + window.profile
-                    let child = try ScreenRunnerOwnedProcess.chrome(window: window, join: join, home: home, ended: surfaceEnded(label))
+                    let child = try ScreenRunnerOwnedProcess.chrome(window: window, join: join, home: home, evidence: { [journal] phase, evidence in
+                        var fields = evidence.fields; fields["label"] = label; fields["phase"] = phase
+                        journal.emit("chrome-identity", fields)
+                    }, ended: surfaceEnded(label))
                     owned.append((label, child))
                     try reportOwned(child.recordedIdentity)
                     journal.emit("surface-launcher-started", ["label": label, "pid": child.pid])
