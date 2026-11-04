@@ -290,21 +290,35 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(self.outside.read_bytes(), b'outside sentinel')
 
     def test_sink_that_never_returns_cannot_block_actual_adapter_recovery(self):
-        blocked, release = threading.Event(), threading.Event()
+        blocked, release, finished = threading.Event(), threading.Event(), threading.Event()
         self.addCleanup(release.set)
-        began = time.monotonic()
-        state, calls, error = self.adapter_case('callback', blocked=blocked, release=release)
-        self.assertTrue(blocked.is_set())
-        self.assertFalse(release.is_set())
-        self.assertLess(time.monotonic() - began, 1)
-        self.assertEqual(calls, ['root-staging-stage', 'root-staging-remove'])
-        self.assertTrue(error.facts['removalConfirmed'])
-        self.assertEqual(state.removal_state, 'confirmed-by-inode')
-        self.assertFalse(error.facts['diagnostics']['complete'])
-        self.assertEqual(error.facts['diagnostics']['active'], 1)
-        self.assertGreater(error.facts['diagnostics']['dropped'], 0)
-        self.assert_removed()
-        release.set()
+        outcome = {}
+        def exercise():
+            try:
+                outcome['result'] = self.adapter_case('callback', blocked=blocked, release=release)
+            except BaseException as error:
+                outcome['error'] = error
+            finally:
+                finished.set()
+        worker = threading.Thread(target=exercise, daemon=True)
+        worker.start()
+        try:
+            self.assertTrue(blocked.wait(1))
+            self.assertTrue(finished.wait(1), 'actual recovery waited on the blocked sink')
+            self.assertFalse(release.is_set())
+            self.assertNotIn('error', outcome)
+            state, calls, error = outcome['result']
+            self.assertEqual(calls, ['root-staging-stage', 'root-staging-remove'])
+            self.assertTrue(error.facts['removalConfirmed'])
+            self.assertEqual(state.removal_state, 'confirmed-by-inode')
+            self.assertFalse(error.facts['diagnostics']['complete'])
+            self.assertEqual(error.facts['diagnostics']['active'], 1)
+            self.assertGreater(error.facts['diagnostics']['dropped'], 0)
+            self.assert_removed()
+        finally:
+            release.set()
+            worker.join(1)
+
 
     def test_diagnostic_queue_is_bounded_and_overflow_counted_without_sink_progress(self):
         blocked, release = threading.Event(), threading.Event()
