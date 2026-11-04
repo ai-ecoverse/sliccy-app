@@ -51,3 +51,14 @@ static NSDictionary *sliccy_anchor_record(BOOL queried, int32_t status) {
     return @{@"queried": queried ? @YES : @NO, @"status": queried ? @(status) : (id)NSNull.null,
              @"appleAnchored": queried ? (status == 0 ? @YES : @NO) : (id)NSNull.null, @"affectsVerdict": @NO};
 }
+
+static void sliccy_static_diagnostics(int32_t (^query)(uint32_t), void (^record)(NSString *, NSDictionary *)) {
+    NSArray *names = @[@"static-default", @"static-all-architectures", @"static-nested", @"static-strict"];
+    const uint32_t flags[] = {0, 1, 8, 16};
+    for (NSUInteger i = 0; i < names.count; i++) {
+        record(@"entered", @{@"check": names[i], @"flags": @(flags[i]), @"affectsVerdict": @NO});
+        int32_t status = query(flags[i]);
+        record(@"completed", @{@"check": names[i], @"flags": @(flags[i]), @"status": @(status),
+            @"matched": status == 0 ? @YES : @NO, @"affectsVerdict": @NO});
+    }
+}

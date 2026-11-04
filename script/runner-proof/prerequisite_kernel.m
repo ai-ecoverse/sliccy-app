@@ -119,6 +119,11 @@ static NSDictionary *code(pid_t pid, NSString *path, NSString *rule, NSString *i
         OSStatus status = designated ? SecCodeCopyDesignatedRequirement(file, 0, &requirement) :
             SecRequirementCreateWithString((__bridge CFStringRef)rule, 0, &requirement);
         completed(@"requirement", status); require(requirement != NULL, @"requirement-null");
+        sliccy_static_diagnostics(^int32_t(uint32_t flags) {
+            return SecStaticCodeCheckValidity(file, flags, requirement);
+        }, ^(NSString *state, NSDictionary *facts) {
+            emit(@"binding-static-validity", state, facts);
+        });
         emit(@"static-validity", @"entered", @{@"flags": @25});
         completed(@"static-validity", SecStaticCodeCheckValidity(file, kSecCSStrictValidate | kSecCSCheckAllArchitectures | kSecCSCheckNestedCode, requirement));
         emit(@"file-info", @"entered", @{});

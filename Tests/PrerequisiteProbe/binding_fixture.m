@@ -44,7 +44,30 @@ int main(void) {
         NSArray *anchor = @[sliccy_anchor_record(YES, 0), sliccy_anchor_record(YES, -67050), sliccy_anchor_record(NO, -1)];
         NSArray *values = @[sliccy_binding_value(nil), sliccy_binding_value(@"string"), sliccy_binding_value(@123),
             sliccy_binding_value([NSObject new]), sliccy_binding_value([NSMutableData dataWithLength:4097])];
-        NSDictionary *output = @{@"cases": cases, @"optional": optional, @"filesystem": files, @"platform": platform, @"anchor": anchor, @"values": values};
+        NSMutableArray *staticCases = [NSMutableArray array];
+        NSArray *staticNames = @[@"static-default", @"static-all-architectures", @"static-nested", @"static-strict"];
+        NSArray *staticFlags = @[@0, @1, @8, @16];
+        for (NSInteger fault = -1; fault < 4; fault++) {
+            __block NSUInteger calls = 0;
+            NSMutableArray *records = [NSMutableArray array];
+            sliccy_static_diagnostics(^int32_t(uint32_t flags) {
+                check(calls < 4 && flags == [staticFlags[calls] unsignedIntValue], @"static-query-order");
+                check(records.count == calls * 2 + 1, @"static-query-entered");
+                return (NSInteger)calls++ == fault ? -67050 : 0;
+            }, ^(NSString *state, NSDictionary *facts) {
+                [records addObject:@{@"state": state, @"facts": facts}];
+            });
+            check(calls == 4 && records.count == 8, @"static-no-short-circuit");
+            for (NSUInteger i = 0; i < 4; i++) {
+                NSDictionary *row = records[i * 2 + 1][@"facts"];
+                check([row[@"check"] isEqual:staticNames[i]] && [row[@"flags"] isEqual:staticFlags[i]], staticNames[i]);
+                check([row[@"status"] intValue] == ((NSInteger)i == fault ? -67050 : 0), staticNames[i]);
+                check([row[@"matched"] isEqual:(NSInteger)i == fault ? @NO : @YES], staticNames[i]);
+                check([row[@"affectsVerdict"] isEqual:@NO], staticNames[i]);
+            }
+            [staticCases addObject:@{@"fault": @(fault), @"records": records}];
+        }
+        NSDictionary *output = @{@"staticCases": staticCases, @"cases": cases, @"optional": optional, @"filesystem": files, @"platform": platform, @"anchor": anchor, @"values": values};
         NSData *encoded = [NSJSONSerialization dataWithJSONObject:output options:NSJSONWritingSortedKeys error:NULL];
         check(encoded != nil, @"encoder");
         fwrite(encoded.bytes, 1, encoded.length, stdout); fputc('\n', stdout);

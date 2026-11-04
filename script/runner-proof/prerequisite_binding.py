@@ -53,3 +53,14 @@ def supplemental(phase, row):
                 and type(row['queried']) is bool and row['affectsVerdict'] is False, 'binding-anchor-shape')
         require(type(row['status']) is int and type(row['appleAnchored']) is bool if row['queried']
                 else row['status'] is None and row['appleAnchored'] is None, 'binding-anchor-values')
+
+
+def static_validity(state, row):
+    names = {'static-default': 0, 'static-all-architectures': 1, 'static-nested': 8, 'static-strict': 16}
+    expected = {'check', 'flags', 'affectsVerdict'} | ({'status', 'matched'} if state == 'completed' else set())
+    require(state in ('entered', 'completed') and type(row) is dict and set(row) == expected, 'binding-static-shape')
+    require(row['check'] in names and type(row['flags']) is int and row['flags'] == names[row['check']]
+            and row['affectsVerdict'] is False, 'binding-static-policy')
+    if state == 'completed':
+        require(type(row['status']) is int and -(2**31) <= row['status'] < 2**31
+                and type(row['matched']) is bool and row['matched'] == (row['status'] == 0), 'binding-static-result')

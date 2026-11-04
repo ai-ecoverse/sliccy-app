@@ -9,7 +9,7 @@ import prerequisite_binding as binding
 APP_HASH = 'stPyiHVvDcejjgvo90frsO5TZ2c='
 PAIRED = {'placement', 'bsd', 'pidpath', 'file-static', 'requirement', 'static-validity', 'file-info',
           'guest', 'dynamic-validity', 'guest-static', 'live-info', 'kernel-hash', 'spawn', 'hello', 'facts', 'reap', 'root-exit-bsd', 'binding-requirement-text', 'binding-apple-requirement',
-          'binding-live-apple-anchor', 'binding-kernel-flags', 'binding-path-resolve', 'binding-path-stat'}
+          'binding-static-validity', 'binding-live-apple-anchor', 'binding-kernel-flags', 'binding-path-resolve', 'binding-path-stat'}
 SINGLES = {'target-before', 'target-after', 'candidate', 'ack', 'failure', 'result', 'binding-code-info', 'binding-comparison'}
 
 
@@ -31,6 +31,8 @@ def parse(data):
                 'kernel-clock')
         clock = row['elapsedMs']
         require(type(row['facts']) is dict, 'kernel-facts')
+        if row['phase'] == 'binding-static-validity':
+            binding.static_validity(row['state'], row['facts'])
         if row['state'] == 'completed':
             if row['phase'] == 'binding-comparison':
                 binding.comparison(row['facts'])

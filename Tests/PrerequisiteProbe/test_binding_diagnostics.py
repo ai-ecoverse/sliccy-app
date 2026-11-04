@@ -94,6 +94,38 @@ class BindingDiagnosticsTests(TestCase):
         rows[0]['facts']=dict(rows[0]['facts'],matched=0)
         with self.assertRaises(ValueError):kernel.parse(b''.join((json.dumps(r)+'\n').encode() for r in rows))
 
+    def check_static_result(self, name, flags, fault):
+        self.assertEqual(len(self.result['staticCases']), 5)
+        for case in self.result['staticCases']:
+            for row in case['records']:
+                binding.static_validity(row['state'], row['facts'])
+            row = case['records'][fault * 2 + 1]['facts']
+            self.assertEqual((row['check'], row['flags']), (name, flags))
+            self.assertEqual(row['status'], -67050 if case['fault'] == fault else 0)
+            self.assertIs(row['matched'], case['fault'] != fault)
+            self.assertIs(row['affectsVerdict'], False)
+            rows = [dict(schema=2, seq=i+1, phase='binding-static-validity', state=x['state'], elapsedMs=i, facts=x['facts'])
+                    for i,x in enumerate(case['records'])]
+            rows.append(dict(schema=2, seq=9, phase='result', state='completed', elapsedMs=9,
+                             facts=dict(observed=False, reaped=False, rootGone=False)))
+            self.assertEqual(kernel.parse(b''.join((json.dumps(x)+'\n').encode() for x in rows)), rows)
+            for field,value in [('flags',25),('status',False),('matched',int(row['matched'])),('affectsVerdict',True),('check','unknown')]:
+                bad=dict(row);bad[field]=value
+                with self.subTest(name=name,field=field), self.assertRaises(ValueError):
+                    binding.static_validity('completed',bad)
+
+    def test_static_default_diagnostic(self):
+        self.check_static_result('static-default', 0, 0)
+
+    def test_static_all_architectures_diagnostic(self):
+        self.check_static_result('static-all-architectures', 1, 1)
+
+    def test_static_nested_diagnostic(self):
+        self.check_static_result('static-nested', 8, 2)
+
+    def test_static_strict_diagnostic(self):
+        self.check_static_result('static-strict', 16, 3)
+
     def test_original_native_decision_expression_unchanged(self):
         text=(SCRIPTS/'prerequisite_kernel.m').read_text()
         expected='''        require(kernelStatus == 0 && [ah isKindOfClass:NSData.class] && ah.length == 20 && [ah isEqual:bh] &&
@@ -102,6 +134,8 @@ class BindingDiagnosticsTests(TestCase):
         self.assertEqual(text.count(expected),1)
         self.assertIn('SecStaticCodeCheckValidity(file, kSecCSStrictValidate | kSecCSCheckAllArchitectures | kSecCSCheckNestedCode, requirement)',text)
         self.assertIn('SecCodeCheckValidity(guest, kSecCSStrictValidate, requirement)',text)
+        self.assertIn('return SecStaticCodeCheckValidity(file, flags, requirement);',text)
+        self.assertLess(text.index('sliccy_static_diagnostics('),text.index('emit(@"static-validity", @"entered"'))
         self.assertIn('sliccy_binding_rows(kernelStatus, ah, bh, kernelHash, expected, ai, bi, identifier, image, path)',text)
 
 
