@@ -8,7 +8,7 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'slice-results'
 FILTER = 'ScreenRunner(SliceTests|BSDTests|ChromeBoundaryTests|ReceiptTests|InventoryBoundaryTests)'
-FLAGS = ['-Xswiftc', '-DSLICCY_CAPTURE_RUNNER_PROOF', '-Xcc', '-DSLICCY_CAPTURE_RUNNER_PROOF']
+FLAGS = ['-Xswiftc', '-DSLICCY_NATIVE_SCREEN_PROOF', '-Xswiftc', '-DSLICCY_CAPTURE_RUNNER_PROOF', '-Xcc', '-DSLICCY_CAPTURE_RUNNER_PROOF']
 BIND = 'Sources/Sliccy/Screen/ScreenRunnerSliceBinding.swift'
 BSD = 'Sources/Sliccy/Screen/ScreenRunnerBSD.swift'
 OWNER = 'Sources/Sliccy/Screen/ScreenRunnerSystemOwner.swift'
