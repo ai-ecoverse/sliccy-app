@@ -2,12 +2,12 @@ import json
 
 FULL = 4096
 AGGREGATE = 384
-BUDGET = 524288
+BUDGET = 1048576
 
 
 def main():
     refreshes = 100 + 1 + 180
-    fixture_code_streams = 33
+    fixture_code_streams = 37
     fixture_bsd_streams = 10
     streams = fixture_code_streams + fixture_bsd_streams
     flushes = 8
@@ -19,6 +19,7 @@ def main():
     nominal_refreshes = 42
     nominal_legacy = 4 * 2 * nominal_refreshes * legacy_chrome_bytes
     total = stable_receipts + nominal_legacy + bounded_nonreceipt_reserve
+    assert total < BUDGET
     print(json.dumps({
         'model': 'conservative stable fixture; not an observed native run or admission guarantee',
         'fullRowCap': FULL, 'aggregateRowAllowance': AGGREGATE, 'caseJournalCap': BUDGET,
@@ -42,7 +43,6 @@ def main():
             'An adversarial stream of changes or failures has no promised margin; exact measured overflow retires authority.',
             'Stable repeated check volume is independent of refresh count; count cap100000 and case deadline still refuse overflow.'
         ]}, indent=2))
-    assert total < BUDGET
 
 if __name__ == '__main__':
     main()

@@ -26,7 +26,7 @@ struct ScreenRunnerOwnerEvidenceTests {
         var fds: [Int32] = [-1, -1]
         try #require(pipe(&fds) == 0)
         defer { close(fds[0]); close(fds[1]) }
-        let owner = ScreenRunnerOwnerLock(), connection = ScreenRunnerConnection(event: { _ in })
+        let owner = ScreenRunnerOwnerLock(), connection = ScreenRunnerConnection(receipts: .init(record: { _ in }, lost: {}), event: { _ in })
         let gate = ScreenOutputGate(), abort = ScreenRunnerDiagnosticAbort()
         let stopped = DispatchSemaphore(value: 0), ownerEntered = DispatchSemaphore(value: 0), healthEntered = DispatchSemaphore(value: 0)
         let ownerFinished = DispatchSemaphore(value: 0), healthFinished = DispatchSemaphore(value: 0)

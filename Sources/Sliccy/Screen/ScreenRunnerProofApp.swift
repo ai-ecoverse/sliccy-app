@@ -129,7 +129,7 @@ final class ScreenRunnerSession {
                 journal.emit("surface-launcher-started", ["label": "authorization-requester", "pid": requester.pid])
             }
             let causes = self.causes
-            let connection = ScreenRunnerConnection { [weak self, causes] event in
+            let connection = ScreenRunnerConnection(receipts: .init(record: sliceRecord, lost: { [journal] in journal.rejectEvidence() })) { [weak self, causes] event in
                 if case .transport(.revokeQueued(_, let began, _)) = event { causes.noteStop(at: began) }
                 if case .lost = event { causes.record(.childLoss, reason: .screen(.peerLost), origin: .nativeChild) }
                 Task { @MainActor in self?.consume(event) }

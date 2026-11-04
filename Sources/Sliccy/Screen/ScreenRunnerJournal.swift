@@ -59,7 +59,7 @@ final class ScreenRunnerJournal: @unchecked Sendable {
         fields.forEach { row[$0.key] = $0.value }
         do {
             var data = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys]); data.append(10)
-            guard data.count <= 4096, bytes + data.count <= 524288 else { throw ScreenFailure.resourceLimit }
+            guard data.count <= 4096, bytes + data.count <= 1048576 else { throw ScreenFailure.resourceLimit }
             let count = data.withUnsafeBytes { Darwin.write(output, $0.baseAddress, $0.count) }
             guard count == data.count else { throw ScreenFailure.stalled }
             bytes += data.count

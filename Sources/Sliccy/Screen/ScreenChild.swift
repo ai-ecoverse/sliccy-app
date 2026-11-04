@@ -8,7 +8,12 @@ import ScreenSystem
 final class ScreenChild: @unchecked Sendable {
     let pid: pid_t
     let deadline: ContinuousClock.Instant
+#if SLICCY_CAPTURE_RUNNER_PROOF
+    private let lock = ScreenRunnerOwnerLock()
+    private let runnerReceipts: ScreenRunnerChildReceipts
+#else
     private let lock = NSLock()
+#endif
     private var live = true
     private var hasReaped = false
 #if SLICCY_CAPTURE_RUNNER_PROOF
@@ -29,6 +34,9 @@ final class ScreenChild: @unchecked Sendable {
     }
     private enum Source {
         case bundled
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        case runner(ScreenRunnerChildReceipts)
+#endif
 #if SLICCY_SNAPSHOT_PROOF
         case snapshot(ScreenSnapshotSubject)
 #endif
@@ -41,16 +49,31 @@ final class ScreenChild: @unchecked Sendable {
                         policy: .universalAppProof(root: subject.root), proofOutput: nil, reaped: reaped, lost: lost)
     }
 #endif
+#if SLICCY_CAPTURE_RUNNER_PROOF
+    static func runner(join: String, bootstrap: Data, policy: ScreenLaunchPolicy, receipts: ScreenRunnerChildReceipts,
+                       reaped: @escaping @Sendable (Int32) -> Void,
+                       lost: @escaping @Sendable () -> Void) throws -> ScreenChild {
+        try ScreenChild(source: .runner(receipts), join: join, bootstrap: bootstrap, policy: policy,
+                        proofOutput: nil, reaped: reaped, lost: lost)
+    }
+#endif
     private init(source: Source, join: String, bootstrap: Data, policy: ScreenLaunchPolicy,
                  proofOutput: (@Sendable (Data?) -> Void)?,
                  reaped: @escaping @Sendable (Int32) -> Void,
                  lost: @escaping @Sendable () -> Void) throws {
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        guard case .runner(let receipts) = source else { throw ScreenFailure.incompatible }
+        runnerReceipts = receipts
+#endif
         guard policy.allowsIPC else { throw ScreenFailure.peerUntrusted }
         try ScreenPeerVerifier.verifySelf()
         guard !join.contains("\n"), !join.contains("\r"), join.utf8.count <= 4096 else { throw ScreenFailure.incompatible }
         let executable: String
         switch source {
         case .bundled: executable = Bundle.main.bundleURL.appending(path: "Contents/Resources/slicc").path
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        case .runner: executable = Bundle.main.bundleURL.appending(path: "Contents/Resources/slicc").path
+#endif
 #if SLICCY_SNAPSHOT_PROOF
         case .snapshot(let subject): executable = try subject.claimLaunchPath()
 #endif
@@ -118,10 +141,12 @@ final class ScreenChild: @unchecked Sendable {
             guard registered.wait(timeout: .now() + 1) == .success, ContinuousClock.now < deadline else { throw ScreenFailure.stalled }
 #if SLICCY_CAPTURE_RUNNER_PROOF
             guard policy.hashes.count == 1, let hash = policy.hashes.first else { throw ScreenFailure.peerUntrusted }
-            let recorded = try ScreenRunnerProcessIdentity.capture(pid: pid, role: .cli, hash: hash, identifier: "ai.sliccy.slicc", team: "S8LB56P782")
+            let recorded = try ScreenRunnerChildChecks.capture(pid: pid, hash: hash, receipts: runnerReceipts)
             lock.lock(); runnerIdentity = recorded; lock.unlock()
-#endif
+            let resumed = runnerSignal(SIGCONT)
+#else
             lock.lock(); let resumed = signalLocked(SIGCONT); lock.unlock()
+#endif
             guard resumed else { throw ScreenFailure.peerLost }
             try Self.writePipe(bootstrap, fd: boot, until: deadline)
             try Self.writePipe(Data((join + "\n").utf8), fd: input, until: deadline)
@@ -132,16 +157,24 @@ final class ScreenChild: @unchecked Sendable {
         if notify { lost() } // Gate invalidation happens before reaping/possible PID reuse.
     }
     func stop() {
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        _ = runnerSignal(SIGTERM)
+#else
         lock.lock()
         if !hasReaped { _ = signalLocked(SIGTERM) }
         lock.unlock()
+#endif
         invalidate()
     }
     /// Ownership and reaping share this lock, so escalation cannot target a reused PID.
     func forceStop() {
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        _ = runnerSignal(SIGKILL)
+#else
         lock.lock()
         if !hasReaped { _ = signalLocked(SIGKILL) }
         lock.unlock()
+#endif
         invalidate()
     }
     deinit {
@@ -151,24 +184,25 @@ final class ScreenChild: @unchecked Sendable {
         // that this PID is still our unreaped child before sending a signal.
         if waitpid(pid, &status, WNOHANG) == 0 {
 #if SLICCY_CAPTURE_RUNNER_PROOF
-            if signalLocked(SIGKILL) { _ = waitpid(pid, &status, WNOHANG) }
+            if runnerSignal(SIGKILL) { _ = waitpid(pid, &status, WNOHANG) }
 #else
             _ = kill(pid, SIGKILL)
             while waitpid(pid, &status, 0) < 0 && errno == EINTR {}
 #endif
         }
     }
-    private func signalLocked(_ value: Int32) -> Bool {
 #if SLICCY_CAPTURE_RUNNER_PROOF
-        guard let runnerIdentity else { return false }
-        return runnerIdentity.signal(value, owned: !hasReaped, reaped: hasReaped,
-            sample: { try ScreenRunnerProcessSample.read(pid) },
-            role: { try ScreenRunnerProcessIdentity.verifyRole(pid: pid, identifier: "ai.sliccy.slicc", team: "S8LB56P782", hash: runnerIdentity.hash) },
-            send: { kill($0, $1) })
-#else
-        return kill(pid, value) == 0
-#endif
+    private func runnerSignal(_ value: Int32) -> Bool {
+        ScreenRunnerChildChecks.signalUnderLock(lock, receipts: runnerReceipts) { batch in
+            guard !hasReaped else { return false }
+            return ScreenRunnerChildChecks.signal(value, pid: pid, identity: runnerIdentity, reaped: hasReaped, batch: batch)
+        }
     }
+#else
+    private func signalLocked(_ value: Int32) -> Bool {
+        return kill(pid, value) == 0
+    }
+#endif
     private static func writePipe(_ data: Data, fd: Int32, until: ContinuousClock.Instant) throws {
         let one: Int32 = 1
         guard fcntl(fd, F_SETFL, O_NONBLOCK) == 0,

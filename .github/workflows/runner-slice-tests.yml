@@ -27,6 +27,7 @@ jobs:
         run: |
           python3 -B -m unittest discover -s Tests/RunnerBSD -p test_source.py -v
           python3 -B -m unittest discover -s Tests/UniversalManifest -p test_surface_pin.py -v
+          python3 -B -m unittest discover -s Tests/RunnerSlice -p 'test_*.py' -v
           python3 -B Tests/RunnerSlice/volume.py > receipt-volume.json
       - name: Actual C fabricated boundary and faults
         run: python3 -B Tests/RunnerBSD/hosted.py

@@ -8,12 +8,13 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'slice-results'
-FILTER = 'ScreenRunner(SliceTests|BSDTests|ChromeBoundaryTests|ReceiptTests|InventoryBoundaryTests)'
+FILTER = 'ScreenRunner(SliceTests|BSDTests|ChromeBoundaryTests|ReceiptTests|InventoryBoundaryTests|ChildReceiptTests|OwnerEvidenceTests|JournalTests)'
 FLAGS = ['-Xswiftc', '-DSLICCY_NATIVE_SCREEN_PROOF', '-Xswiftc', '-DSLICCY_CAPTURE_RUNNER_PROOF', '-Xcc', '-DSLICCY_CAPTURE_RUNNER_PROOF']
 BIND = 'Sources/Sliccy/Screen/ScreenRunnerSliceBinding.swift'
 BSD = 'Sources/Sliccy/Screen/ScreenRunnerBSD.swift'
 OWNER = 'Sources/Sliccy/Screen/ScreenRunnerSystemOwner.swift'
 LEDGER = 'Sources/Sliccy/Screen/ScreenRunnerReceiptLedger.swift'
+CHILD = 'Sources/Sliccy/Screen/ScreenRunnerChildReceipts.swift'
 PLAN = [
     ('unique-count', BIND, 'matches.count == 1, let index = matches.first', 'matches.count >= 1, let index = matches.first', 'sameTypeUniqueSelectionAndFullHashPrefixAreMandatory'),
     ('unique-type', BIND, 'members[$0].identity.type == live.type &&', 'true &&', 'sameTypeUniqueSelectionAndFullHashPrefixAreMandatory'),
@@ -38,6 +39,9 @@ PLAN = [
     ('receipt-failure-flush', LEDGER, 'deliveries = drainLocked()\n                deliveries.append', 'deliveries = []\n                deliveries.append', 'failureFlushesEveryStreamAndCannotBeAggregated'),
     ('receipt-boolean', LEDGER, 'CFGetTypeID(boolean) == CFBooleanGetTypeID()', 'true', 'boundedRowsStreamsAndNumericBooleansRetireEvidence'),
     ('receipt-cutoff', LEDGER, 'let failed = delivering != 0', 'let failed = false', 'finalCutoffNeverWaitsForBlockedDelivery'),
+    ('cli-capture-delivery', CHILD, 'batch.deliver(to: { _, _ in }, sliceOutput: receipts.record, loss: receipts.lost)', 'batch.deliver(to: { _, _ in }, sliceOutput: { _ in }, loss: receipts.lost)', 'actualCLICaptureDeliversSuccessAndRefusalReceipts'),
+    ('cli-signal-delivery', CHILD, 'lock.withEvidence(output: { _, _ in }, sliceOutput: receipts.record, loss: receipts.lost, operation: check)', 'lock.withEvidence(output: { _, _ in }, sliceOutput: { _ in }, loss: receipts.lost, operation: check)', 'actualCLISignalDeliversAfterUnlockOnSuccessAndRefusal'),
+    ('cli-refusal-receipt', CHILD, 'defer { batch.collectSlice(boundary(pid: pid, identity: identity, signal: value, passed: passed)) }', 'defer { if passed { batch.collectSlice(boundary(pid: pid, identity: identity, signal: value, passed: passed)) } }', 'actualCLISignalDeliversAfterUnlockOnSuccessAndRefusal'),
 ]
 
 def digest(path):
@@ -112,6 +116,7 @@ def main():
     success = False
     overlays = []
     try:
+        assert run('production-build', ['/usr/bin/xcrun', 'swift', 'build', '--scratch-path', '.build/production-exclusion'], 600).returncode == 0
         assert run('baseline-build', build, 600).returncode == 0
         assert run('baseline-components', test + [FILTER], 120).returncode == 0
         for row in PLAN:

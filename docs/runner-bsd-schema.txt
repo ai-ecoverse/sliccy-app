@@ -36,7 +36,7 @@ Limits remain local50ms, protocol1500ms, capture10s from BEFORE SCStream start, 
 
 ## NDJSON schema
 
-Every caller row has exactly schema:6, case:CASE, capture:true, stage, elapsedMs and eventElapsedMs plus the stage-specific fields below. Both clocks are finite nonnegative milliseconds from the same journal origin. elapsedMs is emission time and is nondecreasing; eventElapsedMs is the actual recorded event, may appear out of emission order, and cannot exceed emission. Data loss, partial nonblocking writes, EAGAIN/EINTR, malformed/oversized rows or the512KiB aggregate/4096-byte row cap permanently retire authority/delivery. No successful terminal after loss. No raw tokens, join URL, pixel bytes, titles or free-form content enter caller rows. All output is sealed by the wrapper before upload.
+Every caller row has exactly schema:6, case:CASE, capture:true, stage, elapsedMs and eventElapsedMs plus the stage-specific fields below. Both clocks are finite nonnegative milliseconds from the same journal origin. elapsedMs is emission time and is nondecreasing; eventElapsedMs is the actual recorded event, may appear out of emission order, and cannot exceed emission. Data loss, partial nonblocking writes, EAGAIN/EINTR, malformed/oversized rows or the1MiB aggregate/4096-byte row cap permanently retire authority/delivery. No successful terminal after loss. No raw tokens, join URL, pixel bytes, titles or free-form content enter caller rows. All output is sealed by the wrapper before upload.
 
 Unchanged stages/fields:
 - runner-preflight: screenCapture,listenEvent,postEvent,hosted booleans; osMajor27,architecture arm64.
@@ -72,3 +72,5 @@ No role or code validity widening follows from sysctl. Both reads precede accept
 Physical stopCapture remains scheduled on a Swift Task and can be delayed under cooperative-pool saturation; the synchronous output gate is already closed. No instantaneous physical teardown/indicator claim. Existing follow-up issue3 remains.
 
 Receipt aggregation and code-binding fields: docs/runner-slice-binding.txt. Complete canonical keys, immediate full changed/refusal rows, counted identical repeats and actual first/last clocks are mandatory. No acceptance reads the journal. The original row/byte bounds are unchanged.
+
+CLI child-initial/child-signal boundary receipts and mandatory sink routing are defined in docs/runner-slice-binding.txt. They supplement, never replace, the actual binder receipt and preserve after-unlock loss delivery.

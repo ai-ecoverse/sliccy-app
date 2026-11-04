@@ -60,11 +60,11 @@ struct ScreenRunnerChromeBoundaryTests {
                 case .preflight:
                     #expect(try ScreenRunnerOwnedProcess.preflight(executable: executable, identifier: "com.google.Chrome", team: "EQHXZ8M8AV", calls: calls, chromeEvidence: record).members.map(\.identity.hash) == [trace.hash])
                 case .initialLive:
-                    let identity = try ScreenRunnerProcessIdentity.capture(pid: 42, role: .chrome, hash: trace.hash, identifier: "com.google.Chrome", team: "EQHXZ8M8AV", calls: calls, read: { _ in sample }, parent: 7, uid: 501, chromeEvidence: record)
+                    let identity = try ScreenRunnerProcessIdentity.capture(pid: 42, role: .chrome, hash: trace.hash, identifier: "com.google.Chrome", team: "EQHXZ8M8AV", calls: calls, read: { _ in sample }, parent: 7, uid: 501, chromeEvidence: record, sliceEvidence: { _ in })
                     #expect(identity.sample == sample)
                 case .live:
                     let identity = ScreenRunnerProcessIdentity(sample: sample, role: .chrome, hash: trace.hash)
-                    try identity.verify(identifier: "com.google.Chrome", team: "EQHXZ8M8AV", calls: calls, read: { sample }, chromeEvidence: record)
+                    try identity.verify(identifier: "com.google.Chrome", team: "EQHXZ8M8AV", calls: calls, read: { sample }, chromeEvidence: record, sliceEvidence: { _ in })
                 case .liveCopy:
                     try ScreenRunnerOwnedProcess.verifyLiveCopy(pid: 42, executable: executable, identifier: "com.google.Chrome", team: "EQHXZ8M8AV", hash: trace.hash, calls: calls, chromeEvidence: record)
                 case .signal:

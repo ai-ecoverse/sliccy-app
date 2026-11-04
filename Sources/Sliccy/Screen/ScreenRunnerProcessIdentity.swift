@@ -33,7 +33,7 @@ struct ScreenRunnerProcessIdentity: Sendable {
         do { try requireMatch(sample: read, role: check) } catch { return false }
         return send(sample.pid, signal) == 0
     }
-    static func capture(pid: pid_t, role: Role, hash: Data?, catalogue: ScreenRunnerSliceBinding.Catalogue? = nil, identifier: String, team: String?, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in }, sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }) throws -> Self {
+    static func capture(pid: pid_t, role: Role, hash: Data?, catalogue: ScreenRunnerSliceBinding.Catalogue? = nil, identifier: String, team: String?, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in }, sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void) throws -> Self {
         try capture(pid: pid, role: role, hash: hash, catalogue: catalogue, identifier: identifier, team: team,
                     calls: ScreenRunnerSecurityCalls<SecStaticCode, SecCode, SecRequirement>.native,
                     read: ScreenRunnerProcessSample.read, parent: getpid(), uid: geteuid(), chromeEvidence: chromeEvidence, sliceEvidence: sliceEvidence)
@@ -41,21 +41,21 @@ struct ScreenRunnerProcessIdentity: Sendable {
     static func capture<Static, Guest, Rule>(pid: pid_t, role: Role, hash: Data?, catalogue: ScreenRunnerSliceBinding.Catalogue? = nil, identifier: String, team: String?,
                                             calls: ScreenRunnerSecurityCalls<Static, Guest, Rule>,
                                             read: (pid_t) throws -> ScreenRunnerProcessSample, parent: pid_t, uid: uid_t,
-                                            chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void, sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }) throws -> Self {
+                                            chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void, sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void) throws -> Self {
         let sample = try read(pid)
         try sample.requireChild(parent: parent, uid: uid)
         let live = try Self.verifyRole(pid: pid, identifier: identifier, team: team, hash: hash, catalogue: catalogue, site: .initialLive, calls: calls, chromeEvidence: chromeEvidence, sliceEvidence: sliceEvidence)
         guard try read(pid) == sample else { throw ScreenFailure.peerUntrusted }
         return Self(sample: sample, role: role, hash: live)
     }
-    func verify(identifier: String, team: String?, site: ScreenRunnerChromePolicy.Site = .live, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in }, sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }) throws {
+    func verify(identifier: String, team: String?, site: ScreenRunnerChromePolicy.Site = .live, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in }, sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void) throws {
         try verify(identifier: identifier, team: team, site: site,
                    calls: ScreenRunnerSecurityCalls<SecStaticCode, SecCode, SecRequirement>.native,
                    read: { try ScreenRunnerProcessSample.read(sample.pid) }, chromeEvidence: chromeEvidence, sliceEvidence: sliceEvidence)
     }
     func verify<Static, Guest, Rule>(identifier: String, team: String?, site: ScreenRunnerChromePolicy.Site = .live,
                                     calls: ScreenRunnerSecurityCalls<Static, Guest, Rule>, read: () throws -> ScreenRunnerProcessSample,
-                                    chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void, sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }) throws {
+                                    chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void, sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void) throws {
         try requireMatch(sample: read, role: {
             try Self.verifyRole(pid: sample.pid, identifier: identifier, team: team, hash: hash, site: site, calls: calls, chromeEvidence: chromeEvidence, sliceEvidence: sliceEvidence)
         })
@@ -63,7 +63,7 @@ struct ScreenRunnerProcessIdentity: Sendable {
     @discardableResult
     static func verifyRole(pid: pid_t, identifier: String, team: String?, hash: Data?, catalogue: ScreenRunnerSliceBinding.Catalogue? = nil,
                            site: ScreenRunnerChromePolicy.Site = .live, chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { _ in },
-                           sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }) throws -> Data {
+                           sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void) throws -> Data {
         try verifyRole(pid: pid, identifier: identifier, team: team, hash: hash, catalogue: catalogue, site: site,
                        calls: ScreenRunnerSecurityCalls<SecStaticCode, SecCode, SecRequirement>.native, chromeEvidence: chromeEvidence, sliceEvidence: sliceEvidence)
     }
@@ -71,7 +71,7 @@ struct ScreenRunnerProcessIdentity: Sendable {
     static func verifyRole<Static, Guest, Rule>(pid: pid_t, identifier: String, team: String?, hash: Data?, catalogue: ScreenRunnerSliceBinding.Catalogue? = nil,
                                               site: ScreenRunnerChromePolicy.Site = .live, calls: ScreenRunnerSecurityCalls<Static, Guest, Rule>,
                                               chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void,
-                                              sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }) throws -> Data {
+                                              sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void) throws -> Data {
         let policy = try ScreenRunnerSliceBinding.Policy.make(identifier, team: team)
         let rule = try calls.makeRule(policy.requirement), guest = try calls.guest(pid)
         guard calls.checkGuest(guest, SecCSFlags(rawValue: policy.chrome ? 0 : 16), rule) == errSecSuccess else { throw ScreenFailure.peerUntrusted }

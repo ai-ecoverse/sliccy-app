@@ -38,15 +38,15 @@ final class ScreenRunnerConnection: @unchecked Sendable {
     private let didReap = DispatchSemaphore(value: 0)
     let health = ScreenRunnerHealth()
     private let event: @Sendable (Event) -> Void
-    init(event: @escaping @Sendable (Event) -> Void) { self.event = event }
+    private let receipts: ScreenRunnerChildReceipts
+    init(receipts: ScreenRunnerChildReceipts, event: @escaping @Sendable (Event) -> Void) { self.receipts = receipts; self.event = event }
     var transport: ScreenTransport? { lock.lock(); defer { lock.unlock() }; return link }
     func open(root: URL, join: String) throws {
         lock.lock(); let allowed = !stopped; lock.unlock()
         guard allowed else { throw ScreenFailure.stopped }
         let policy = ScreenLaunchPolicy.universalAppProof(root: root), verifier = ScreenPeerVerifier(approvedHashes: policy.hashes)
         let handshake = try ScreenHandshake()
-        let owned = try ScreenChild(executable: Bundle.main.bundleURL.appending(path: "Contents/Resources/slicc").path,
-            join: join, bootstrap: handshake.bootstrapRecord(), policy: policy,
+        let owned = try ScreenChild.runner(join: join, bootstrap: handshake.bootstrapRecord(), policy: policy, receipts: receipts,
             reaped: { [weak self] _ in self?.childReaped() }, lost: { [weak self] in self?.childLost() })
         lock.lock(); child = owned; let stop = stopped, alreadyReaped = reaped; lock.unlock()
         if let identity = owned.runnerIdentity { event(.owned(identity)) }
