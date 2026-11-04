@@ -10,8 +10,8 @@ import time
 import signal
 
 LIMIT = 4096
-STEPS = frozenset('host-preflight source-preflight evidence-setup source-copy age-download age-check artifact-prepare gh-discovery artifact-download artifact-check artifact-extract artifact-signature artifact-staple artifact-gatekeeper preview-prepare preview-discovery preview-download preview-check preview-extract preview-identity preview-signature preview-staple preview-gatekeeper bundle-before chrome-signature authorization-signature observer-build page-manifest identity-setup setup-host setup-directories page-server initial app-preview surface host-a-1 host-a-2 host-b-1 host-b-2 app-helper chrome-launched authorization-requester authorization-requested final-setup setup-presence after-owned-cleanup bundle-after outcome evidence-envelope evidence-package evidence-seal'.split())
-SYSTEM = frozenset(['/usr/bin/curl', '/usr/bin/ditto', '/usr/bin/codesign', '/usr/bin/xcrun', '/usr/sbin/spctl', '/usr/bin/lipo', '/usr/bin/osascript'])
+STEPS = frozenset('host-preflight source-preflight evidence-setup source-copy age-download age-check artifact-prepare gh-discovery artifact-download artifact-check artifact-extract artifact-signature artifact-staple artifact-gatekeeper preview-prepare preview-discovery preview-download preview-check preview-extract preview-identity preview-signature preview-staple preview-gatekeeper bundle-before chrome-signature authorization-signature observer-build page-manifest identity-setup setup-host setup-directories page-server initial app-preview surface host-a-1 host-a-2 host-b-1 host-b-2 app-helper chrome-launched authorization-requester authorization-requested final-setup setup-presence after-owned-cleanup bundle-after outcome evidence-envelope evidence-package evidence-seal privileged-before privileged-owner-recheck privileged-after'.split())
+SYSTEM = frozenset(['/usr/bin/curl', '/usr/bin/ditto', '/usr/bin/codesign', '/usr/bin/xcrun', '/usr/sbin/spctl', '/usr/bin/lipo', '/usr/bin/osascript', '/usr/bin/sudo'])
 
 
 class Journal:
@@ -101,6 +101,8 @@ class Journal:
             operation = 'archs'
         elif name == 'owner-identity-probe':
             operation = 'chrome-static' if '--chrome-static' in args else 'owner' if '--owner' in args else 'windows'
+        elif name == 'sudo':
+            operation = 'privileged-kernel'
         return {'kind': 'command', 'step': self.stack[-1], 'operation': operation,
                 'tool': self.tool(args[0]), 'arguments': self.tokens(args)}
 
@@ -116,7 +118,7 @@ class Journal:
         capture = kwargs.pop('capture_output', False)
         check = kwargs.pop('check', False)
         with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
-            result = None
+            result, delivered = None, False
             try:
                 result = subprocess.run(args, stdout=out, stderr=err, check=False, **kwargs)
                 out.seek(0); err.seek(0)
@@ -127,11 +129,20 @@ class Journal:
                     stdout.write(data)
                 if stderr is not None and stderr != subprocess.PIPE:
                     stderr.write(errors)
+                delivered = True
                 result.stdout = data if capture or stdout == subprocess.PIPE else None
                 result.stderr = errors if capture or stderr == subprocess.PIPE else None
                 if check and result.returncode != 0:
                     raise subprocess.CalledProcessError(result.returncode, args, output=data, stderr=errors)
             except BaseException as error:
+                if not delivered:
+                    out.seek(0); err.seek(0)
+                    data, errors = out.read(4 * 1024 * 1024 + 1), err.read(4 * 1024 * 1024 + 1)
+                    if len(data) <= 4 * 1024 * 1024 and len(errors) <= 4 * 1024 * 1024:
+                        if stdout is not None and stdout != subprocess.PIPE:
+                            stdout.write(data)
+                        if stderr is not None and stderr != subprocess.PIPE:
+                            stderr.write(errors)
                 error.owner_diagnostic = self.finish(common, result.returncode if result is not None else getattr(error, 'returncode', None), self.tail(out), self.tail(err), error)
                 raise
             self.finish(common, result.returncode, self.tail(out), self.tail(err))

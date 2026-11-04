@@ -1,6 +1,7 @@
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+import errno
 import os
 import signal
 import subprocess
@@ -57,6 +58,78 @@ def observation_kernel_shapes(value, pid):
             kernel_record_shape(owner.get(side))
 
 
+def privileged_kernel_shape(value, pid):
+    keys = {'schema', 'kind', 'pid', 'processInfoAvailable', 'processInfoError', 'parent', 'uid',
+            'startSeconds', 'startMicroseconds', 'path', 'pathError'}
+    if type(value) is not dict or set(value) != keys:
+        raise ValueError('privileged-kernel-fields')
+    for key in ['schema', 'pid', 'processInfoError', 'pathError']:
+        if type(value[key]) is not int:
+            raise ValueError('privileged-kernel-type-' + key)
+    if value['schema'] != 1 or value['kind'] != 'privileged-kernel-identity' or value['pid'] != pid:
+        raise ValueError('privileged-kernel-identity')
+    if type(value['processInfoAvailable']) is not bool:
+        raise ValueError('privileged-kernel-type-processInfoAvailable')
+    for fields, expected in [(['parent', 'uid', 'startMicroseconds'], int), (['startSeconds', 'path'], str)]:
+        for key in fields:
+            if value[key] is not None and type(value[key]) is not expected:
+                raise ValueError('privileged-kernel-type-' + key)
+    return value
+
+
+def window_server_candidate(owner):
+    if type(owner) is not dict or owner.get('signingIdentifier') != 'com.apple.WindowServer' or owner.get('appleAnchored') is not True:
+        return False
+    if type(owner.get('pid')) is not int or not 0 < owner['pid'] <= 2147483647:
+        return False
+    for key in ['guestLookupStatus', 'liveValidityStatus', 'liveValidityAfterStatus', 'appleRequirementStatus',
+                'appleAnchorStatus', 'staticCopyStatus', 'staticValidityStatus', 'signingInformationStatus']:
+        if type(owner.get(key)) is not int or owner[key] != 0:
+            return False
+    image, digest = owner.get('securedExecutablePath'), owner.get('securityCDHash')
+    if type(image) is not str or not image.startswith('/') or type(digest) is not str or len(digest) != 40 or any(c not in '0123456789abcdef' for c in digest):
+        return False
+    denied = False
+    for side in ['before', 'after']:
+        row = owner.get(side)
+        try:
+            kernel_record_shape(row)
+        except ValueError:
+            return False
+        if row['pid'] != owner['pid'] or row['path'] != image or row['cdHash'] != digest or type(row['codeStatus']) is not int:
+            return False
+        denied = denied or (row['processInfoAvailable'] is False and row['processInfoError'] == errno.EPERM)
+    return denied
+
+
+def privileged_bracket_matches(original, before, observed, after):
+    if not window_server_candidate(original) or not window_server_candidate(observed):
+        return False
+    keys = ['pid', 'parent', 'uid', 'startSeconds', 'startMicroseconds', 'path']
+    for row in [before, after]:
+        privileged_kernel_shape(row, original['pid'])
+        if row['processInfoAvailable'] is not True or row['processInfoError'] != 0 or row['pathError'] != 0:
+            return False
+        if any(row[key] is None for key in keys):
+            return False
+        if row['parent'] < 0 or row['uid'] < 0 or not row['startSeconds'].isdigit() or int(row['startSeconds']) <= 0 or not 0 <= row['startMicroseconds'] < 1000000:
+            return False
+    if any(before[key] != after[key] for key in keys):
+        return False
+    for key in ['pid', 'signingIdentifier', 'securedExecutablePath', 'securityCDHash']:
+        if original[key] != observed[key]:
+            return False
+    return before['path'] == observed['securedExecutablePath'] and all(
+        original['before'][key] == original['after'][key] == observed['before'][key] == observed['after'][key]
+        for key in ['pid', 'path', 'cdHash', 'codeStatus'])
+
+
+def privileged_arguments(binary, pid, env):
+    if type(pid) is not int or not 0 < pid <= 2147483647 or any(env.get(k) != v for k, v in ASSERTIONS.items()):
+        raise ValueError('privileged-kernel-placement-or-pid')
+    return ['/usr/bin/sudo', '-n', '--preserve-env=' + ','.join(ASSERTIONS), '--', str(binary), '--kernel', str(pid)]
+
+
 class Observer:
     def __init__(self, binary, evidence, env, deadline, journal):
         self.binary, self.evidence, self.env, self.deadline = binary, evidence, env, deadline
@@ -67,22 +140,47 @@ class Observer:
         return self.journal.call(phase, self.read_observation, phase, pid)
 
     def read_observation(self, phase, pid=None):
-        remaining = min(15, self.deadline - time.monotonic())
+        deadline = min(self.deadline, time.monotonic() + 15)
+        value = self.invoke(phase, pid, deadline)
+        owners = [value] if pid is not None else value['owners']
+        for owner in owners:
+            if window_server_candidate(owner):
+                target_pid = owner['pid']
+                before = self.journal.call('privileged-before', self.invoke, 'privileged-before', target_pid, deadline, True)
+                current = self.journal.call('privileged-owner-recheck', self.invoke, 'privileged-owner-recheck', target_pid, deadline)
+                after = self.journal.call('privileged-after', self.invoke, 'privileged-after', target_pid, deadline, True)
+                supplement = {'schema': 1, 'kind': 'window-server-privileged-bracket', 'pid': target_pid,
+                    'original': owner, 'privilegedBefore': before, 'unprivilegedRecheck': current, 'privilegedAfter': after,
+                    'bindingComplete': privileged_bracket_matches(owner, before, current, after),
+                    'originalRecordUnchanged': True, 'cleanupAuthority': False, 'allowlistEstablished': False}
+                target = self.evidence / ('privileged-bracket-%03d.json' % self.sequence)
+                with target.open('x') as out:
+                    json.dump(supplement, out, indent=2); out.write('\n')
+        return value
+
+    def invoke(self, phase, pid, deadline, privileged=False):
+        remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise ValueError('observer-deadline')
         self.sequence += 1
         target = self.evidence / ('observation-%03d.json' % self.sequence)
-        args = [str(self.binary)] + ([] if pid is None else ['--owner', str(pid)])
+        args = privileged_arguments(self.binary, pid, self.env) if privileged else [str(self.binary)] + ([] if pid is None else ['--owner', str(pid)])
+        child_env = dict(self.env)
+        if privileged:
+            child_env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'LANG': 'C', **ASSERTIONS}
         with target.open('xb') as out, (self.evidence / 'observer-errors.log').open('ab') as error:
-            result = self.journal.run(args, stdin=subprocess.DEVNULL, stdout=out, stderr=error, env=self.env, timeout=remaining)
-        if result.returncode != 0 or target.stat().st_size > 4 * 1024 * 1024:
+            result = self.journal.run(args, stdin=subprocess.DEVNULL, stdout=out, stderr=error, env=child_env, timeout=remaining)
+        if result.returncode != 0 or target.stat().st_size > (16384 if privileged else 4 * 1024 * 1024):
             raise ValueError('observer-failed')
         value = json.loads(target.read_text())
         with (self.evidence / 'observation-index.ndjson').open('a') as index:
             index.write(json.dumps({'phase': phase, 'pid': pid, 'file': target.name, 'sha256': shared.sha(target), 'monotonicSeconds': time.monotonic()}) + '\n')
-        if pid is None and (value.get('available') is not True or value.get('allWindowRowsClassifiable') is not True):
-            raise ValueError('window-inventory-unavailable')
-        observation_kernel_shapes(value, pid)
+        if privileged:
+            privileged_kernel_shape(value, pid)
+        else:
+            if pid is None and (value.get('available') is not True or value.get('allWindowRowsClassifiable') is not True):
+                raise ValueError('window-inventory-unavailable')
+            observation_kernel_shapes(value, pid)
         return value
 
 

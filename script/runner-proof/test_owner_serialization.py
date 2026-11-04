@@ -16,6 +16,7 @@ class NativeSerializationTests(unittest.TestCase):
     def setUpClass(cls):
         cls.directory = tempfile.TemporaryDirectory(prefix='sliccy-serialization-unit-')
         executable = Path(cls.directory.name) / 'serialization-fixture'
+        cls.executable = executable
         source = Path(__file__).with_suffix('.m').resolve()
         env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'LANG': 'C'}
         subprocess.run(['/usr/bin/xcrun', 'clang', '-fobjc-arc', '-Wall', '-Wextra', '-Werror',
@@ -26,6 +27,8 @@ class NativeSerializationTests(unittest.TestCase):
             raise ValueError('serialization fixture output')
         payload = json.loads(result.stdout)
         cls.kernels = payload['kernelRecords']
+        cls.privileged = payload['privilegedRecords']
+        cls.phases = payload['phases']
         cls.records = {row['name']: row['record'] for row in payload['staticRecords']}
         if set(cls.records) != {'clean', 'detritus', 'wrong-identity', 'broken-seal', 'missing-metadata', 'missing-code', 'wrong-team', 'wrong-digest-length'}:
             raise ValueError('serialization fixture cases')
@@ -131,6 +134,51 @@ class NativeSerializationTests(unittest.TestCase):
                         else:
                             self.assertEqual(observer.read('initial', pid), value)
                     self.assertEqual(json.loads((root / 'observation-001.json').read_text()), value)
+
+    def test_actual_privileged_encoder_strict_types_and_unavailable(self):
+        self.assertEqual(len(self.privileged), 2)
+        for sample in self.privileged:
+            self.assertEqual(setup.privileged_kernel_shape(sample, 42), sample)
+        self.assertIs(self.privileged[0]['processInfoAvailable'], True)
+        self.assertIs(self.privileged[1]['processInfoAvailable'], False)
+        for key in ['parent', 'uid', 'startSeconds', 'startMicroseconds', 'path']:
+            self.assertIsNone(self.privileged[1][key])
+        for key, value in self.privileged[0].items():
+            bad = self.privileged[0].copy()
+            bad[key] = int(value) if type(value) is bool else False if type(value) is int else 7
+            with self.assertRaises(ValueError): setup.privileged_kernel_shape(bad, 42)
+        for flag in [0, 1]:
+            bad = self.privileged[0].copy(); bad['processInfoAvailable'] = flag
+            with self.assertRaises(ValueError): setup.privileged_kernel_shape(bad, 42)
+        with self.assertRaises(ValueError): setup.privileged_kernel_shape(self.privileged[0], 43)
+
+    def test_actual_phase_encoder_every_call_kind_and_loss_checks(self):
+        names = {'proc-info', 'proc-path', 'code-status', 'code-hash', 'chrome-create', 'chrome-requirement',
+                 'chrome-identity', 'chrome-strict', 'chrome-information', 'guest-lookup', 'guest-live',
+                 'apple-requirement', 'apple-live', 'guest-static-copy', 'guest-static', 'guest-information',
+                 'guest-chrome-requirement', 'guest-chrome-static', 'guest-chrome-live', 'guest-live-after', 'windows'}
+        self.assertEqual({row['phase'] for row in self.phases}, names)
+        self.assertEqual(len(self.phases), len(names) * 2)
+        for i, row in enumerate(self.phases):
+            self.assertEqual(set(row), {'schema', 'kind', 'seq', 'phase', 'pid', 'state', 'elapsedNs', 'durationNs', 'result', 'error'})
+            self.assertEqual(row['seq'], i + 1)
+            for key in ['schema', 'seq', 'pid', 'elapsedNs', 'durationNs', 'result', 'error']:
+                self.assertIs(type(row[key]), int)
+            self.assertEqual(row['kind'], 'identity-call')
+            self.assertEqual(row['pid'], 42)
+            self.assertEqual(row['state'], 'entered' if i % 2 == 0 else 'complete')
+            self.assertGreaterEqual(row['durationNs'], 0)
+            self.assertEqual(row['result'], 0 if i % 2 == 0 else -1)
+            if i % 2:
+                self.assertEqual(row['phase'], self.phases[i-1]['phase'])
+                self.assertGreaterEqual(row['elapsedNs'], self.phases[i-1]['elapsedNs'])
+
+    def test_actual_phase_loss_fails_closed_before_expression(self):
+        for case in ['full', 'closed', 'bound']:
+            result = subprocess.run([str(self.executable), '--phase-loss-' + case],
+                env={'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'LANG': 'C'}, capture_output=True, timeout=2)
+            self.assertEqual(result.returncode, 1, case)
+            self.assertEqual(result.stdout, b'')
 
 
 if __name__ == '__main__':

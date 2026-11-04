@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <fcntl.h>
+#include <time.h>
 
 extern int csops(pid_t, unsigned int, void *, size_t);
 
@@ -36,6 +38,86 @@ static NSString *hex(const unsigned char *bytes, size_t count) {
     for (size_t i = 0; i < count; i++) [value appendFormat:@"%02x", bytes[i]];
     return value;
 }
+typedef NS_ENUM(unsigned, ProbePhase) {
+    PhaseProcInfo, PhaseProcPath, PhaseCodeStatus, PhaseCodeHash,
+    PhaseChromeCreate, PhaseChromeRequirement, PhaseChromeIdentity, PhaseChromeStrict, PhaseChromeInformation,
+    PhaseGuestLookup, PhaseGuestLive, PhaseAppleRequirement, PhaseAppleLive, PhaseGuestStaticCopy,
+    PhaseGuestStatic, PhaseGuestInformation, PhaseGuestChromeRequirement, PhaseGuestChromeStatic,
+    PhaseGuestChromeLive, PhaseGuestLiveAfter, PhaseWindows, PhaseCount
+};
+static const char *phaseNames[] = {"proc-info", "proc-path", "code-status", "code-hash",
+    "chrome-create", "chrome-requirement", "chrome-identity", "chrome-strict", "chrome-information",
+    "guest-lookup", "guest-live", "apple-requirement", "apple-live", "guest-static-copy",
+    "guest-static", "guest-information", "guest-chrome-requirement", "guest-chrome-static",
+    "guest-chrome-live", "guest-live-after", "windows"};
+static unsigned phaseSequence = 0;
+static uint64_t phaseOrigin = 0;
+static uint64_t monotonicNanos(void) {
+    struct timespec value;
+    if (clock_gettime(CLOCK_MONOTONIC, &value) != 0) _exit(1);
+    return (uint64_t)value.tv_sec * 1000000000ULL + (uint64_t)value.tv_nsec;
+}
+static BOOL writePhase(int fd, ProbePhase phase, pid_t pid, BOOL complete, uint64_t began, long long result, int error) {
+    if ((unsigned)phase >= PhaseCount || phaseSequence >= 8192) return NO;
+    uint64_t now = monotonicNanos();
+    char row[512];
+    int count = snprintf(row, sizeof(row),
+        "{\"schema\":1,\"kind\":\"identity-call\",\"seq\":%u,\"phase\":\"%s\",\"pid\":%d,\"state\":\"%s\",\"elapsedNs\":%llu,\"durationNs\":%llu,\"result\":%lld,\"error\":%d}\n",
+        ++phaseSequence, phaseNames[phase], pid, complete ? "complete" : "entered",
+        (unsigned long long)(now - phaseOrigin), (unsigned long long)(complete ? now - began : 0), result, error);
+    return count > 0 && count < (int)sizeof(row) && write(fd, row, (size_t)count) == count;
+}
+static uint64_t beginPhase(ProbePhase phase, pid_t pid) {
+    int saved = errno;
+    uint64_t began = monotonicNanos();
+    if (!writePhase(STDERR_FILENO, phase, pid, NO, began, 0, 0)) _exit(1);
+    errno = saved;
+    return began;
+}
+static void endPhase(ProbePhase phase, pid_t pid, uint64_t began, long long result, int error) {
+    if (!writePhase(STDERR_FILENO, phase, pid, YES, began, result, error)) _exit(1);
+    errno = error;
+}
+#define OBSERVE(phase, pid, expression) ({ uint64_t began = beginPhase(phase, pid); __auto_type result = (expression); int error = errno; endPhase(phase, pid, began, (long long)result, error); result; })
+#define OBSERVE_POINTER(phase, pid, expression) ({ uint64_t began = beginPhase(phase, pid); __auto_type result = (expression); int error = errno; endPhase(phase, pid, began, result ? 1 : 0, error); result; })
+static BOOL configurePhases(void) {
+    phaseOrigin = monotonicNanos();
+    int flags = fcntl(STDERR_FILENO, F_GETFL);
+    return flags >= 0 && fcntl(STDERR_FILENO, F_SETFL, flags | O_NONBLOCK) == 0;
+}
+static BOOL exactPID(const char *text, pid_t *pid) {
+    if (!text || !*text || text[0] == '0') return NO;
+    for (const char *cursor = text; *cursor; cursor++) if (*cursor < '0' || *cursor > '9') return NO;
+    errno = 0;
+    char *end = NULL;
+    long value = strtol(text, &end, 10);
+    if (errno || !end || *end || value <= 0 || value > INT32_MAX) return NO;
+    *pid = (pid_t)value;
+    return YES;
+}
+static BOOL modeAllowed(uid_t uid, int argc, const char **argv) {
+    BOOL privileged = argc == 3 && strcmp(argv[1], "--kernel") == 0;
+    return uid == 0 ? privileged : !privileged;
+}
+static NSDictionary *privilegedKernelRecord(pid_t pid, struct proc_bsdinfo info, int size, int infoError,
+    const char *path, int pathSize, int pathError) {
+    BOOL valid = size == (int)sizeof(info) && info.pbi_pid == (uint32_t)pid && info.pbi_start_tvsec > 0 && info.pbi_start_tvusec < 1000000;
+    return @{@"schema": @1, @"kind": @"privileged-kernel-identity", @"pid": @(pid),
+        @"processInfoAvailable": valid ? @YES : @NO, @"processInfoError": @(infoError),
+        @"parent": valid ? @(info.pbi_ppid) : absent(), @"uid": valid ? @(info.pbi_uid) : absent(),
+        @"startSeconds": valid ? [NSString stringWithFormat:@"%llu", info.pbi_start_tvsec] : absent(),
+        @"startMicroseconds": valid ? @(info.pbi_start_tvusec) : absent(),
+        @"path": pathSize > 0 ? ([NSString stringWithUTF8String:path] ?: absent()) : absent(), @"pathError": @(pathError)};
+}
+static NSDictionary *privilegedKernel(pid_t pid) {
+    struct proc_bsdinfo info = {0};
+    int size = OBSERVE(PhaseProcInfo, pid, proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, sizeof(info)));
+    int infoError = size == (int)sizeof(info) ? 0 : errno;
+    char path[PROC_PIDPATHINFO_MAXSIZE] = {0};
+    int pathSize = OBSERVE(PhaseProcPath, pid, proc_pidpath(pid, path, sizeof(path)));
+    int pathError = pathSize > 0 ? 0 : errno;
+    return privilegedKernelRecord(pid, info, size, infoError, path, pathSize, pathError);
+}
 static NSDictionary *kernelRecord(pid_t pid, struct proc_bsdinfo info, int size, int infoError,
     const char *path, int pathSize, int pathError, uint32_t flags, int status, int statusError,
     const unsigned char *hash, int hashStatus, int hashError) {
@@ -51,16 +133,16 @@ static NSDictionary *kernelRecord(pid_t pid, struct proc_bsdinfo info, int size,
 }
 static NSDictionary *kernel(pid_t pid) {
     struct proc_bsdinfo info = {0};
-    int size = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, sizeof(info));
+    int size = OBSERVE(PhaseProcInfo, pid, proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, sizeof(info)));
     int infoError = size == (int)sizeof(info) ? 0 : errno;
     char path[PROC_PIDPATHINFO_MAXSIZE] = {0};
-    int pathSize = proc_pidpath(pid, path, sizeof(path));
+    int pathSize = OBSERVE(PhaseProcPath, pid, proc_pidpath(pid, path, sizeof(path)));
     int pathError = pathSize > 0 ? 0 : errno;
     uint32_t flags = 0;
-    int status = csops(pid, 0, &flags, sizeof(flags));
+    int status = OBSERVE(PhaseCodeStatus, pid, csops(pid, 0, &flags, sizeof(flags)));
     int statusError = status == 0 ? 0 : errno;
     unsigned char hash[20] = {0};
-    int hashStatus = csops(pid, 5, hash, sizeof(hash));
+    int hashStatus = OBSERVE(PhaseCodeHash, pid, csops(pid, 5, hash, sizeof(hash)));
     int hashError = hashStatus == 0 ? 0 : errno;
     return kernelRecord(pid, info, size, infoError, path, pathSize, pathError, flags, status, statusError, hash, hashStatus, hashError);
 }
@@ -78,11 +160,11 @@ static NSDictionary *chromePolicyRecord(OSStatus identity, OSStatus strict, CFEr
         @"accepted": chromeAccepted(identity, strict) ? @YES : @NO,
         @"detritusTolerated": identity == errSecSuccess && strict == errSecCSInvalidAssociatedFileData ? @YES : @NO};
 }
-static NSDictionary *chromeStatic(SecStaticCodeRef code, SecRequirementRef requirement) {
+static NSDictionary *chromeStatic(SecStaticCodeRef code, SecRequirementRef requirement, pid_t pid) {
     SecCSFlags flags = kSecCSCheckAllArchitectures | kSecCSCheckNestedCode;
     CFErrorRef error = NULL;
-    OSStatus identity = SecStaticCodeCheckValidity(code, flags, requirement);
-    OSStatus strict = SecStaticCodeCheckValidityWithErrors(code, flags | kSecCSStrictValidate, requirement, &error);
+    OSStatus identity = OBSERVE(PhaseChromeIdentity, pid, SecStaticCodeCheckValidity(code, flags, requirement));
+    OSStatus strict = OBSERVE(PhaseChromeStrict, pid, SecStaticCodeCheckValidityWithErrors(code, flags | kSecCSStrictValidate, requirement, &error));
     NSDictionary *result = chromePolicyRecord(identity, strict, error);
     if (error) CFRelease(error);
     return result;
@@ -97,14 +179,14 @@ static NSDictionary *chromeIdentityRecord(OSStatus created, OSStatus rule, OSSta
         @"createStatus": @(created), @"requirementStatus": @(rule), @"signingInformationStatus": @(details),
         @"policy": policy, @"cdHash": hash ?: absent(), @"identifier": identifier ?: absent(), @"team": team ?: absent()};
 }
-static NSDictionary *chromePreflight(void) {
+static NSDictionary *chromePreflight(pid_t pid) {
     SecStaticCodeRef code = NULL;
     SecRequirementRef requirement = NULL;
     CFDictionaryRef raw = NULL;
-    OSStatus created = SecStaticCodeCreateWithPath((__bridge CFURLRef)[NSURL fileURLWithPath:@"/Applications/Google Chrome.app"], kSecCSDefaultFlags, &code);
-    OSStatus rule = SecRequirementCreateWithString((__bridge CFStringRef)chromeRule(), kSecCSDefaultFlags, &requirement);
-    NSDictionary *policy = code && requirement && created == errSecSuccess && rule == errSecSuccess ? chromeStatic(code, requirement) : @{};
-    OSStatus details = code ? SecCodeCopySigningInformation(code, kSecCSSigningInformation, &raw) : errSecParam;
+    OSStatus created = OBSERVE(PhaseChromeCreate, pid, SecStaticCodeCreateWithPath((__bridge CFURLRef)[NSURL fileURLWithPath:@"/Applications/Google Chrome.app"], kSecCSDefaultFlags, &code));
+    OSStatus rule = OBSERVE(PhaseChromeRequirement, pid, SecRequirementCreateWithString((__bridge CFStringRef)chromeRule(), kSecCSDefaultFlags, &requirement));
+    NSDictionary *policy = code && requirement && created == errSecSuccess && rule == errSecSuccess ? chromeStatic(code, requirement, pid) : @{};
+    OSStatus details = code ? OBSERVE(PhaseChromeInformation, pid, SecCodeCopySigningInformation(code, kSecCSSigningInformation, &raw)) : errSecParam;
     NSDictionary *result = chromeIdentityRecord(created, rule, details, policy, raw ? (__bridge NSDictionary *)raw : @{});
     if (raw) CFRelease(raw);
     if (requirement) CFRelease(requirement);
@@ -120,19 +202,19 @@ static NSDictionary *owner(pid_t pid) {
     SecStaticCodeRef code = NULL;
     SecRequirementRef anchor = NULL;
     CFDictionaryRef raw = NULL;
-    OSStatus lookup = SecCodeCopyGuestWithAttributes(NULL, (__bridge CFDictionaryRef)@{(__bridge NSString *)kSecGuestAttributePid: @(pid)}, kSecCSDefaultFlags, &guest);
+    OSStatus lookup = OBSERVE(PhaseGuestLookup, pid, SecCodeCopyGuestWithAttributes(NULL, (__bridge CFDictionaryRef)@{(__bridge NSString *)kSecGuestAttributePid: @(pid)}, kSecCSDefaultFlags, &guest));
     OSStatus requirementStatus = errSecParam;
     OSStatus live = errSecParam, apple = errSecParam, copied = errSecParam, details = errSecParam, staticStatus = errSecParam;
     NSDictionary *info = @{};
     if (lookup == errSecSuccess && guest) {
-        live = SecCodeCheckValidity(guest, kSecCSStrictValidate, NULL);
-        requirementStatus = SecRequirementCreateWithString(CFSTR("anchor apple"), kSecCSDefaultFlags, &anchor);
+        live = OBSERVE(PhaseGuestLive, pid, SecCodeCheckValidity(guest, kSecCSStrictValidate, NULL));
+        requirementStatus = OBSERVE(PhaseAppleRequirement, pid, SecRequirementCreateWithString(CFSTR("anchor apple"), kSecCSDefaultFlags, &anchor));
         if (requirementStatus == errSecSuccess && anchor)
-            apple = SecCodeCheckValidity(guest, kSecCSStrictValidate, anchor);
-        copied = SecCodeCopyStaticCode(guest, kSecCSDefaultFlags, &code);
+            apple = OBSERVE(PhaseAppleLive, pid, SecCodeCheckValidity(guest, kSecCSStrictValidate, anchor));
+        copied = OBSERVE(PhaseGuestStaticCopy, pid, SecCodeCopyStaticCode(guest, kSecCSDefaultFlags, &code));
         if (copied == errSecSuccess && code) {
-            staticStatus = SecStaticCodeCheckValidity(code, kSecCSStrictValidate, NULL);
-            details = SecCodeCopySigningInformation(code, kSecCSSigningInformation, &raw);
+            staticStatus = OBSERVE(PhaseGuestStatic, pid, SecStaticCodeCheckValidity(code, kSecCSStrictValidate, NULL));
+            details = OBSERVE(PhaseGuestInformation, pid, SecCodeCopySigningInformation(code, kSecCSSigningInformation, &raw));
             if (details == errSecSuccess && raw) info = (__bridge NSDictionary *)raw;
         }
     }
@@ -148,17 +230,17 @@ static NSDictionary *owner(pid_t pid) {
     OSStatus chromeRequirementStatus = errSecParam;
     BOOL isChrome = [identifier isEqual:@"com.google.Chrome"];
     if (isChrome && code && guest) {
-        chromeRequirementStatus = SecRequirementCreateWithString((__bridge CFStringRef)chromeRule(), kSecCSDefaultFlags, &chromeRequirement);
+        chromeRequirementStatus = OBSERVE(PhaseGuestChromeRequirement, pid, SecRequirementCreateWithString((__bridge CFStringRef)chromeRule(), kSecCSDefaultFlags, &chromeRequirement));
         if (chromeRequirementStatus == errSecSuccess && chromeRequirement) {
-            chromePolicy = chromePreflight();
-            staticStatus = SecStaticCodeCheckValidity(code, kSecCSDefaultFlags, chromeRequirement);
-            live = SecCodeCheckValidity(guest, kSecCSDefaultFlags, chromeRequirement);
+            chromePolicy = chromePreflight(pid);
+            staticStatus = OBSERVE(PhaseGuestChromeStatic, pid, SecStaticCodeCheckValidity(code, kSecCSDefaultFlags, chromeRequirement));
+            live = OBSERVE(PhaseGuestChromeLive, pid, SecCodeCheckValidity(guest, kSecCSDefaultFlags, chromeRequirement));
         } else {
             staticStatus = errSecCSReqFailed;
             live = errSecCSReqFailed;
         }
     }
-    OSStatus liveAfter = guest ? SecCodeCheckValidity(guest, isChrome ? kSecCSDefaultFlags : kSecCSStrictValidate, isChrome ? chromeRequirement : NULL) : errSecParam;
+    OSStatus liveAfter = guest ? OBSERVE(PhaseGuestLiveAfter, pid, SecCodeCheckValidity(guest, isChrome ? kSecCSDefaultFlags : kSecCSStrictValidate, isChrome ? chromeRequirement : NULL)) : errSecParam;
     NSDictionary *after = kernel(pid);
     BOOL same = [before[@"processInfoAvailable"] boolValue] && [after[@"processInfoAvailable"] boolValue];
     for (NSString *key in @[@"pid", @"parent", @"uid", @"startSeconds", @"startMicroseconds", @"path", @"cdHash", @"codeStatus"])
@@ -183,7 +265,7 @@ static NSDictionary *owner(pid_t pid) {
     return result;
 }
 static NSDictionary *snapshot(void) {
-    CFArrayRef raw = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID);
+    CFArrayRef raw = OBSERVE_POINTER(PhaseWindows, 0, CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID));
     if (!raw) return @{@"schema": @1, @"available": @NO, @"reason": @"cg-unavailable"};
     NSArray *rows = CFBridgingRelease(raw);
     if (rows.count > 512) return @{@"schema": @1, @"available": @NO, @"reason": @"window-bound"};
@@ -211,15 +293,19 @@ static NSDictionary *snapshot(void) {
 int main(int argc, const char **argv) {
     @autoreleasepool {
         if (!hosted()) return failed("observer-host-preflight", 2);
+        if (!modeAllowed(geteuid(), argc, argv)) return failed("observer-privilege-mode", 2);
+        if (!configurePhases()) return failed("observer-phase-output", 1);
         id value = nil;
         BOOL staticMode = argc == 2 && strcmp(argv[1], "--chrome-static") == 0;
-        if (staticMode) value = chromePreflight();
+        if (staticMode) value = chromePreflight(0);
         else if (argc == 1) value = snapshot();
-        else if (argc == 3 && strcmp(argv[1], "--owner") == 0) {
-            char *end = NULL;
-            long pid = strtol(argv[2], &end, 10);
-            if (!end || *end || pid <= 0 || pid > INT32_MAX) return failed("observer-owner-argument", 2);
-            value = owner((pid_t)pid);
+        else if (argc == 3 && (strcmp(argv[1], "--owner") == 0 || strcmp(argv[1], "--kernel") == 0)) {
+            pid_t pid;
+            if (!exactPID(argv[2], &pid)) return failed("observer-owner-argument", 2);
+            if (strcmp(argv[1], "--kernel") == 0) {
+                alarm(2);
+                value = privilegedKernel(pid);
+            } else value = owner(pid);
         } else return failed("observer-mode-argument", 2);
         NSError *error = nil;
         NSData *data = encodeRecord(value, &error);

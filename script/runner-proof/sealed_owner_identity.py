@@ -93,8 +93,9 @@ def chrome_identity(binary, evidence, env, deadline, journal):
     remaining = min(10, deadline - time.monotonic())
     if remaining <= 0:
         raise ValueError('chrome-static-deadline')
-    result = journal.run([str(binary), '--chrome-static'], stdin=shared.subprocess.DEVNULL,
-        capture_output=True, timeout=remaining, check=False, env=dict(env, **identity.ASSERTIONS))
+    with (evidence / 'chrome-static-phases.ndjson').open('xb') as phases:
+        result = journal.run([str(binary), '--chrome-static'], stdin=shared.subprocess.DEVNULL,
+            capture_output=True, stderr=phases, timeout=remaining, check=False, env=dict(env, **identity.ASSERTIONS))
     record = json.loads(result.stdout)
     (evidence / 'chrome-static-identity.json').write_text(json.dumps(record, indent=2) + '\n')
     return parse_chrome_identity(record, result.returncode)
