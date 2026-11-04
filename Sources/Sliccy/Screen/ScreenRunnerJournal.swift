@@ -69,6 +69,10 @@ final class ScreenRunnerJournal: @unchecked Sendable {
             authorityFailed(); return false
         }
     }
+    func rejectEvidence() {
+        lock.lock(); let first = !writeFailed; writeFailed = true; lock.unlock()
+        if first { authorityFailed() }
+    }
     func gateInvalidated(start: ContinuousClock.Instant, end: ContinuousClock.Instant) {
         lock.lock(); let first = !gateReported; gateReported = true; lock.unlock()
         if first { emit("local-gate-invalidated", ["durationMs": Self.ms(start.duration(to: end))], at: end) }

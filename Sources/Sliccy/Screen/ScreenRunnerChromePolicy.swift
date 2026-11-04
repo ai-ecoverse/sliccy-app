@@ -8,6 +8,7 @@ struct ScreenRunnerChromePolicy {
     static let requirementText = "anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and identifier \"com.google.Chrome\" and certificate leaf[subject.OU] = \"EQHXZ8M8AV\""
     struct Evidence: Sendable {
         let identityStatus: OSStatus, strictStatus: OSStatus, guestStatus: OSStatus
+        let observedAt: ContinuousClock.Instant = .now
         var accepted: Bool {
             identityStatus == errSecSuccess && guestStatus == errSecSuccess &&
                 (strictStatus == errSecSuccess || strictStatus == errSecCSInvalidAssociatedFileData)

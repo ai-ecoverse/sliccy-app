@@ -18,9 +18,16 @@ final class ScreenRunnerHealth: @unchecked Sendable {
         sourceUntil = .now.advanced(by: .milliseconds(1500))
     }
     func check() -> Bool {
-        lock.lock(); defer { lock.unlock() }
-        return valid && !ended && sourceUntil.map({ .now < $0 }) == true && indicator?.check() == true && owners.allSatisfy(\.isAlive)
+        lockedOwnerCheck {
+            valid && !ended && sourceUntil.map({ .now < $0 }) == true && indicator?.check() == true && owners.allSatisfy(\.isAlive)
+        }
     }
+    private func lockedOwnerCheck(_ check: () -> Bool) -> Bool {
+        lock.lock(); defer { lock.unlock() }; return check()
+    }
+    #if DEBUG
+    func testOwnerCheck(_ check: () -> Bool) -> Bool { lockedOwnerCheck(check) }
+    #endif
 }
 
 final class ScreenRunnerConnection: @unchecked Sendable {
