@@ -54,5 +54,53 @@
     "new": "false",
     "test": "TestRunnerExecutableSlicesRetainSameCPUCapabilitiesAndBounds",
     "assertion": "ASSERTION:invalid-slice-range"
+  },
+  {
+    "name": "cf-subtype",
+    "file": "runner_security_native_darwin_test.go",
+    "old": "cpu,sub:=slice.CPU,slice.Subtype",
+    "new": "cpu,sub:=slice.CPU,int32(0)",
+    "test": "TestRunnerNativeCFConstructorsUseExactAttributesAndTypedInformation",
+    "assertion": "ASSERTION:native-constructor-routing"
+  },
+  {
+    "name": "cf-info-flags",
+    "file": "runner_security_native_darwin_test.go",
+    "old": "c.information(code,3,&information)",
+    "new": "c.information(code,2,&information)",
+    "test": "TestRunnerNativeCFConstructorsUseExactAttributesAndTypedInformation",
+    "assertion": "ASSERTION:native-information-flags"
+  },
+  {
+    "name": "cf-selected-flags",
+    "file": "runner_security_native_darwin_test.go",
+    "old": "validity(\"SecStaticCodeCheckValidity-selected\",flags,rule,",
+    "new": "validity(\"SecStaticCodeCheckValidity-selected\",16,rule,",
+    "test": "TestRunnerNativeCFConstructorsUseExactAttributesAndTypedInformation",
+    "assertion": "ASSERTION:native-actual-validity-flags"
+  },
+  {
+    "name": "cf-float-type",
+    "file": "runner_security_native_darwin_test.go",
+    "old": "||c.numberFloat(value)||",
+    "new": "||",
+    "test": "TestRunnerNativeCFConstructorsUseExactAttributesAndTypedInformation",
+    "assertion": "ASSERTION:native-typed-information-floating-type"
+  },
+  {
+    "name": "purpose-default",
+    "file": "runner_scope_darwin_test.go",
+    "old": "result.Result = \"FAILED_TO_DEMONSTRATE\"",
+    "new": "result.Result = \"PASS\"",
+    "test": "TestRunnerAuthorizationPurposeDoesNotPromoteTemporalEvidenceOrBlockCleanCases",
+    "assertion": "ASSERTION:purpose-unavailable-independent-cases"
+  },
+  {
+    "name": "protected-cleanup",
+    "file": "runner_scope_darwin_test.go",
+    "old": "\"app allowed cli authorization-requester chrome-a-1 chrome-a-2 chrome-b-1 chrome-b-2\"",
+    "new": "\"app allowed cli authorization authorization-requester chrome-a-1 chrome-a-2 chrome-b-1 chrome-b-2\"",
+    "test": "TestRunnerCleanupDoesNotClaimProtectedSystemWindowsAreOwned",
+    "assertion": "ASSERTION:protected-window-not-owned-cleanup"
   }
 ]

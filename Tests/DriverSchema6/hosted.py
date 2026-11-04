@@ -18,7 +18,7 @@ start = time.monotonic()
 assert os.environ['RUNNER_ENVIRONMENT'] == 'github-hosted' and os.environ['RUNNER_OS'] == 'macOS' and os.environ['RUNNER_ARCH'] == 'ARM64'
 assert os.environ['GITHUB_REF'] == 'refs/heads/proof/independent-driver-schema6-v1' and os.environ['GITHUB_EVENT_NAME'] == 'push'
 private = Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP'], prefix='driver-schema6-'))
-env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'HOME': str(private / 'home'), 'TMPDIR': str(private / 'tmp'), 'CGO_ENABLED': '0', 'GOTOOLCHAIN': 'local', 'SLICC_NO_TELEMETRY': '1', 'SLICC_NO_UPDATE_CHECK': '1', 'GOFLAGS': '-mod=readonly', 'GOPATH': str(private / 'gopath'), 'GOCACHE': str(private / 'gocache')}
+env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'HOME': str(private / 'home'), 'TMPDIR': str(private / 'tmp'), 'CGO_ENABLED': '0', 'GOTOOLCHAIN': 'local', 'RUNNER_ENVIRONMENT': 'github-hosted', 'GITHUB_REF': 'refs/heads/proof/independent-driver-schema6-v1', 'SLICC_NO_TELEMETRY': '1', 'SLICC_NO_UPDATE_CHECK': '1', 'GOFLAGS': '-mod=readonly', 'GOPATH': str(private / 'gopath'), 'GOCACHE': str(private / 'gocache')}
 for name in ['home', 'tmp']:
     (private / name).mkdir()
 sha = lambda data: hashlib.sha256(data).hexdigest()
@@ -92,7 +92,7 @@ try:
     fixture_path = results.resolve() / 'foundation-encode.stdout'
     env['SLICCY_RECEIPT_FIXTURE'] = str(fixture_path)
     os.chdir(source)
-    selected = '^(TestRunnerBSDReceipt.*|TestRunnerReceiptBook.*|TestRunnerReceiptFoundationEncoderInteroperability|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission|TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries|TestRunnerExecutableSlicesRetainSameCPUCapabilitiesAndBounds|TestRunnerUnionRequiresEveryIndependentOwnerAndProtectsSecurityAgent)$'
+    selected = '^(TestRunnerBSDReceipt.*|TestRunnerReceiptBook.*|TestRunnerReceiptFoundationEncoderInteroperability|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission|TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries|TestRunnerExecutableSlicesRetainSameCPUCapabilitiesAndBounds|TestRunnerUnionRequiresEveryIndependentOwnerAndProtectsSecurityAgent|TestRunnerNativeCFConstructorsUseExactAttributesAndTypedInformation|TestRunnerAuthorizationPurposeDoesNotPromoteTemporalEvidenceOrBlockCleanCases|TestRunnerCleanupDoesNotClaimProtectedSystemWindowsAreOwned|TestRunnerAbsoluteLoopDeadlineStopsHeldReaderAndFailedCleanup|TestRunnerLoopDrainsBufferedRowsAfterReaderCompletion)$'
     binary = str(private / 'driver-components')
     compile_result = command('go-baseline-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 300)
     assert compile_result.returncode == 0

@@ -22,14 +22,14 @@
     "runner_bsd_receipt_darwin_test.go": "2a0fb16b0bc3e5c2e9dbbfee792a2bc341fd455502d706b1092e66d057ca40d5",
     "runner_clock_darwin_test.go": "3a9fa2be818be194ed2d9fc28ee540d3a21c935814839deadaaa413b8fd4b041",
     "runner_code_receipt_darwin_test.go": "ea1cbfc98e3ef7df111f03d6e9350eaa11a8cb885c604eaf294c8cca78e34122",
-    "runner_controller_darwin_test.go": "b2a0baefa83d74ac40113b3d3447033dc26fb09e790c1062d7c36567a84494a5",
-    "runner_entry_darwin_test.go": "d4e826fd7e7c0a7b940f3fb9b3ec2702328f39422c864ef725c15f5ff3340405",
-    "runner_file_snapshot_darwin_test.go": "6e1d17058e1637eb3f8af76d60e1d63e90d48cbd60c232ea65d7e3acc471db7c",
-    "runner_independent_binding_darwin_test.go": "ccb95ad2215ef955e43c082bd916536f6b2cfb39b644fe7cdd25991bb1a30e68",
-    "runner_independent_binding_fixture_darwin_test.go": "26f6fc0ccb6b84554e394af136b623709ea8c6215ecedb9f728cc74004cad102",
+    "runner_controller_darwin_test.go": "e456a744a25934d517825f8582a43bdfa90c51b0b88c79f8a1571ac17f2d47a3",
+    "runner_entry_darwin_test.go": "ae1c64cc3051576396a6d7910e20c5c96b22743336815ece0f9efa17e1c036e9",
+    "runner_file_snapshot_darwin_test.go": "8196cb02a6b262c252d696798f00991f2b43e9cc6198609ac02a00fc783913e2",
+    "runner_independent_binding_darwin_test.go": "8346eb7ffd8e70dd6f7020fdc2115a69094ffad2f74ffac150d0180c235d2719",
+    "runner_independent_binding_fixture_darwin_test.go": "164706bf27a545750904ec7779c64c8b46eeb8e0e78dee3957e3beb364d91415",
     "runner_inventory_darwin_test.go": "3e7b687085eb8ef38c95811a57a19c0c3be5414cfe0cde3b2838164335222520",
     "runner_io_fixture_darwin_test.go": "8421f60cba0f5573c17f87aaaf45d8265bcb4a9177fa429e6ae5d821b6b0255a",
-    "runner_loop_darwin_test.go": "d3e871e6936175f4b55c308e7ca6ed02cd8d5372edf488373bdf9cc745dcf730",
+    "runner_loop_darwin_test.go": "b4587b962dfa302f0238347f188b271b1a0228c26680998231eff52da0b37314",
     "runner_native_darwin_test.go": "1311bb18162050762fbd4f5efd77afcb6969e532a51b2219166b926c8e7fdd74",
     "runner_page_darwin_test.go": "19962f1a235ddf241d06313310b85b4b801950af8dc24aac74d83bee63b5fa14",
     "runner_pages_darwin_test.go": "0d94c6428e39a7c78dd38d54f0106853b336256d536d50c45d337d1b28e4c6c8",
@@ -40,9 +40,12 @@
     "runner_receiver_darwin_test.go": "366bbe77ace708a4fc324a7b9c3f7d9be4208f34f07f9afc78e8c0eeb54d4858",
     "runner_record_darwin_test.go": "b9c38e82f621e4ca1c833db130ffe3fb20b8bed2755bce0af022435c5f1856fe",
     "runner_schema_darwin_test.go": "648e4945273fb40e8d9af76b5f1694eb955898e495cb2557d82b83d55c69d36f",
+    "runner_scope_darwin_test.go": "bf484950d2467a08bd86cdc111cdbc5e110e9981a6cc64c103d313d81295c857",
+    "runner_security_constructor_darwin_test.go": "50f2a113b431d37c9051309a252cd089256a8b1dc203e8b74ac6c48718ba9192",
+    "runner_security_native_darwin_test.go": "2cbca15ad800c38f924df285aef91d55cff9cb713acc3df0d5abe1266e28772d",
     "runner_timing_darwin_test.go": "d71969176ee158bf17a76b74a7b35d84ea1dd5b21f3aa2a6e04f4cd759945293",
     "runner_union_darwin_test.go": "562cd33a4b2aa89802a82d13d8f0ee6abaf3f4a967e78efb36268c09d7925e4a",
-    "runner_union_fixture_darwin_test.go": "c058e3e15b5d1800a2bcf8479d6d65ef3eb5cf6ed613fc375b4ba96c0c4f0418",
+    "runner_union_fixture_darwin_test.go": "2fdac0af150db7709ccbd55733885eaba13ce65f575d6ec577f88ae87b71e169",
     "runner_windows_darwin_test.go": "70e66d44da17bf99beed038f0d13596fdd957d9197cfbaba20bd0df7a5a1b878",
     "runner_wire_decode_darwin_test.go": "68efb087cdcc02575d3665b2754a030c95bcd549830a7abbe0faf46d0bd61d2d",
     "safety_handoff_darwin_test.go": "680ff5cae19825aa39288dfa7df162d4ffbf29d83be1e6c2e10ee49ecf260be0",
@@ -58,7 +61,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "2314599f22f135ea642ce6465335ac8a940882075bba1eec7bc686aa5a5fba77",
+    "inputs/driver-source.tar.gz": "e359b32224ca5a9a9379ce0ed46d795e0b924d0ed877df7b51e4ed97e6eb1876",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
   },
   "fixtureSHA256": "618f9204dda8b8160796fd3a56dd3cfd4eb79a9aa365213131f6964eda069649",
@@ -67,5 +70,5 @@
     "Sources/Sliccy/Screen/ScreenRunnerReceiptLedger.swift": "2c39093785f4e6c05fc211be25756a83f61ac2a8bdf90e97675b49d588668b4b",
     "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6"
   },
-  "scope": "incomplete independent driver fabricated binding/union/receipts/timing; native API adapter not yet wired; no query/subject"
+  "scope": "incomplete driver components: real CoreFoundation constructors with ALL Security callbacks substituted; BSD/kernel/file hooks fabricated; no real process/Security query or subject"
 }
