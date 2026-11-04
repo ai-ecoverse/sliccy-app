@@ -155,5 +155,86 @@ struct ScreenRunnerInventoryBoundaryTests {
             #expect(throws: ScreenRunnerInventoryIssue.unclassifiedOwner) { try fixture.read() }
         }
     }
+    @Test func authorizationAnchorAndWindowServerBracketAreMandatoryAtReadBoundary() throws {
+        for (identifier, apple, bracket) in [("com.apple.SecurityAgent", false, false), ("com.apple.WindowServer", true, false)] {
+            var fixture = Fixture()
+            fixture.add(id: 50, pid: 50, bundle: identifier, apple: apple)
+            let owner = fixture.owners[50]!
+            fixture.owners[50] = .init(pid: owner.pid, parent: owner.parent, uid: owner.uid, seconds: owner.seconds, microseconds: owner.microseconds,
+                identifier: owner.identifier, path: owner.path, hash: owner.hash, appleAnchored: apple, verified: true, privilegedBracket: bracket)
+            #expect(throws: (any Error).self) { try fixture.read() }
+            fixture.owners[50] = Fixture.owner(50, bundle: identifier, apple: true)
+            let accepted = try fixture.read()
+            #expect(throws: ScreenFailure.protection) { try accepted.requireSelection([50]) }
+        }
+    }
+    @Test func reassignedWindowPIDsChangeFingerprintWithoutChangingOwnerSet() throws {
+        var fixture = Fixture()
+        fixture.add(id: 31, pid: 31, bundle: "com.apple.dock", rect: CGRect(x: 800, y: 700, width: 100, height: 60), apple: true)
+        let original = try fixture.read().fingerprint
+        fixture.cg = fixture.cg.map { value in
+            .init(id: value.id, pid: value.pid == 30 ? 31 : value.pid == 31 ? 30 : value.pid, rect: value.rect, layer: value.layer)
+        }
+        fixture.sck = fixture.sck.map { value in
+            .init(id: value.id, pid: value.pid == 30 ? 31 : value.pid == 31 ? 30 : value.pid, bundle: value.bundle, rect: value.rect, layer: value.layer)
+        }
+        let reassigned = try fixture.read().fingerprint
+        #expect(reassigned.owners == original.owners)
+        #expect(reassigned != original)
+    }
+    @Test func acceptedFingerprintRecordsCompareEachStoredFieldIndependently() throws {
+        let fingerprint = try Fixture().read().fingerprint
+        let window = try #require(fingerprint.windows.first { $0.pid == 30 })
+        for field in ["pid", "bundle", "kind"] {
+            let changed = B.Window(id: window.id, pid: field == "pid" ? 31 : window.pid,
+                bundle: field == "bundle" ? "com.apple.finder" : window.bundle, rect: window.rect, layer: window.layer,
+                kind: field == "kind" ? .authorization : window.kind, inCG: window.inCG, inSCK: window.inSCK)
+            let other = B.Fingerprint(display: fingerprint.display, rect: fingerprint.rect,
+                windows: fingerprint.windows.map { $0.id == window.id ? changed : $0 }, owners: fingerprint.owners)
+            #expect(other != fingerprint)
+        }
+        let owner = try #require(fingerprint.owners.first { $0.pid == 30 })
+        for field in ["pid", "identifier", "appleAnchored", "verified"] {
+            let changed = B.Identity(pid: field == "pid" ? 31 : owner.pid, parent: owner.parent, uid: owner.uid,
+                seconds: owner.seconds, microseconds: owner.microseconds,
+                identifier: field == "identifier" ? "com.apple.finder" : owner.identifier, path: owner.path, hash: owner.hash,
+                appleAnchored: field == "appleAnchored" ? false : owner.appleAnchored,
+                verified: field == "verified" ? false : owner.verified, privilegedBracket: owner.privilegedBracket)
+            let other = B.Fingerprint(display: fingerprint.display, rect: fingerprint.rect,
+                windows: fingerprint.windows, owners: fingerprint.owners.map { $0.pid == owner.pid ? changed : $0 })
+            #expect(other != fingerprint)
+        }
+    }
+    @Test func derivedFingerprintFieldsRemainBoundToActualValidatedOwners() throws {
+        var fixture = Fixture()
+        fixture.add(id: 40, pid: 40, bundle: "com.apple.SecurityAgent", apple: true)
+        let result = try fixture.read()
+        for window in result.fingerprint.windows {
+            let owner = try #require(result.fingerprint.owners.first { $0.pid == window.pid })
+            #expect(window.bundle == owner.identifier && owner.verified)
+            let expected: B.Kind
+            if owner.pid == fixture.context.surface { expected = .allowed }
+            else if owner.pid == fixture.context.app { expected = .app }
+            else if let layout = fixture.context.browsers.first(where: { $0.value == owner.pid })?.key {
+                expected = try #require(B.Kind(rawValue: "chrome-" + layout.profile))
+            } else if owner.identifier == "com.apple.SecurityAgent" { expected = .authorization; #expect(owner.appleAnchored) }
+            else { expected = .system; #expect(owner.appleAnchored && B.systemRoles.contains(owner.identifier)) }
+            #expect(window.kind == expected)
+        }
+        for field in ["pid", "bundle", "verified"] {
+            var changed = fixture
+            let owner = changed.owners[30]!
+            if field == "bundle" {
+                changed.sck = changed.sck.map { .init(id: $0.id, pid: $0.pid, bundle: $0.pid == 30 ? "com.apple.finder" : $0.bundle, rect: $0.rect, layer: $0.layer) }
+            } else {
+                changed.owners[30] = .init(pid: field == "pid" ? 31 : owner.pid, parent: owner.parent, uid: owner.uid,
+                    seconds: owner.seconds, microseconds: owner.microseconds, identifier: owner.identifier,
+                    path: owner.path, hash: owner.hash, appleAnchored: owner.appleAnchored,
+                    verified: field != "verified", privilegedBracket: owner.privilegedBracket)
+            }
+            #expect(throws: (any Error).self) { try changed.read() }
+        }
+    }
+
 }
 #endif

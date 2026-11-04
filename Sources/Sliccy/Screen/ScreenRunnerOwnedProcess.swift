@@ -56,15 +56,9 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
                  evidenceLost: @escaping @Sendable () -> Void = {},
                  ended: @escaping @Sendable (pid_t, Bool) -> Void) throws {
         self.executable = executable; self.identifier = identifier; self.ended = ended; self.team = team; self.chromeEvidence = chromeEvidence; self.evidenceLost = evidenceLost
-        var code: SecStaticCode?
-        guard SecStaticCodeCreateWithPath(executable as CFURL, [], &code) == errSecSuccess, let code else { throw ScreenFailure.peerUntrusted }
-        let rule = try Self.rule(identifier: identifier, team: team)
-        try ScreenRunnerChromePolicy.verify(code, identifier: identifier, site: .preflight, ordinary: rule,
-            record: { chromeEvidence("preflight", $0) })
-        var info: CFDictionary?
-        guard SecCodeCopySigningInformation(code, [], &info) == errSecSuccess,
-              let hash = (info as? [String: Any])?[kSecCodeInfoUnique as String] as? Data else { throw ScreenFailure.peerUntrusted }
-        staticHash = hash
+        staticHash = try Self.preflight(executable: executable, identifier: identifier, team: team,
+            calls: ScreenRunnerSecurityCalls<SecStaticCode, SecCode, SecRequirement>.native,
+            chromeEvidence: { chromeEvidence("preflight", $0) })
         var actions: posix_spawn_file_actions_t?, attributes: posix_spawnattr_t?
         guard posix_spawn_file_actions_init(&actions) == 0 else { throw ScreenFailure.peerLost }
         defer { posix_spawn_file_actions_destroy(&actions) }
@@ -125,30 +119,44 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
             guard resumed else { throw ScreenFailure.peerUntrusted }
         } catch { stop(); throw error }
     }
-    private static func rule(identifier: String, team: String?) throws -> SecRequirement {
-        if identifier == ScreenRunnerChromePolicy.identifier { return try ScreenRunnerChromePolicy.requirement() }
-        var value: SecRequirement?
+    private static func rule<Static, Guest, Rule>(identifier: String, team: String?, calls: ScreenRunnerSecurityCalls<Static, Guest, Rule>) throws -> Rule {
+        if identifier == ScreenRunnerChromePolicy.identifier { return try calls.makeRule(ScreenRunnerChromePolicy.requirementText) }
         var text = "anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and identifier \"\(identifier)\""
         if identifier == "com.apple.osascript" { text = "anchor apple and identifier \"com.apple.osascript\"" }
         if let team { text += " and certificate leaf[subject.OU] = \"\(team)\"" }
-        guard SecRequirementCreateWithString(text as CFString, [], &value) == errSecSuccess, let value else { throw ScreenFailure.peerUntrusted }
-        return value
+        return try calls.makeRule(text)
+    }
+    static func preflight<Static, Guest, Rule>(executable: URL, identifier: String, team: String?,
+                                              calls: ScreenRunnerSecurityCalls<Static, Guest, Rule>,
+                                              chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void) throws -> Data {
+        let code = try calls.staticCode(executable), rule = try rule(identifier: identifier, team: team, calls: calls)
+        try ScreenRunnerChromePolicy.verify(code, identifier: identifier, site: .preflight, ordinary: rule, calls: calls, record: chromeEvidence)
+        guard let hash = try calls.information(code).hash else { throw ScreenFailure.peerUntrusted }
+        return hash
+    }
+    static func verifyLiveCopy<Static, Guest, Rule>(pid: pid_t, executable: URL, identifier: String, team: String?, hash: Data,
+                                                   calls: ScreenRunnerSecurityCalls<Static, Guest, Rule>,
+                                                   chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void) throws {
+        let guest = try calls.guest(pid)
+        guard try calls.checkGuest(guest, [], rule(identifier: identifier, team: team, calls: calls)) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
+        let staticCode = try calls.copyStatic(guest)
+        try ScreenRunnerChromePolicy.verify(staticCode, identifier: identifier, site: .liveCopy,
+            ordinary: try rule(identifier: identifier, team: team, calls: calls), calls: calls, record: chromeEvidence)
+        let info = try calls.information(staticCode)
+        guard info.hash == hash, info.path?.standardizedFileURL == executable.standardizedFileURL else { throw ScreenFailure.peerUntrusted }
+    }
+    static func verifySignalRole<Static, Guest, Rule>(pid: pid_t, identifier: String, team: String?, hash: Data,
+                                                     calls: ScreenRunnerSecurityCalls<Static, Guest, Rule>,
+                                                     chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void) throws {
+        try ScreenRunnerProcessIdentity.verifyRole(pid: pid, identifier: identifier, team: team, hash: hash, site: .signal, calls: calls, chromeEvidence: chromeEvidence)
     }
     func verifyLive() throws {
         try lock.withEvidence(output: chromeEvidence, loss: evidenceLost) { batch in
             guard ownsPID, !invalid, !reaped, let identity else { throw ScreenFailure.peerLost }
             try identity.verify(identifier: identifier, team: team, chromeEvidence: { batch.collect("live", $0) })
-            var guest: SecCode?
-            guard SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributePid as String: pid] as CFDictionary, [], &guest) == errSecSuccess,
-                  let guest, SecCodeCheckValidity(guest, [], try Self.rule(identifier: identifier, team: team)) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
-            var staticCode: SecStaticCode?
-            guard SecCodeCopyStaticCode(guest, [], &staticCode) == errSecSuccess, let staticCode else { throw ScreenFailure.peerUntrusted }
-            try ScreenRunnerChromePolicy.verify(staticCode, identifier: identifier, site: .liveCopy,
-                ordinary: try Self.rule(identifier: identifier, team: team), record: { batch.collect("live-copy", $0) })
-            var info: CFDictionary?
-            guard SecCodeCopySigningInformation(staticCode, [], &info) == errSecSuccess,
-                  let values = info as? [String: Any], values[kSecCodeInfoUnique as String] as? Data == staticHash,
-                  (values[kSecCodeInfoMainExecutable as String] as? URL)?.standardizedFileURL == executable.standardizedFileURL else { throw ScreenFailure.peerUntrusted }
+            try Self.verifyLiveCopy(pid: pid, executable: executable, identifier: identifier, team: team, hash: staticHash,
+                calls: ScreenRunnerSecurityCalls<SecStaticCode, SecCode, SecRequirement>.native,
+                chromeEvidence: { batch.collect("live-copy", $0) })
         }
     }
 
@@ -194,7 +202,8 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
         guard let identity else { signalRefused = true; return false }
         let accepted = identity.signal(value, owned: ownsPID, reaped: reaped,
             sample: { try ScreenRunnerProcessSample.read(pid) },
-            role: { try ScreenRunnerProcessIdentity.verifyRole(pid: pid, identifier: identifier, team: team, hash: staticHash, site: .signal, chromeEvidence: { evidence.collect("signal", $0) }) },
+            role: { try Self.verifySignalRole(pid: pid, identifier: identifier, team: team, hash: staticHash,
+                calls: ScreenRunnerSecurityCalls<SecStaticCode, SecCode, SecRequirement>.native, chromeEvidence: { evidence.collect("signal", $0) }) },
             send: { kill($0, $1) })
         if !accepted { signalRefused = true }
         return accepted

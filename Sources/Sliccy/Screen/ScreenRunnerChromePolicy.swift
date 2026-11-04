@@ -10,6 +10,10 @@ struct ScreenRunnerChromePolicy {
     struct Evidence: Sendable {
         let identityStatus: OSStatus, strictStatus: OSStatus, guestStatus: OSStatus
         let observedAt: ContinuousClock.Instant = .now
+        let site: Site?
+        init(identityStatus: OSStatus, strictStatus: OSStatus, guestStatus: OSStatus, site: Site? = nil) {
+            self.identityStatus = identityStatus; self.strictStatus = strictStatus; self.guestStatus = guestStatus; self.site = site
+        }
         var accepted: Bool {
             identityStatus == errSecSuccess && guestStatus == errSecSuccess &&
                 (strictStatus == errSecSuccess || strictStatus == errSecCSInvalidAssociatedFileData)
@@ -35,23 +39,23 @@ struct ScreenRunnerChromePolicy {
         let requirement = try makeRule(requirementText)
         let all = try bundle("/Applications/Google Chrome.app")
         let evidence = Evidence(identityStatus: check(all, 9, requirement), strictStatus: check(all, 25, requirement),
-                                guestStatus: check(guest, 0, requirement))
+                                guestStatus: check(guest, 0, requirement), site: site)
         record(evidence)
         guard evidence.accepted else { throw ScreenFailure.peerUntrusted }
     }
     static func verify(_ guest: SecStaticCode, identifier: String, site: Site, ordinary: SecRequirement,
                        record: @Sendable (Evidence) -> Void) throws {
+        try verify(guest, identifier: identifier, site: site, ordinary: ordinary,
+                   calls: ScreenRunnerSecurityCalls<SecStaticCode, SecCode, SecRequirement>.native, record: record)
+    }
+    static func verify<Static, Guest, Rule>(_ guest: Static, identifier: String, site: Site, ordinary: Rule,
+                                          calls: ScreenRunnerSecurityCalls<Static, Guest, Rule>,
+                                          record: @Sendable (Evidence) -> Void) throws {
         guard (kSecCSCheckAllArchitectures | kSecCSCheckNestedCode) == 9,
               kSecCSStrictValidate == 16 else { throw ScreenFailure.incompatible }
-        try validate(guest, identifier: identifier, site: site, ordinary: ordinary, makeRule: { text in
-            var rule: SecRequirement?
-            guard SecRequirementCreateWithString(text as CFString, [], &rule) == errSecSuccess, let rule else { throw ScreenFailure.peerUntrusted }
-            return rule
-        }, bundle: { path in
-            var code: SecStaticCode?
-            guard SecStaticCodeCreateWithPath(URL(fileURLWithPath: path) as CFURL, [], &code) == errSecSuccess, let code else { throw ScreenFailure.peerUntrusted }
-            return code
-        }, check: { code, flags, rule in SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: flags), rule) }, record: record)
+        try validate(guest, identifier: identifier, site: site, ordinary: ordinary, makeRule: calls.makeRule,
+                     bundle: { try calls.staticCode(URL(fileURLWithPath: $0)) },
+                     check: { code, flags, rule in calls.checkStatic(code, SecCSFlags(rawValue: flags), rule) }, record: record)
     }
 }
 #endif
