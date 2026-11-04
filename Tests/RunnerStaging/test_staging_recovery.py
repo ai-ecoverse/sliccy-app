@@ -8,6 +8,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from types import SimpleNamespace
@@ -165,13 +166,14 @@ class RecoveryTests(unittest.TestCase):
                 control.cleanup()
             control.close()
 
-    def adapter_case(self, failure, callback_fails=False, settled=True):
+    def adapter_case(self, failure, callback_fails=False, settled=True, blocked=None, release=None, prior_confirmation=False):
         calls, persisted = [], []
         directory = self.library / 'SliccyProof-1'
         state = None
         def record(name, row):
-            if 'identity' in row and row.get('step') == 'staging-create':
-                self.assertEqual(state.identity, row['identity'])
+            if blocked is not None:
+                blocked.set()
+                release.wait()
             if callback_fails:
                 raise BrokenPipeError('synthetic callback failure')
             persisted.append((name, row))
@@ -188,9 +190,16 @@ class RecoveryTests(unittest.TestCase):
             if step == 'root-staging-stage':
                 directory.mkdir(mode=0o755)
                 identity = [directory.stat().st_dev, directory.stat().st_ino]
+                if failure in ('no-creation', 'truncated-creation'):
+                    if failure == 'truncated-creation':
+                        write(json.dumps(dict(schema=1, seq=1, step='staging-create', phase='completed',
+                                              elapsedMs=0, directory=directory.name, identity=identity)).encode()[:-1])
+                    return SimpleNamespace(returncode=2, stdout=bytes(raw), settled=True)
                 journal.emit('staging-create', 'completed', directory=directory.name, identity=identity,
                              uid=0, gid=0, mode=0o755)
                 self.assertEqual(state.identity, identity)
+                if blocked is not None:
+                    self.assertTrue(blocked.wait(1))
                 if failure in ('partial', 'timeout', 'unsettled'):
                     write(b'{"schema":1,"seq":2')
                 if failure in ('timeout', 'unsettled'):
@@ -209,6 +218,14 @@ class RecoveryTests(unittest.TestCase):
         program = SCRIPTS / 'capture_stage_root.py'
         state = adapter.Stage('1', self.outside, hashlib.sha256(self.outside.read_bytes()).hexdigest(),
                               hashlib.sha256(program.read_bytes()).hexdigest(), invoke, record)
+        if prior_confirmation:
+            state.removal_state = 'confirmed-by-inode'
+        submit = state.diagnostics.submit
+        def submitted(name, row):
+            if row.get('step') == 'staging-create' and row.get('phase') == 'completed':
+                self.assertEqual(state.identity, row['identity'])
+            submit(name, row)
+        state.diagnostics.submit = submitted
         def checked(path, directory, immutable):
             return os.open(path, os.O_RDONLY)
         with patch.object(root, 'open_absolute', checked):
@@ -221,13 +238,16 @@ class RecoveryTests(unittest.TestCase):
         state, calls, error = self.adapter_case('partial')
         self.assertEqual(calls, ['root-staging-stage', 'root-staging-remove'])
         self.assertIsNone(state.identity)
-        self.assertIn('incomplete', str(error))
+        self.assertIn('incomplete', error.facts['originalReason'])
+        self.assertTrue(error.facts['removalConfirmed'])
+        self.assertEqual(state.removal_state, 'confirmed-by-inode')
         self.assert_removed()
 
     def test_timeout_retains_streamed_identity_and_confirms_separate_removal(self):
         state, calls, error = self.adapter_case('timeout')
         self.assertEqual(calls, ['root-staging-stage', 'root-staging-remove'])
-        self.assertIsInstance(error, subprocess.TimeoutExpired)
+        self.assertEqual(error.facts['original'], 'TimeoutExpired')
+        self.assertTrue(error.facts['removalConfirmed'])
         self.assertIsNone(state.identity)
         self.assert_removed()
 
@@ -235,7 +255,9 @@ class RecoveryTests(unittest.TestCase):
         state, calls, error = self.adapter_case('callback', callback_fails=True)
         self.assertEqual(calls, ['root-staging-stage', 'root-staging-remove'])
         self.assertIsNone(state.identity)
-        self.assertEqual(error.facts['cleanupReason'], 'staging-cleanup-diagnostic-loss')
+        self.assertTrue(error.facts['removalConfirmed'])
+        self.assertEqual(state.removal_state, 'confirmed-by-inode')
+        self.assertGreater(error.facts['diagnostics']['failed'], 0)
         self.assert_removed()
 
     def test_unsettled_writer_is_named_failure_not_concurrent_unsafe_removal(self):
@@ -245,6 +267,68 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(error.facts['cleanupReason'], 'cleanup-writer-unsettled')
         self.assertTrue((self.library / 'SliccyProof-1').exists())
         self.assertEqual(self.outside.read_bytes(), b'outside sentinel')
+
+    def test_settled_failure_without_creation_identity_is_never_confirmed(self):
+        state, calls, error = self.adapter_case('no-creation')
+        self.assertEqual(calls, ['root-staging-stage'])
+        self.assertIsNone(state.identity)
+        self.assertEqual(state.removal_state, 'unconfirmed')
+        self.assertFalse(error.facts['removalConfirmed'])
+        self.assertEqual(error.reason, 'cleanup-creation-identity-unavailable')
+        self.assertEqual(error.facts['cleanupReason'], 'cleanup-creation-identity-unavailable')
+        self.assertTrue((self.library / 'SliccyProof-1').exists())
+        self.assertEqual(self.outside.read_bytes(), b'outside sentinel')
+
+    def test_truncated_creation_resets_prior_confirmation_and_never_guesses_removal(self):
+        state, calls, error = self.adapter_case('truncated-creation', prior_confirmation=True)
+        self.assertEqual(calls, ['root-staging-stage'])
+        self.assertIsNone(state.identity)
+        self.assertEqual(state.removal_state, 'unconfirmed')
+        self.assertFalse(error.facts['removalConfirmed'])
+        self.assertEqual(error.reason, 'cleanup-creation-identity-unavailable')
+        self.assertTrue((self.library / 'SliccyProof-1').exists())
+        self.assertEqual(self.outside.read_bytes(), b'outside sentinel')
+
+    def test_sink_that_never_returns_cannot_block_actual_adapter_recovery(self):
+        blocked, release = threading.Event(), threading.Event()
+        self.addCleanup(release.set)
+        began = time.monotonic()
+        state, calls, error = self.adapter_case('callback', blocked=blocked, release=release)
+        self.assertTrue(blocked.is_set())
+        self.assertFalse(release.is_set())
+        self.assertLess(time.monotonic() - began, 1)
+        self.assertEqual(calls, ['root-staging-stage', 'root-staging-remove'])
+        self.assertTrue(error.facts['removalConfirmed'])
+        self.assertEqual(state.removal_state, 'confirmed-by-inode')
+        self.assertFalse(error.facts['diagnostics']['complete'])
+        self.assertEqual(error.facts['diagnostics']['active'], 1)
+        self.assertGreater(error.facts['diagnostics']['dropped'], 0)
+        self.assert_removed()
+        release.set()
+
+    def test_diagnostic_queue_is_bounded_and_overflow_counted_without_sink_progress(self):
+        blocked, release = threading.Event(), threading.Event()
+        self.addCleanup(release.set)
+        def sink(name, row):
+            blocked.set()
+            release.wait()
+        delivery = adapter.DiagnosticDelivery(sink)
+        try:
+            delivery.submit('fixed', {'index': 0})
+            self.assertTrue(blocked.wait(1))
+            for index in range(100):
+                delivery.submit('fixed', {'index': index + 1})
+            status = delivery.snapshot()
+            self.assertEqual(status['active'], 1)
+            self.assertEqual(status['pending'], 64)
+            self.assertEqual(status['dropped'], 36)
+            closed = delivery.close()
+            self.assertFalse(closed['complete'])
+            self.assertEqual(closed['dropped'], 100)
+            self.assertFalse(release.is_set())
+        finally:
+            delivery.close()
+            release.set()
 
     def test_segmented_stream_retains_complete_prefix_before_partial_failure(self):
         accepted = []

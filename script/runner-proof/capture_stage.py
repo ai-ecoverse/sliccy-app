@@ -3,7 +3,9 @@ import hashlib
 import json
 import math
 import os
+import queue
 import stat
+import threading
 
 import capture_stage_root as root
 
@@ -143,19 +145,101 @@ def records(data):
     return stream.finish()
 
 
+class DiagnosticDelivery:
+    def __init__(self, sink):
+        self.sink = sink
+        self.queue = queue.Queue(maxsize=64)
+        self.lock = threading.Lock()
+        self.idle = threading.Event()
+        self.idle.set()
+        self.closed = False
+        self.accepted = self.delivered = self.failed = self.dropped = self.active = self.pending = 0
+        self.thread = threading.Thread(target=self.work, daemon=True)
+        self.thread.start()
+
+    def submit(self, name, value):
+        try:
+            encoded = json.dumps([name, value], sort_keys=True).encode()
+            require(len(encoded) <= 65536, 'staging-diagnostic-record-bound')
+            item = json.loads(encoded)
+        except BaseException:
+            with self.lock:
+                self.dropped += 1
+            return
+        with self.lock:
+            if self.closed:
+                self.dropped += 1
+                return
+            try:
+                self.queue.put_nowait(item)
+            except queue.Full:
+                self.dropped += 1
+                return
+            self.accepted += 1
+            self.pending += 1
+            self.idle.clear()
+
+    def work(self):
+        while True:
+            item = self.queue.get()
+            if item is None:
+                return
+            with self.lock:
+                self.pending -= 1
+                self.active += 1
+            failed = False
+            try:
+                self.sink(*item)
+            except BaseException:
+                failed = True
+            with self.lock:
+                self.active -= 1
+                if failed:
+                    self.failed += 1
+                else:
+                    self.delivered += 1
+                if self.pending == 0:
+                    self.idle.set()
+
+    def snapshot(self):
+        with self.lock:
+            return dict(accepted=self.accepted, delivered=self.delivered, failed=self.failed,
+                        dropped=self.dropped, pending=self.pending, active=self.active,
+                        complete=self.pending == 0 and self.active == 0 and self.failed == 0 and self.dropped == 0)
+
+    def finish_success(self):
+        self.idle.wait(0.01)
+        return self.snapshot()
+
+    def close(self):
+        with self.lock:
+            if not self.closed:
+                self.closed = True
+                while True:
+                    try:
+                        self.queue.get_nowait()
+                    except queue.Empty:
+                        break
+                    self.pending -= 1
+                    self.dropped += 1
+                self.queue.put_nowait(None)
+        return self.snapshot()
+
+
 class Stage:
     def __init__(self, run, python, python_hash, source_hash, invoke, record):
         self.name = root.canonical_run(run)
         self.run, self.python, self.python_hash = run, python, python_hash
-        self.invoke, self.record = invoke, record
+        self.invoke = invoke
         program = Path(__file__).with_name('capture_stage_root.py').read_bytes()
         require(hashlib.sha256(program).hexdigest() == source_hash, 'staging-program-source')
         self.program = program.decode('utf-8', 'strict')
+        self.diagnostics = DiagnosticDelivery(record)
         self.identity = None
         self.validated = False
         self.started = False
         self.settled = False
-        self.delivery_failure = None
+        self.removal_state = 'unconfirmed'
 
     def retain(self, row):
         if row['step'] == 'staging-create' and row['phase'] == 'completed':
@@ -169,12 +253,8 @@ class Stage:
         os.close(checked)
         require(hash_file(self.python) == self.python_hash, 'staging-interpreter-changed')
         args = arguments(self.python, self.program, action, self.run)
-        self.delivery_failure = None
         def deliver(name, value):
-            try:
-                self.record(name, value)
-            except BaseException as error:
-                self.delivery_failure = self.delivery_failure or error
+            self.diagnostics.submit(name, value)
         def accept(row):
             self.retain(row)
             deliver('root-staging-' + action + '-row', row)
@@ -189,11 +269,10 @@ class Stage:
             require(self.settled, 'staging-writer-unsettled')
             require(type(result.stdout) is bytes and bytes(stream.raw) == result.stdout, 'staging-stream-delivery-mismatch')
             rows = stream.finish()
-            deliver('root-staging-' + action, dict(exitStatus=result.returncode, rows=rows))
+            deliver('root-staging-' + action, dict(exitStatus=result.returncode, recordCount=len(rows),
+                    stdoutSHA256=hashlib.sha256(result.stdout).hexdigest()))
             require(type(result.returncode) is int and result.returncode == 0
                     and not any(row['phase'] == 'failed' for row in rows), 'root-staging-' + action + '-failed')
-            if action == 'stage':
-                require(self.delivery_failure is None, 'staging-diagnostic-loss')
             return rows
         except BaseException as error:
             self.settled = self.settled or getattr(error, 'settled', None) is True
@@ -207,31 +286,43 @@ class Stage:
             raise
 
     def create(self, expected):
-        require(self.identity is None and not self.validated, 'staging-already-created')
+        require(self.identity is None and not self.validated and not self.started, 'staging-already-created')
         self.started = False
+        self.removal_state = 'unconfirmed'
         try:
             rows = self.call('stage', expected)
             validated = [row for row in rows if row['step'] == 'staging-validated' and row['phase'] == 'completed']
             executable = '/Library/' + self.name + '/Sliccy.app/Contents/MacOS/Sliccy'
             require(len(validated) == 1 and self.identity is not None and validated[0].get('identity') == self.identity
                     and validated[0].get('executable') == executable and validated[0].get('cdhash') == expected['cdhash'], 'staging-validation-record')
+            require(self.diagnostics.finish_success()['complete'], 'staging-diagnostic-incomplete')
             self.validated = True
             return Path(executable)
         except BaseException as original:
             self.validated = False
-            if self.started:
-                try:
-                    require(self.identity is not None, 'cleanup-creation-identity-unavailable')
-                    require(self.settled, 'cleanup-writer-unsettled')
-                    self.remove()
-                except BaseException as cleanup:
-                    confirmed = self.identity is None
-                    raise root.CheckFailure('staging-cleanup-diagnostic-loss' if confirmed else 'staging-cleanup-unconfirmed',
-                        dict(original=type(original).__name__, cleanup=type(cleanup).__name__,
-                             cleanupReason=str(cleanup)[:512], identity=self.identity, removalConfirmed=confirmed)) from original
-            raise
+            if not self.started:
+                self.diagnostics.close()
+                raise
+            cleanup_error = None
+            try:
+                require(self.identity is not None, 'cleanup-creation-identity-unavailable')
+                require(self.settled, 'cleanup-writer-unsettled')
+                self.remove()
+            except BaseException as error:
+                cleanup_error = error
+            confirmed = self.removal_state in ('confirmed-by-inode', 'confirmed-absent-with-retained-identity')
+            status = self.diagnostics.close()
+            reason = 'cleanup-creation-identity-unavailable' if self.identity is None and not confirmed else (
+                'staging-invocation-failed' if confirmed else 'staging-cleanup-unconfirmed')
+            raise root.CheckFailure(reason,
+                dict(original=type(original).__name__, originalReason=str(original)[:512],
+                     cleanup=type(cleanup_error).__name__ if cleanup_error is not None else None,
+                     cleanupReason=str(cleanup_error)[:512] if cleanup_error is not None else None,
+                     identity=self.identity, removalConfirmed=confirmed, removalState=self.removal_state,
+                     diagnostics=status)) from original
 
     def remove(self):
+        self.removal_state = 'unconfirmed'
         require(self.identity is not None, 'staging-removal-missing-identity')
         require(self.settled, 'cleanup-writer-unsettled')
         expected = list(self.identity)
@@ -240,6 +331,15 @@ class Stage:
         require(len(complete) == 1 and complete[0].get('directory') == self.name
                 and complete[0].get('identity') == expected and complete[0].get('removed') is True
                 and type(complete[0].get('alreadyAbsent')) is bool, 'staging-removal-unconfirmed')
+        self.removal_state = 'confirmed-absent-with-retained-identity' if complete[0]['alreadyAbsent'] else 'confirmed-by-inode'
         self.identity = None
         self.validated = False
-        require(self.delivery_failure is None, 'staging-cleanup-diagnostic-loss')
+        return self.removal_state
+
+    def finish_diagnostics(self):
+        require(self.removal_state in ('confirmed-by-inode', 'confirmed-absent-with-retained-identity'), 'staging-removal-unconfirmed')
+        self.diagnostics.finish_success()
+        status = self.diagnostics.close()
+        if not status['complete']:
+            raise root.CheckFailure('staging-diagnostic-incomplete', dict(diagnostics=status, removalState=self.removal_state))
+        return status
