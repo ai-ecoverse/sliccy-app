@@ -58,7 +58,7 @@ struct ScreenRunnerChromeBoundaryTests {
                 let record: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void = { trace.record($0) }
                 switch site {
                 case .preflight:
-                    #expect(try ScreenRunnerOwnedProcess.preflight(executable: executable, identifier: "com.google.Chrome", team: "EQHXZ8M8AV", calls: calls, chromeEvidence: record) == trace.hash)
+                    #expect(try ScreenRunnerOwnedProcess.preflight(executable: executable, identifier: "com.google.Chrome", team: "EQHXZ8M8AV", calls: calls, chromeEvidence: record).members.map(\.identity.hash) == [trace.hash])
                 case .initialLive:
                     let identity = try ScreenRunnerProcessIdentity.capture(pid: 42, role: .chrome, hash: trace.hash, identifier: "com.google.Chrome", team: "EQHXZ8M8AV", calls: calls, read: { _ in sample }, parent: 7, uid: 501, chromeEvidence: record)
                     #expect(identity.sample == sample)
@@ -71,15 +71,17 @@ struct ScreenRunnerChromeBoundaryTests {
                     try ScreenRunnerOwnedProcess.verifySignalRole(pid: 42, identifier: "com.google.Chrome", team: "EQHXZ8M8AV", hash: trace.hash, calls: calls, chromeEvidence: record)
                 }
                 let staticCalls = trace.events.filter { $0.kind == "static-check" }
-                #expect(staticCalls == [.init(kind: "static-check", value: "bundle", flags: 9, rule: requirement),
+                #expect(Array(staticCalls.prefix(3)) == [.init(kind: "static-check", value: "bundle", flags: 9, rule: requirement),
                                         .init(kind: "static-check", value: "bundle", flags: 25, rule: requirement),
                                         .init(kind: "static-check", value: "guest-static", flags: 0, rule: requirement)])
+                #expect(Array(staticCalls.dropFirst(3)) == [.init(kind: "static-check", value: "slice-0", flags: 9, rule: requirement),
+                                        .init(kind: "static-check", value: "slice-0", flags: 25, rule: requirement)])
                 #expect(trace.events.filter { $0.kind == "rule" }.allSatisfy { $0.value == requirement })
                 #expect(trace.events.filter { $0.kind == "static-create" && $0.value == "/Applications/Google Chrome.app" }.count == 1)
                 #expect(trace.sites == [site])
                 #expect(trace.accepted == [true])
                 let dynamic = trace.events.filter { $0.kind == "dynamic-check" }
-                #expect(dynamic.count == (site == .preflight ? 0 : 1))
+                #expect(dynamic.count == (site == .preflight ? 0 : 3))
                 #expect(dynamic.allSatisfy { $0.flags == 0 && $0.rule == requirement })
                 if site != .preflight {
                     #expect(try #require(trace.events.firstIndex(where: { $0.kind == "dynamic-check" })) < #require(trace.events.firstIndex(where: { $0.kind == "static-check" })))
@@ -97,15 +99,15 @@ struct ScreenRunnerChromeBoundaryTests {
             if failure == "dynamic" { #expect(!trace.events.contains { $0.kind == "static-check" }) }
         }
         for role in ["ai.sliccy.mac", "ai.sliccy.proof-helper", "com.apple.osascript"] {
-            let trace = ScreenRunnerSecurityTrace(executable: executable)
-            #expect(try ScreenRunnerOwnedProcess.preflight(executable: executable, identifier: role, team: nil, calls: trace.calls, chromeEvidence: { trace.record($0) }) == trace.hash)
-            #expect(trace.events.filter { $0.kind == "static-check" }.map(\.flags) == [16])
+            let trace = ScreenRunnerSecurityTrace(executable: executable, identifier: role)
+            #expect(try ScreenRunnerOwnedProcess.preflight(executable: executable, identifier: role, team: role == "com.apple.osascript" ? nil : "S8LB56P782", calls: trace.calls, chromeEvidence: { trace.record($0) }).members.map(\.identity.hash) == [trace.hash])
+            #expect(trace.events.filter { $0.kind == "static-check" }.map(\.flags) == [16, 25])
             #expect(trace.sites.isEmpty)
         }
     }
 
 }
-private final class ScreenRunnerSecurityTrace: @unchecked Sendable {
+final class ScreenRunnerSecurityTrace: @unchecked Sendable {
     struct Event: Equatable {
         let kind: String, value: String
         var flags: UInt32 = 0
@@ -118,8 +120,9 @@ private final class ScreenRunnerSecurityTrace: @unchecked Sendable {
     let executable: URL
     let strict: OSStatus
     let failure: String?
-    init(executable: URL, strict: OSStatus = 0, failure: String? = nil) {
-        self.executable = executable; self.strict = strict; self.failure = failure
+    let identifier: String
+    init(executable: URL, strict: OSStatus = 0, failure: String? = nil, identifier: String = "com.google.Chrome") {
+        self.executable = executable; self.strict = strict; self.failure = failure; self.identifier = identifier
     }
     func add(_ value: Event) { lock.lock(); recorded.append(value); lock.unlock() }
     func record(_ value: ScreenRunnerChromePolicy.Evidence) { lock.lock(); evidence.append(value); lock.unlock() }
@@ -142,8 +145,15 @@ private final class ScreenRunnerSecurityTrace: @unchecked Sendable {
               }, information: { code in
                   self.add(.init(kind: "information", value: code))
                   return .init(hash: self.failure == "hash" ? Data() : self.hash,
-                               path: self.failure == "path" ? URL(fileURLWithPath: "/changed") : self.executable)
-              })
+                               path: self.failure == "path" ? URL(fileURLWithPath: "/changed") : self.executable,
+                               identifier: self.identifier,
+                               identity: .init(type: 2, hash: self.failure == "hash" ? Data() : self.hash, full: self.hash + Data(repeating: 2, count: 12)),
+                               offset: code == "slice-0" ? 0 : nil)
+              }, slices: .init(open: { path in
+                  ScreenRunnerSliceBinding.Snapshot(path: path, slices: [.init(cpu: 16777228, subtype: 0, offset: 0, size: 64)], check: {})
+              }, explicit: { _, _ in "slice-0" }, kernel: { _ in
+                  .init(path: self.executable, hash: self.hash, flags: self.identifier.hasPrefix("com.apple.") ? 0x04000000 : 0)
+              }, incarnation: { _ in ["42", "7", "501", "501", "501", "123", "456", "proc", "fixed-control-record"] }))
     }
 }
 #endif

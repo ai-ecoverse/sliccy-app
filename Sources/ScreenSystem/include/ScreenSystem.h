@@ -29,6 +29,6 @@ int sliccy_screen_proof_handoff(int channel, int safety, pid_t cli, const void *
 int sliccy_runner_identity(pid_t pid, struct sliccy_screen_process_identity *identity);
 int sliccy_runner_path(pid_t pid, char *path, uint32_t size);
 int sliccy_runner_hash(pid_t pid, unsigned char *hash);
-int sliccy_runner_no_acl(const char *path);
+int sliccy_runner_flags(pid_t pid, uint32_t *flags);
 #endif
 #endif

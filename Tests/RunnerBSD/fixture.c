@@ -40,6 +40,16 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[1],"saved")) { a.saved_uid=b.saved_uid=1; check(!sliccy_bsd_windowserver(a,b),"saved"); }
     else if (!strcmp(argv[1],"binding")) { b.seconds++; check(!sliccy_bsd_windowserver(a,b),"binding"); }
     else if (!strcmp(argv[1],"parent")) { a.parent=b.parent=2; check(!sliccy_bsd_windowserver(a,b),"parent"); }
+    else if (!strcmp(argv[1],"eperm-bytes")) { o.target.proc.count=1; check(select_identity(o)!=0,"eperm-bytes"); }
+    else if (!strcmp(argv[1],"pid-bound")) { o.target.before.value.pid=o.target.after.value.pid=43; check(select_identity(o)!=0,"pid-bound"); }
+    else if (!strcmp(argv[1],"start-bound")) { o.target.before.value.seconds=o.target.after.value.seconds=0; check(select_identity(o)!=0,"start-bound"); }
+    else if (!strcmp(argv[1],"microsecond-bound")) { o.target.before.value.microseconds=o.target.after.value.microseconds=1000000; check(select_identity(o)!=0,"microsecond-bound"); }
+    else if (!strncmp(argv[1],"control-field-",14)) {
+        int field=argv[1][14]-'0'; if(field<0 || field>6 || argv[1][15])return 2;
+        struct sliccy_runner_bsd_value *v=&o.controls[1].proc.value;
+        switch(field){case 0:v->pid++;break;case 1:v->parent++;break;case 2:v->effective_uid++;break;case 3:v->real_uid++;break;case 4:v->saved_uid++;break;case 5:v->seconds++;break;default:v->microseconds++;}
+        check(select_identity(o)!=0,argv[1]);
+    }
     else if (!strcmp(argv[1],"fields")) {
         for (int field=0;field<7;field++) {
             struct sliccy_runner_bsd_observation c=denied();

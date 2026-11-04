@@ -253,7 +253,6 @@ int sliccy_screen_proof_handoff(int channel, int safety, pid_t cli, const void *
 }
 
 #if defined(SLICCY_CAPTURE_RUNNER_PROOF)
-#include <sys/acl.h>
 #include <sys/wait.h>
 extern int csops(pid_t, unsigned int, void *, size_t);
 #include <sys/sysctl.h>
@@ -319,20 +318,14 @@ int sliccy_runner_path(pid_t pid, char *path, uint32_t size) {
     int count = proc_pidpath(pid, path, size);
     return count > 0 && (uint32_t)count < size ? 0 : (errno ? errno : EINVAL);
 }
+int sliccy_runner_flags(pid_t pid, uint32_t *flags) {
+    if (!flags || pid <= 0) return EINVAL;
+    errno = 0;
+    return csops(pid, 0, flags, sizeof(*flags)) == 0 ? 0 : (errno ? errno : EINVAL);
+}
 int sliccy_runner_hash(pid_t pid, unsigned char *hash) {
     errno = 0;
     return hash && csops(pid, 5, hash, 20) == 0 ? 0 : (errno ? errno : EINVAL);
-}
-int sliccy_runner_no_acl(const char *path) {
-    acl_t acl = acl_get_file(path, ACL_TYPE_EXTENDED);
-    if (!acl) return errno == ENOENT ? 0 : EINVAL;
-    if (acl_valid(acl) != 0) { acl_free(acl); return EINVAL; }
-    acl_entry_t entry;
-    errno = 0;
-    int result = acl_get_entry(acl, ACL_FIRST_ENTRY, &entry);
-    int absent = result == -1 && errno == EINVAL;
-    acl_free(acl);
-    return absent ? 0 : EINVAL;
 }
 
 #endif

@@ -19,7 +19,17 @@ MUTATIONS={
     'saved':('a.saved_uid == 0','(1 || a.saved_uid == 0)'),
     'binding':('return sliccy_bsd_equal(a, b) &&','return (1 || sliccy_bsd_equal(a, b)) &&'),
     'parent':('a.parent == 1','(1 || a.parent == 1)'),
+    'eperm-bytes':('b.proc.count != 0','0'),
+    'pid-bound':('r.value.pid == pid','(1 || r.value.pid == pid)'),
+    'start-bound':('r.value.seconds > 0','(1 || r.value.seconds > 0)'),
+    'microsecond-bound':('r.value.microseconds < 1000000','(1 || r.value.microseconds < 1000000)'),
 }
+
+for index,field in enumerate(['pid','parent','effective_uid','real_uid','saved_uid','seconds','microseconds']):
+    old='a.'+field+' == b.'+field
+    pairs=[(old,'(1 || '+old+')')]
+    if field=='pid':pairs.append(('r.value.pid == pid','(1 || r.value.pid == pid)'))
+    MUTATIONS['control-field-'+str(index)]=pairs
 
 def main():
     if os.environ.get('GITHUB_ACTIONS')!='true' or os.environ.get('RUNNER_ENVIRONMENT')!='github-hosted':
@@ -38,9 +48,13 @@ def main():
         args=['/usr/bin/clang','-std=c11','-Wall','-Wextra','-Werror','-DSLICCY_CAPTURE_RUNNER_PROOF','-I',str(temp),str(FIXTURE),'-o',str(exe)]
         assert run('baseline-compile',args).returncode==0
         for name in [*MUTATIONS,'fields']:assert run('baseline-'+name,[str(exe),name]).returncode==0
-        for name,(old,new) in MUTATIONS.items():
-            assert original.decode().count(old)==1
-            header.write_text(original.decode().replace(old,new))
+        for name,changes in MUTATIONS.items():
+            if isinstance(changes,tuple):changes=[changes]
+            mutant=original.decode()
+            for old,new in changes:
+                assert mutant.count(old)==1
+                mutant=mutant.replace(old,new)
+            header.write_text(mutant)
             assert run(name+'-compile',args).returncode==0
             value=run(name+'-mutant',[str(exe),name])
             assert value.returncode==1 and value.stdout==b'' and value.stderr==('ASSERTION:'+name+'\n').encode()

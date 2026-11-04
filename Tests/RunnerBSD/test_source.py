@@ -27,8 +27,8 @@ class SourceTests(unittest.TestCase):
         self.assertIn('sliccy_runner_bsd_windowserver(&a, &b)',swift)
         owner=(ROOT/'Sources/Sliccy/Screen/ScreenRunnerSystemOwner.swift').read_text()
         verify=owner.split('static func verify(',1)[1]
-        self.assertLess(verify.index('phase: "before"'),verify.index('try code('))
-        self.assertLess(verify.index('try code('),verify.index('phase: "after"'))
+        self.assertLess(verify.index('observe("before")'),verify.index('try check()'))
+        self.assertLess(verify.index('try check()'),verify.index('observe("after")'))
         self.assertIn('ScreenRunnerBSD.bind(before, after, windowServer: isWindowServer)',verify)
 
     def test_native_tests_cannot_run_locally(self):

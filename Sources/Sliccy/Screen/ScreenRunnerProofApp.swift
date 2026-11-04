@@ -28,6 +28,7 @@ final class ScreenRunnerProofApp: NSObject, NSApplicationDelegate {
 final class ScreenRunnerSession {
     private let selected: ScreenRunnerCase
     private let journal: ScreenRunnerJournal
+    private let receipts: ScreenRunnerReceiptLedger
     private let diagnosticAbort: ScreenRunnerDiagnosticAbort
     private let causes: ScreenRunnerCauseLedger
     private var connection: ScreenRunnerConnection?
@@ -50,7 +51,16 @@ final class ScreenRunnerSession {
         let abort = ScreenRunnerDiagnosticAbort(); diagnosticAbort = abort
         let output = try ScreenRunnerJournal(selected, authorityFailed: { abort.fail() })
         journal = output
+        let ledger = ScreenRunnerReceiptLedger(output: { delivery in
+            var fields = delivery.journalFields
+            fields["receiptCount"] = delivery.count
+            fields["firstEventElapsedMs"] = ScreenRunnerJournal.ms(output.began.duration(to: delivery.first))
+            fields["lastEventElapsedMs"] = ScreenRunnerJournal.ms(output.began.duration(to: delivery.last))
+            output.emit(delivery.stage, fields, at: delivery.last)
+        }, loss: { output.rejectEvidence() })
+        receipts = ledger
         causes = ScreenRunnerCauseLedger { notice in
+            ledger.flush()
             output.emit("first-cause", ["kind": notice.kind.rawValue, "reason": notice.reason.value,
                 "phase": notice.phase.rawValue, "origin": notice.origin.rawValue], at: notice.at)
         }
@@ -64,6 +74,7 @@ final class ScreenRunnerSession {
             causes.record(.stop, reason: .screen(.stopped), origin: origin, at: at)
         }
         connection?.health.invalidate()
+        receipts.flush()
     }
     func run() async {
         var outcome = "failed", reason = "fixed-failure", exitCode: Int32 = 1
@@ -79,10 +90,13 @@ final class ScreenRunnerSession {
             let join = try await Task.detached { try ScreenProofSession.readJoin() }.value
             let home = try prepareHome()
             audit = try ScreenAudit(base: home.appending(path: "Library/Application Support"))
-            let identityRecord: @Sendable (ScreenRunnerBSD.Evidence) -> Void = { [journal] evidence in
-                journal.emit("bsd-identity", evidence.fields, at: evidence.at)
+            let identityRecord: @Sendable (ScreenRunnerBSD.Evidence) -> Void = { [receipts] evidence in
+                receipts.record("bsd-identity", fields: evidence.fields, at: evidence.at)
             }
-            let surface = try ScreenRunnerOwnedProcess.surface(home: home, ended: surfaceEnded("allowed"))
+            let sliceRecord: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { [receipts] evidence in
+                receipts.record("code-binding", fields: evidence.fields, at: evidence.at)
+            }
+            let surface = try ScreenRunnerOwnedProcess.surface(home: home, sliceEvidence: sliceRecord, ended: surfaceEnded("allowed"))
             owned.append(("allowed", surface)); primaries.append(surface)
             try reportOwned(surface.recordedIdentity)
             journal.emit("surface-process", ["label": "allowed", "pid": surface.pid, "bundleIdentifier": "ai.sliccy.proof-helper"])
@@ -93,7 +107,7 @@ final class ScreenRunnerSession {
                     let child = try ScreenRunnerOwnedProcess.chrome(window: window, join: join, home: home, evidence: { [journal] phase, evidence in
                         var fields = evidence.fields; fields["label"] = label; fields["phase"] = phase
                         journal.emit("chrome-identity", fields, at: evidence.observedAt)
-                    }, evidenceLost: { [journal] in journal.rejectEvidence() }, ended: surfaceEnded(label))
+                    }, evidenceLost: { [journal] in journal.rejectEvidence() }, sliceEvidence: sliceRecord, ended: surfaceEnded(label))
                     owned.append((label, child))
                     try reportOwned(child.recordedIdentity)
                     journal.emit("surface-launcher-started", ["label": label, "pid": child.pid])
@@ -104,10 +118,10 @@ final class ScreenRunnerSession {
             var authorization: ScreenRunnerOwnedProcess?
             var correlation: ScreenRunnerInventory.Authorization?
             if selected == .authorizationExclusion {
-                let before = try await ScreenRunnerInventory.authorizationBaseline(surface: surface, browsers: browsers, identityRecord: identityRecord)
+                let before = try await ScreenRunnerInventory.authorizationBaseline(surface: surface, browsers: browsers, identityRecord: identityRecord, sliceRecord: sliceRecord)
                 guard before.isEmpty else { reason = "authorization-preexisting"; exitCode = 2; throw ScreenFailure.protection }
                 let requestedAt = ContinuousClock.now
-                let requester = try ScreenRunnerOwnedProcess.authorization(home: home, ended: surfaceEnded("authorization-requester"))
+                let requester = try ScreenRunnerOwnedProcess.authorization(home: home, sliceEvidence: sliceRecord, ended: surfaceEnded("authorization-requester"))
                 owned.append(("authorization-requester", requester)); authorization = requester
                 correlation = .init(before: before, requestedAt: requestedAt)
                 journal.emit("authorization-requested", ["pid": requester.pid, "baselineWindows": before.count], at: requestedAt)
@@ -143,7 +157,7 @@ final class ScreenRunnerSession {
             let inventoryDeadline = ContinuousClock.now.advanced(by: .seconds(5))
             while inventory == nil, ContinuousClock.now < inventoryDeadline {
                 try check()
-                do { inventory = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization, correlation: correlation, identityRecord: identityRecord) }
+                do { inventory = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization, correlation: correlation, identityRecord: identityRecord, sliceRecord: sliceRecord) }
                 catch { inventoryIssue = error as? ScreenRunnerInventoryIssue ?? .unknown }
                 if inventory == nil { try await Task.sleep(for: .milliseconds(50)) }
             }
@@ -161,7 +175,7 @@ final class ScreenRunnerSession {
             causes.advance(.consent)
             try audit?.record(.consent, reason: "active", scope: selected.scope, session: nil)
             let refreshed: ScreenRunnerInventory
-            do { refreshed = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization, correlation: correlation, identityRecord: identityRecord) }
+            do { refreshed = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization, correlation: correlation, identityRecord: identityRecord, sliceRecord: sliceRecord) }
             catch { reportInventoryUnavailable(error as? ScreenRunnerInventoryIssue ?? .unknown); throw error }
             guard inventory.fingerprint == refreshed.fingerprint else { throw ScreenFailure.sourceChanged }
             journal.emit("surfaces-confirmed")
@@ -178,13 +192,14 @@ final class ScreenRunnerSession {
                     do {
                         try await Task.sleep(for: .milliseconds(250))
                         guard let self, !self.cleaning, !self.stopping, !Task.isCancelled else { return }
-                        let next = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: self.selected, authorization: authorization, correlation: correlation, identityRecord: identityRecord)
+                        let next = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: self.selected, authorization: authorization, correlation: correlation, identityRecord: identityRecord, sliceRecord: sliceRecord)
                         guard !Task.isCancelled, !self.cleaning, !self.stopping else { return }
                         guard next.fingerprint == frozenInventory else { throw ScreenFailure.sourceChanged }
                         connection.health.renewSource()
                     } catch {
                         guard let self, !Task.isCancelled, !self.cleaning, !self.stopping else { return }
                         self.failure = .sourceChanged; self.relay?.invoke(.sourceChanged, origin: .sourceMonitor)
+                        self.receipts.flush()
                         self.reportInventoryUnavailable(error as? ScreenRunnerInventoryIssue ?? .sourceChanged); return
                     }
                 }
@@ -275,11 +290,14 @@ final class ScreenRunnerSession {
         if !cleaned || journal.began.duration(to: .now) > .seconds(45) || journal.failed { outcome = "failed"; reason = "cleanup-failed"; exitCode = 1 }
         if journal.failed { outcome = "failed-to-demonstrate"; reason = "diagnostic-loss"; exitCode = 2 }
         if outcome != "complete" { causes.record(.failure, reason: journal.failed ? .screen(.resourceLimit) : .screen(.stalled), origin: journal.failed ? .diagnostic : .fixture) }
+        receipts.finish()
+        if journal.failed { outcome = "failed-to-demonstrate"; reason = "diagnostic-loss"; exitCode = 2 }
         causes.advance(.finished)
         let delivered = journal.emit("terminal", ["outcome": outcome, "reason": reason])
         Darwin.exit(delivered && !journal.failed ? exitCode : 2)
     }
     private func reportInventoryUnavailable(_ issue: ScreenRunnerInventoryIssue) {
+        receipts.flush()
         guard !inventoryUnavailable else { return }
         inventoryUnavailable = true
         causes.record(.inventory, reason: .inventory(issue), origin: .inventory)

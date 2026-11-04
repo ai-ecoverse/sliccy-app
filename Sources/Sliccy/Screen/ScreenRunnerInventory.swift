@@ -52,7 +52,8 @@ final class ScreenRunnerInventory {
         let work = Task.detached(operation: body)
         return try await withTaskCancellationHandler(operation: { try await work.value }, onCancel: { work.cancel() })
     }
-    static func authorizationBaseline(surface: ScreenRunnerOwnedProcess, browsers: [ScreenRunnerOwnedProcess], identityRecord: @escaping @Sendable (ScreenRunnerBSD.Evidence) -> Void) async throws -> Set<UInt32> {
+    static func authorizationBaseline(surface: ScreenRunnerOwnedProcess, browsers: [ScreenRunnerOwnedProcess], identityRecord: @escaping @Sendable (ScreenRunnerBSD.Evidence) -> Void,
+                                      sliceRecord: @escaping @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }) async throws -> Set<UInt32> {
         let cg = try cgRecords()
         let pids = Set(cg.map(\.pid))
         let known = [surface] + browsers
@@ -60,14 +61,14 @@ final class ScreenRunnerInventory {
             var authorized = Set<pid_t>()
             for pid in pids.sorted() {
                 try Task.checkCancellation()
-                if pid == getpid() { _ = try ScreenRunnerSystemOwner.own(pid) }
+                if pid == getpid() { _ = try ScreenRunnerSystemOwner.own(pid, sliceRecord: sliceRecord) }
                 else if let owner = known.first(where: { $0.pid == pid }) { _ = try owner.inventoryIdentity() }
                 else {
                     let identifier = try ScreenRunnerSystemOwner.identifier(pid)
                     guard ScreenRunnerInventoryBoundary.systemRoles.contains(identifier) || identifier == "com.apple.SecurityAgent" else {
                         throw ScreenRunnerInventoryIssue.unclassifiedOwner
                     }
-                    _ = try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, identityRecord: identityRecord)
+                    _ = try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, identityRecord: identityRecord, sliceRecord: sliceRecord)
                     if identifier == "com.apple.SecurityAgent" { authorized.insert(pid) }
                 }
             }
@@ -76,7 +77,8 @@ final class ScreenRunnerInventory {
     }
     static func read(surface: ScreenRunnerOwnedProcess, browsers: [ScreenRunnerOwnedProcess], selected: ScreenRunnerCase,
                      authorization: ScreenRunnerOwnedProcess? = nil, correlation: Authorization? = nil,
-                     identityRecord: @escaping @Sendable (ScreenRunnerBSD.Evidence) -> Void) async throws -> ScreenRunnerInventory {
+                     identityRecord: @escaping @Sendable (ScreenRunnerBSD.Evidence) -> Void,
+                                      sliceRecord: @escaping @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }) async throws -> ScreenRunnerInventory {
         guard try ScreenRunnerHost.require() == selected else { throw ScreenFailure.protection }
         guard CGPreflightScreenCaptureAccess() else { throw ScreenRunnerInventoryIssue.permission }
         guard surface.identifier == "ai.sliccy.proof-helper" else { throw ScreenRunnerInventoryIssue.surfaceIdentity }
@@ -103,14 +105,14 @@ final class ScreenRunnerInventory {
             var result: [pid_t: ScreenRunnerInventoryBoundary.Identity] = [:]
             for pid in pids.sorted() {
                 try Task.checkCancellation()
-                if pid == getpid() { result[pid] = try ScreenRunnerSystemOwner.own(pid) }
+                if pid == getpid() { result[pid] = try ScreenRunnerSystemOwner.own(pid, sliceRecord: sliceRecord) }
                 else if let owned = known.first(where: { $0.pid == pid }) { result[pid] = try owned.inventoryIdentity() }
                 else {
                     let identifier = try ScreenRunnerSystemOwner.identifier(pid)
                     guard ScreenRunnerInventoryBoundary.systemRoles.contains(identifier) || identifier == "com.apple.SecurityAgent" else {
                         throw ScreenRunnerInventoryIssue.unclassifiedOwner
                     }
-                    result[pid] = try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, identityRecord: identityRecord)
+                    result[pid] = try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, identityRecord: identityRecord, sliceRecord: sliceRecord)
                 }
             }
             if selected == .authorizationExclusion {

@@ -37,12 +37,12 @@ enum ScreenRunnerBSD {
     static func bracketFields(_ value: sliccy_runner_bsd_bracket) -> [Any] {
         [readFields(value.before), readFields(value.proc), readFields(value.after)]
     }
-    static func observe(_ pid: pid_t, phase: String, record: @Sendable (Evidence) -> Void) throws -> Resolved {
+    static func observe(_ pid: pid_t, phase: String, role: String, record: @Sendable (Evidence) -> Void) throws -> Resolved {
         var raw = sliccy_runner_bsd_observation()
         let status = sliccy_runner_bsd_observe(pid, &raw)
         let observed = ContinuousClock.now
         let resolved = status == 0 ? (try? resolve(raw, pid: pid)) : nil
-        record(.init(fields: ["phase": phase, "pid": pid, "status": status, "selfPID": raw.self_pid, "parentPID": raw.parent_pid,
+        record(.init(fields: ["phase": phase, "role": role, "pid": pid, "status": status, "selfPID": raw.self_pid, "parentPID": raw.parent_pid,
             "controls": [bracketFields(raw.controls.0), bracketFields(raw.controls.1)], "target": bracketFields(raw.target),
             "accepted": resolved != nil, "usedSysctl": resolved.map { $0.usedSysctl as Any } ?? NSNull(),
             "controlsAgreed": resolved.map { $0.controlsAgreed as Any } ?? NSNull()], at: observed))
