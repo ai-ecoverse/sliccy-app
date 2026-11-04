@@ -1,4 +1,5 @@
 import ctypes
+from contextlib import contextmanager, nullcontext
 import errno
 import hashlib
 import json
@@ -31,6 +32,60 @@ class CheckFailure(ValueError):
         super().__init__(reason)
         self.reason = reason
         self.facts = facts or {}
+
+
+class ControlledStop(BaseException):
+    def __init__(self, reason):
+        super().__init__(reason)
+        self.reason = reason
+
+
+class StopControl:
+    def __init__(self, clock=time.monotonic):
+        self.clock = clock
+        self.ends = clock() + 60
+        self.deferred = 0
+        self.pending = None
+        self.cleaning = False
+        self.previous = {}
+
+    def handle(self, number, frame):
+        reason = 'staging-timeout' if number == signal.SIGALRM else 'staging-cancelled'
+        if self.cleaning and number != signal.SIGALRM:
+            return
+        if self.deferred:
+            self.pending = reason
+            return
+        raise ControlledStop(reason)
+
+    @contextmanager
+    def creation(self):
+        self.deferred += 1
+        try:
+            yield
+        finally:
+            self.deferred -= 1
+            if not self.deferred and self.pending is not None:
+                reason, self.pending = self.pending, None
+                raise ControlledStop(reason)
+
+    def install(self):
+        for number in (signal.SIGALRM, signal.SIGTERM, signal.SIGINT):
+            self.previous[number] = signal.signal(number, self.handle)
+        signal.setitimer(signal.ITIMER_REAL, 55)
+
+    def cleanup(self):
+        self.cleaning = True
+        until = min(self.ends, self.clock() + 5)
+        remaining = until - self.clock()
+        require(remaining > 0, 'cleanup-reserve-exhausted')
+        signal.setitimer(signal.ITIMER_REAL, remaining)
+        return until
+
+    def close(self):
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        for number, handler in self.previous.items():
+            signal.signal(number, handler)
 
 
 def require(value, reason, facts=None):
@@ -246,10 +301,12 @@ def copy_tree(source, destination, expected, deadline, prefix='', state=None):
     return state
 
 
-def enumerate_owned(fd, prefix='', result=None):
+def enumerate_owned(fd, prefix='', result=None, deadline=None):
     result = result if result is not None else []
+    require(deadline is None or time.monotonic() < deadline, 'cleanup-deadline')
     immutable(fd, True)
     for name in sorted(os.listdir(fd)):
+        require(deadline is None or time.monotonic() < deadline, 'cleanup-deadline')
         path = prefix + name
         components(path)
         require(len(result) < MAX_FILES + 4, 'cleanup-entry-bound')
@@ -262,7 +319,7 @@ def enumerate_owned(fd, prefix='', result=None):
             require((checked.st_dev, checked.st_ino) == (value.st_dev, value.st_ino), 'cleanup-replaced')
             result.append((path, directory, value.st_dev, value.st_ino))
             if directory:
-                enumerate_owned(child, path + '/', result)
+                enumerate_owned(child, path + '/', result, deadline)
         finally:
             os.close(child)
     return result
@@ -292,14 +349,28 @@ def enable_executables(fd, expected):
             os.close(parent)
 
 
-def remove_owned(library, name, identity, journal):
-    journal.emit('staging-removal', 'entered', directory=name)
-    fd = os.open(name, DIR_FLAGS, dir_fd=library)
+def remove_owned(library, name, identity, journal, deadline=None):
+    losses = []
+    def report(phase, **fields):
+        try:
+            journal.emit('staging-removal', phase, directory=name, identity=identity, **fields)
+        except BaseException as error:
+            losses.append(type(error).__name__)
+    report('entered')
+    require(deadline is None or time.monotonic() < deadline, 'cleanup-deadline')
+    try:
+        fd = os.open(name, DIR_FLAGS, dir_fd=library)
+    except FileNotFoundError:
+        require(not any(entry == name for entry in os.listdir(library)), 'cleanup-root-present')
+        report('completed', removed=True, alreadyAbsent=True)
+        require(not losses, 'cleanup-diagnostic-loss', dict(removalConfirmed=True, exceptions=losses))
+        return
     try:
         value = immutable(fd, True)
         require([value.st_dev, value.st_ino] == identity, 'cleanup-root-replaced')
-        entries = enumerate_owned(fd)
+        entries = enumerate_owned(fd, deadline=deadline)
         for path, directory, device, inode in reversed(entries):
+            require(deadline is None or time.monotonic() < deadline, 'cleanup-deadline')
             parts = components(path)
             parent = os.dup(fd)
             try:
@@ -319,19 +390,26 @@ def remove_owned(library, name, identity, journal):
         require(name not in os.listdir(library), 'cleanup-root-present')
     finally:
         os.close(fd)
-    journal.emit('staging-removal', 'completed', directory=name, removed=True)
+    report('completed', removed=True, alreadyAbsent=False)
+    require(not losses, 'cleanup-diagnostic-loss', dict(removalConfirmed=True, exceptions=losses))
 
 
-def stage(library, name, expected, journal, deadline):
+def stage(library, name, expected, journal, deadline, control=None):
     journal.emit('staging-create', 'entered', directory=name)
-    os.mkdir(name, 0o755, dir_fd=library)
-    fd = os.open(name, DIR_FLAGS, dir_fd=library)
+    fd = None
     identity = None
+    created = False
     try:
+        with control.creation() if control is not None else nullcontext():
+            os.mkdir(name, 0o755, dir_fd=library)
+            created = True
+            value = os.stat(name, dir_fd=library, follow_symlinks=False)
+            identity = [value.st_dev, value.st_ino]
+            journal.emit('staging-create', 'completed', directory=name, identity=identity,
+                         uid=value.st_uid, gid=value.st_gid, mode=stat.S_IMODE(value.st_mode))
+        fd = os.open(name, DIR_FLAGS, dir_fd=library)
+        require([os.fstat(fd).st_dev, os.fstat(fd).st_ino] == identity, 'created-root-replaced')
         os.fchmod(fd, 0o755)
-        value = os.fstat(fd)
-        identity = [value.st_dev, value.st_ino]
-        journal.emit('staging-create', 'completed', directory=name, identity=identity, uid=value.st_uid, gid=value.st_gid, mode=0o755)
         immutable(fd, True)
         source = open_absolute(expected['source'], True)
         target = None
@@ -363,19 +441,28 @@ def stage(library, name, expected, journal, deadline):
         enumerate_owned(fd)
         journal.emit('staging-validated', 'completed', executable=app + '/Contents/MacOS/Sliccy', cdhash=expected['cdhash'], identity=identity)
         return identity
-    except BaseException:
-        if identity is not None:
-            remove_owned(library, name, identity, journal)
+    except BaseException as original:
+        if created:
+            require(identity is not None, 'cleanup-creation-identity-unavailable')
+            try:
+                until = control.cleanup() if control is not None else time.monotonic() + 5
+                remove_owned(library, name, identity, journal, until)
+            except BaseException as cleanup:
+                raise CheckFailure('staging-cleanup-unconfirmed', dict(original=type(original).__name__,
+                    cleanup=type(cleanup).__name__, cleanupReason=str(cleanup)[:512], identity=identity)) from original
         raise
     finally:
-        os.close(fd)
+        if fd is not None:
+            os.close(fd)
 
 
 def main():
     journal = Journal()
     current = 'staging-placement'
+    control = StopControl()
     try:
-        signal.alarm(60)
+        control.install()
+        os.set_blocking(1, False)
         os.umask(0o077)
         require(os.geteuid() == 0 and len(sys.argv) == 3 and sys.argv[1] in {'stage', 'remove'}, 'staging-arguments')
         name = canonical_run(sys.argv[2])
@@ -393,18 +480,23 @@ def main():
         try:
             if sys.argv[1] == 'stage':
                 current = 'staging'
-                stage(library, name, manifest(value), journal, deadline)
+                stage(library, name, manifest(value), journal, deadline, control)
             else:
                 current = 'staging-removal'
                 require(type(value) is dict and set(value) == {'identity'} and type(value['identity']) is list
                         and len(value['identity']) == 2 and all(type(x) is int and x > 0 for x in value['identity']), 'cleanup-identity')
-                remove_owned(library, name, value['identity'], journal)
+                remove_owned(library, name, value['identity'], journal, deadline)
         finally:
             os.close(library)
         return 0
     except BaseException as error:
-        journal.emit(current, 'failed', exception=type(error).__name__, reason=str(error)[:512], facts=getattr(error, 'facts', {}))
+        try:
+            journal.emit(current, 'failed', exception=type(error).__name__, reason=str(error)[:512], facts=getattr(error, 'facts', {}))
+        except BaseException:
+            pass
         return 2
+    finally:
+        control.close()
 
 
 if __name__ == '__main__':
