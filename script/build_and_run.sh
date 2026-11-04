@@ -82,7 +82,8 @@ elif [[ "${SLICCY_CAPTURE_RUNNER_PROOF:-0}" == 1 ]]; then
   surface_app="$APP_BUNDLE/Contents/Helpers/ScreenProofSurface.app"
   [[ ! -e "$APP_BUNDLE/Contents/Helpers" ]] || { echo 'Use a fresh capture fixture bundle.' >&2; exit 2; }
   mkdir -p "$surface_app/Contents/MacOS"
-  /usr/bin/xcrun swiftc -parse-as-library -target arm64-apple-macos27.0 Tests/NativeCaptureSurface/surface-app.swift -o "$surface_app/Contents/MacOS/ScreenProofSurface"
+  "$ROOT_DIR/script/test_surface_presence.sh"
+  /usr/bin/xcrun swiftc -parse-as-library -target arm64-apple-macos27.0 Tests/NativeCaptureSurface/surface-presence.swift Tests/NativeCaptureSurface/surface-app.swift -o "$surface_app/Contents/MacOS/ScreenProofSurface"
   /usr/bin/python3 - "$surface_app/Contents/Info.plist" <<'PYPLIST'
 import plistlib
 import sys
