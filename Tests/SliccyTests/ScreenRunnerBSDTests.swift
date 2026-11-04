@@ -72,6 +72,8 @@ struct ScreenRunnerBSDTests {
                     observe: { phase in try ScreenRunnerBSD.resolve(phase == "before" ? before : after, pid: 42) },
                     check: { if failure == "code" { throw ScreenFailure.peerUntrusted }; return code }, kernel: { (code.path, code.hash) })
             }
+            if failure == "none" { #expect(try verify().sysctlBound) }
+            else { #expect(throws: ScreenFailure.peerUntrusted) { try verify() } }
             var fixture = ScreenRunnerInventoryBoundaryTests.Fixture()
             fixture.add(id: 42, pid: 42, bundle: code.identifier, apple: true)
             let read = {
