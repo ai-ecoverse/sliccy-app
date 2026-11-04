@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import patch
 import copy
+import itertools
 import json
 import subprocess
 import tempfile
@@ -67,6 +68,55 @@ class PrivilegedTests(unittest.TestCase):
             self.assertFalse(setup.privileged_bracket_matches(original, before, current, after))
         current = copy.deepcopy(original); current['after']['codeStatus'] = 2
         self.assertFalse(setup.privileged_bracket_matches(original, before, current, after))
+
+    def mixed_records(self, availability):
+        records = [owner_record(), owner_record()]
+        baseline = root_record()
+        for index, available in enumerate(availability):
+            row = records[index // 2]['before' if index % 2 == 0 else 'after']
+            if available:
+                row['processInfoAvailable'] = True
+                row['processInfoError'] = 0
+                for key in ['parent', 'uid', 'startSeconds', 'startMicroseconds']:
+                    row[key] = baseline[key]
+        return records
+
+    def test_actual_matcher_checks_each_available_incarnation_in_all_mixed_positions(self):
+        conflicts = {'pid': 43, 'parent': 2, 'uid': 89, 'startSeconds': '999',
+                     'startMicroseconds': 457, 'path': '/different'}
+        for availability in itertools.product([False, True], repeat=4):
+            original, current = self.mixed_records(availability)
+            supported = not all(availability[:2]) and not all(availability[2:])
+            with self.subTest(availability=availability, kind='matching'):
+                self.assertEqual(setup.privileged_bracket_matches(original, root_record(), current, root_record()), supported)
+            if not supported:
+                continue
+            for index, available in enumerate(availability):
+                if not available:
+                    continue
+                for key, value in conflicts.items():
+                    with self.subTest(availability=availability, sample=index, key=key):
+                        records = copy.deepcopy([original, current])
+                        records[index // 2]['before' if index % 2 == 0 else 'after'][key] = value
+                        self.assertFalse(setup.privileged_bracket_matches(records[0], root_record(), records[1], root_record()))
+
+    def test_actual_matcher_refuses_unavailable_fields_or_nonpermitted_errors(self):
+        for index in range(4):
+            for key, value in [('processInfoError', 0), ('processInfoError', 3), ('processInfoError', 13),
+                               ('parent', 1), ('uid', 88), ('startSeconds', '123'), ('startMicroseconds', 456),
+                               ('pathError', 1), ('cdHashError', 1), ('codeStatusError', 1)]:
+                with self.subTest(sample=index, key=key, value=value):
+                    records = [owner_record(), owner_record()]
+                    records[index // 2]['before' if index % 2 == 0 else 'after'][key] = value
+                    self.assertFalse(setup.privileged_bracket_matches(records[0], root_record(), records[1], root_record()))
+        for index in range(4):
+            availability = [False] * 4; availability[index] = True
+            for key, value in [('processInfoError', 1), ('parent', None), ('uid', None),
+                               ('startSeconds', None), ('startMicroseconds', None)]:
+                with self.subTest(sample=index, availableKey=key):
+                    records = self.mixed_records(availability)
+                    records[index // 2]['before' if index % 2 == 0 else 'after'][key] = value
+                    self.assertFalse(setup.privileged_bracket_matches(records[0], root_record(), records[1], root_record()))
 
     def test_fixed_sudo_argv_and_assertions_only(self):
         args = setup.privileged_arguments(Path('/fixed/owner-identity-probe'), 42, setup.ASSERTIONS)

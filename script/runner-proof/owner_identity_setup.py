@@ -98,7 +98,18 @@ def window_server_candidate(owner):
             return False
         if row['pid'] != owner['pid'] or row['path'] != image or row['cdHash'] != digest or type(row['codeStatus']) is not int:
             return False
-        denied = denied or (row['processInfoAvailable'] is False and row['processInfoError'] == errno.EPERM)
+        if any(row[key] != 0 for key in ['pathError', 'codeStatusError', 'cdHashError']):
+            return False
+        identity = ['parent', 'uid', 'startSeconds', 'startMicroseconds']
+        if row['processInfoAvailable']:
+            if row['processInfoError'] != 0 or any(row[key] is None for key in identity):
+                return False
+            if row['parent'] < 0 or row['uid'] < 0 or not row['startSeconds'].isdigit() or int(row['startSeconds']) <= 0 or not 0 <= row['startMicroseconds'] < 1000000:
+                return False
+        else:
+            if row['processInfoError'] != errno.EPERM or any(row[key] is not None for key in identity):
+                return False
+            denied = True
     return denied
 
 
@@ -116,6 +127,11 @@ def privileged_bracket_matches(original, before, observed, after):
             return False
     if any(before[key] != after[key] for key in keys):
         return False
+    for owner in [original, observed]:
+        for side in ['before', 'after']:
+            sample = owner[side]
+            if sample['processInfoAvailable'] and any(sample[key] != before[key] for key in keys):
+                return False
     for key in ['pid', 'signingIdentifier', 'securedExecutablePath', 'securityCDHash']:
         if original[key] != observed[key]:
             return False
