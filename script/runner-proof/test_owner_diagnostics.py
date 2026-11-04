@@ -241,12 +241,12 @@ class DiagnosticsTests(unittest.TestCase):
                     root = Path(name)
                     binary = root / 'fixed-owned-helper'; binary.write_bytes(b'fixed helper')
                     journal = diagnostics.Journal(root / 'rows', root, root, time.monotonic())
-                    observer = SimpleNamespace(journal=journal)
+                    observer = SimpleNamespace(journal=journal, evidence=root)
                     def spawn(args, **kwargs):
                         if missing: raise FileNotFoundError('fixed launch missing')
                         kwargs['stdout'].write(b'child stdout')
                         kwargs['stderr'].write(b'child stderr')
-                        return SimpleNamespace(pid=123, returncode=7, wait=lambda timeout: 7)
+                        return SimpleNamespace(pid=123, returncode=7, wait=lambda timeout: 7, stdin=io.BytesIO() if label == 'surface' else None)
                     with patch.object(identity.subprocess, 'Popen', side_effect=spawn):
                         if missing:
                             with self.assertRaises(FileNotFoundError):

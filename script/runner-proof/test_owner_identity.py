@@ -107,7 +107,7 @@ class OwnerIdentityTests(unittest.TestCase):
         self.assertIn("'tccDatabaseWrites': False", text)
         self.assertIn("'captureOnlySystemOwnersUnobserved': True", text)
         self.assertEqual(wrapper.PREVIEW_RUN, '41484829593')
-        self.assertEqual(wrapper.shared.APP_RUN, '41619548340')
+        self.assertEqual(wrapper.shared.APP_RUN, '41752885433')
 
     def test_source_manifest_refuses_tampered_copy(self):
         workspace = Path(__file__).resolve().parent.parent.parent

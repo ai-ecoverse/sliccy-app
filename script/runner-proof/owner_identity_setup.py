@@ -2,6 +2,7 @@ from pathlib import Path
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import errno
+import math
 import os
 import signal
 import subprocess
@@ -200,6 +201,147 @@ class Observer:
         return value
 
 
+def parse_surface_ready(data, pid):
+    if len(data) > 96 * 4096:
+        raise ValueError('surface-output-bound')
+    if not data or not data.endswith(b'\n'):
+        return None
+    lines = data.splitlines()
+    if len(lines) > 96 or any(len(line) >= 4096 for line in lines):
+        raise ValueError('surface-record-bound')
+    common = {'schema', 'stage', 'pid', 'seq', 'elapsedMs', 'windowID', 'visible', 'onActiveSpace',
+              'occlusionVisible', 'applicationActive', 'attempt', 'windowFrameCG'}
+    extras = {'surface-window-created': set(), 'surface-window-ordered': set(), 'surface-space-changed': set(),
+        'surface-presence': {'cgAvailable', 'ownedOnScreenCount', 'observedWindows', 'presenceVerified'},
+        'surface-ready': {'bundleIdentifier', 'rect', 'presenceVerified'},
+        'surface-unavailable': {'reason'}, 'surface-control-ended': {'reason'}}
+    created = ordered = False
+    matched = None
+    ready = None
+    elapsed = -1
+    for sequence, line in enumerate(lines, 1):
+        row = json.loads(line)
+        if type(row) is not dict or row.get('stage') not in extras or set(row) != common | extras[row['stage']]:
+            raise ValueError('surface-record-fields')
+        for key in ['schema', 'pid', 'seq', 'windowID', 'attempt']:
+            if type(row[key]) is not int:
+                raise ValueError('surface-record-type')
+        if row['schema'] != 1 or row['pid'] != pid or row['seq'] != sequence or row['windowID'] < 0 or not 0 <= row['attempt'] <= 40:
+            raise ValueError('surface-record-identity')
+        if type(row['elapsedMs']) not in (int, float) or not math.isfinite(row['elapsedMs']) or row['elapsedMs'] < max(0, elapsed):
+            raise ValueError('surface-record-clock')
+        elapsed = row['elapsedMs']
+        for key in ['visible', 'onActiveSpace', 'occlusionVisible', 'applicationActive']:
+            if type(row[key]) is not bool:
+                raise ValueError('surface-record-boolean')
+        if not rectangle(row['windowFrameCG'], lowercase=True):
+            raise ValueError('surface-record-frame')
+        stage = row['stage']
+        if stage == 'surface-window-created':
+            if created or ordered or ready: raise ValueError('surface-created-order')
+            created = True
+        elif stage == 'surface-window-ordered':
+            if not created or ordered or ready: raise ValueError('surface-ordered-order')
+            ordered = True
+        elif stage == 'surface-space-changed':
+            if not created: raise ValueError('surface-space-order')
+        elif stage == 'surface-presence':
+            if not ordered or ready or type(row['cgAvailable']) is not bool or type(row['presenceVerified']) is not bool:
+                raise ValueError('surface-presence-order')
+            if type(row['ownedOnScreenCount']) is not int or type(row['observedWindows']) is not list or len(row['observedWindows']) > 8:
+                raise ValueError('surface-presence-fields')
+            if row['ownedOnScreenCount'] < 0 or len(row['observedWindows']) != min(8, row['ownedOnScreenCount']):
+                raise ValueError('surface-observed-count')
+            for window in row['observedWindows']:
+                if type(window) is not dict or set(window) != {'windowID', 'layer', 'bounds'} or type(window['windowID']) is not int or type(window['layer']) is not int or not rectangle(window['bounds']):
+                    raise ValueError('surface-observed-window')
+            matched = None
+            if row['presenceVerified']:
+                if not row['cgAvailable'] or row['ownedOnScreenCount'] != 1 or not 1 <= row['attempt'] <= 40 or row['elapsedMs'] >= 2000:
+                    raise ValueError('surface-matched-state')
+                actual = row['observedWindows'][0]
+                if actual != {'windowID': row['windowID'], 'layer': 0, 'bounds': {'X': 128, 'Y': 128, 'Width': 256, 'Height': 256}} or row['windowID'] <= 0 or any(row[key] is not True for key in ['visible', 'onActiveSpace', 'occlusionVisible']):
+                    raise ValueError('surface-matched-window')
+                matched = (row['windowID'], row['attempt'])
+        elif stage == 'surface-ready':
+            if ready or matched != (row['windowID'], row['attempt']) or row['presenceVerified'] is not True or row['bundleIdentifier'] != 'ai.sliccy.proof-helper' or row['windowID'] <= 0:
+                raise ValueError('surface-ready-order')
+            if any(row[key] is not True for key in ['visible', 'onActiveSpace', 'occlusionVisible']) or not rectangle(row['rect'], lowercase=True) or row['rect'] != {'x': 128, 'y': 128, 'width': 256, 'height': 256}:
+                raise ValueError('surface-ready-presence')
+            ready = row
+        elif stage in ['surface-unavailable', 'surface-control-ended']:
+            reasons = ['presence-unproved'] if stage == 'surface-unavailable' else ['control-eof', 'control-stop', 'control-invalid', 'control-deadline']
+            if row['reason'] not in reasons: raise ValueError('surface-terminal-reason')
+            return None
+    return ready
+
+
+def rectangle(value, lowercase=False):
+    keys = ['x', 'y', 'width', 'height'] if lowercase else ['X', 'Y', 'Width', 'Height']
+    return type(value) is dict and set(value) == set(keys) and all(
+        type(value[key]) in (int, float) and math.isfinite(value[key]) for key in keys)
+
+
+def exact_window(rows, pid, expected):
+    owned = [row for row in rows if type(row) is dict and type(row.get('pid')) is int and row['pid'] == pid]
+    if len(owned) != 1:
+        return None
+    row = owned[0]
+    if row.get('validShape') is not True or type(row.get('windowID')) is not int or row['windowID'] <= 0 or type(row.get('layer')) is not int or row['layer'] != 0:
+        return None
+    if not rectangle(row.get('bounds')):
+        return None
+    bounds = dict(zip(['X', 'Y', 'Width', 'Height'], [expected[key] for key in ['x', 'y', 'width', 'height']]))
+    return row if row['bounds'] == bounds else None
+
+
+def setup_presence(observation, owned, manifest, counts, surface_ready, parent, uid):
+    pages = manifest['pages']
+    paths = ['/screen-proof/host-a-1', '/screen-proof/host-a-2', '/screen-proof/host-b-1', '/screen-proof/host-b-2']
+    if [page['path'] for page in pages] != paths or [page['profile'] for page in pages] != ['a-1', 'a-2', 'b-1', 'b-2'] or manifest.get('expectedChromeOwnerCount') != 4:
+        raise ValueError('fixed-four-window-contract')
+    expected_labels = ['app-preview', 'surface'] + [path.rsplit('/', 1)[1] for path in paths]
+    selected = [child for child in owned if child.label in expected_labels]
+    if len(selected) != 6 or len({child.label for child in selected}) != 6 or len({child.child.pid for child in selected}) != 6:
+        return {'schema': 2, 'complete': False, 'reason': 'required-distinct-owners', 'allowlistEstablished': False}
+    windows, records = observation['windows'], observation['owners']
+    results = []
+    used_ids, geometries = set(), set()
+    complete = set(counts) == set(paths)
+    for child in selected:
+        matches = [row for row in records if row.get('pid') == child.child.pid]
+        valid = len(matches) == 1 and same_owned(child.record, matches[0], child.child.pid, parent, uid, child.role, child.digest)
+        actual = None
+        requested = None
+        if child.label == 'app-preview':
+            present = any(row.get('pid') == child.child.pid and row.get('validShape') is True for row in windows)
+        else:
+            if child.label == 'surface':
+                requested = manifest['allowedHelperRectCGPoints']
+            else:
+                page = next(page for page in pages if page['path'].endswith('/' + child.label))
+                requested = page['rectCGPoints']
+            actual = exact_window(windows, child.child.pid, requested)
+            present = actual is not None
+            if actual:
+                geometry = tuple(actual['bounds'][key] for key in ['X', 'Y', 'Width', 'Height'])
+                if actual['windowID'] in used_ids or geometry in geometries:
+                    present = False
+                used_ids.add(actual['windowID']); geometries.add(geometry)
+        get_count = None
+        if child.label.startswith('host-'):
+            get_count = counts.get('/screen-proof/' + child.label)
+            present = present and type(get_count) is int and get_count > 0
+        if child.label == 'surface':
+            present = present and surface_ready is not None and surface_ready['pid'] == child.child.pid and surface_ready['windowID'] == actual['windowID']
+        complete = complete and valid and present
+        results.append({'label': child.label, 'pid': child.child.pid, 'identityVerified': valid,
+            'presenceVerified': present, 'expectedRect': requested, 'windowID': actual['windowID'] if actual else None, 'pageGETs': get_count})
+    return {'schema': 2, 'complete': bool(complete), 'requiredChromeOwners': 4, 'owners': results,
+        'allFixedPagesRequested': all(type(counts.get(path)) is int and counts[path] > 0 for path in paths),
+        'authorizationWindowInferred': False, 'renderInferredFromGET': False, 'allowlistEstablished': False}
+
+
 class Owned:
     def __init__(self, label, args, role, digest, observer, env, log):
         self.label, self.role, self.digest, self.observer = label, role, digest, observer
@@ -208,7 +350,8 @@ class Owned:
         self.command = self.journal.command_record(args)
         self.journal.write(dict(self.command, status='entered', exitStatus=None, stdoutTail='', stderrTail=''))
         try:
-            self.child = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=self.output, stderr=self.errors, env=env, close_fds=True)
+            self.child = subprocess.Popen(args, stdin=subprocess.PIPE if label == 'surface' else subprocess.DEVNULL,
+                stdout=self.output, stderr=self.errors, env=env, close_fds=True)
         except BaseException as error:
             self.journal.finish(self.command, None, error=error)
             self.output.close(); self.errors.close()
@@ -224,7 +367,10 @@ class Owned:
     def reap(self, seconds):
         try:
             self.child.wait(timeout=max(0, seconds))
+            if self.label == 'surface' and self.child.stdin is not None:
+                self.child.stdin.close()
             if hasattr(self, 'journal') and not self.reported:
+                self.retain_surface_output()
                 self.journal.finish(self.command, self.child.returncode, self.journal.tail(self.output), self.journal.tail(self.errors))
                 self.output.close(); self.errors.close()
                 self.reported = True
@@ -232,20 +378,46 @@ class Owned:
         except subprocess.TimeoutExpired:
             return False
 
+    def surface_output(self):
+        if self.label != 'surface':
+            raise ValueError('not-surface-child')
+        if self.reported:
+            data = (self.observer.evidence / 'surface-phases.ndjson').read_bytes()
+            if len(data) > 96 * 4096: raise ValueError('surface-output-bound')
+            return data
+        size = os.fstat(self.output.fileno()).st_size
+        if size > 96 * 4096:
+            raise ValueError('surface-output-bound')
+        return os.pread(self.output.fileno(), size, 0)
+
+    def retain_surface_output(self):
+        if self.label == 'surface':
+            target = self.observer.evidence / 'surface-phases.ndjson'
+            with target.open('xb') as out:
+                out.write(self.surface_output())
+
+    def surface_ready(self):
+        return parse_surface_ready(self.surface_output(), self.child.pid)
+
     def cleanup(self, deadline):
         if hasattr(self, 'journal'):
             try:
                 return self.journal.call('cleanup-' + self.label, self.cleanup_owned, deadline)
             finally:
                 if not self.reported:
+                    self.retain_surface_output()
                     self.journal.finish(self.command, self.child.returncode, self.journal.tail(self.output), self.journal.tail(self.errors), ValueError('owned-child-unreaped'))
                     self.output.close(); self.errors.close()
                     self.reported = True
         return self.cleanup_owned(deadline)
 
     def cleanup_owned(self, deadline):
-        result = {'label': self.label, 'pid': self.child.pid, 'recorded': self.record is not None, 'signals': [], 'reaped': False}
-        if self.reap(0):
+        control_closed = False
+        if self.label == 'surface' and self.child.stdin is not None and not self.child.stdin.closed:
+            self.child.stdin.close()
+            control_closed = True
+        result = {'label': self.label, 'pid': self.child.pid, 'recorded': self.record is not None, 'signals': [], 'reaped': False, 'controlClosed': control_closed}
+        if self.reap(min(2, max(0, deadline - time.monotonic())) if control_closed else 0):
             result['reaped'] = True
             return result
         for sig in [signal.SIGTERM, signal.SIGKILL]:
@@ -278,6 +450,7 @@ class Pages:
     def __init__(self, manifest):
         pages = {p['path']: p for p in manifest['pages']}
         self.counts = {path: 0 for path in pages}
+        self.condition = threading.Condition()
         owner = self
         class Handler(BaseHTTPRequestHandler):
             def setup(self):
@@ -290,7 +463,9 @@ class Pages:
                     self.send_error(400)
                     return
                 page = pages[self.path]
-                owner.counts[self.path] += 1
+                with owner.condition:
+                    owner.counts[self.path] += 1
+                    owner.condition.notify_all()
                 rgb = ','.join(str(x) for x in page['sRGB'])
                 body = ('<!doctype html><html><head><meta charset=utf-8><title>' + page['title'] + '</title><style>html,body{margin:0;min-height:100%;background:rgb(' + rgb + ');color:white;font:16px monospace}h1{margin:16px;font:inherit}</style></head><body><h1>' + page['title'] + '</h1></body></html>').encode()
                 self.send_response(200)
@@ -318,15 +493,27 @@ class Pages:
         if self.thread.is_alive():
             raise ValueError('page-server-cleanup')
 
+    def wait_all(self, deadline):
+        with self.condition:
+            return self.condition.wait_for(lambda: all(value > 0 for value in self.counts.values()),
+                timeout=max(0, min(5, deadline - time.monotonic())))
+
     def url(self, path):
         return 'http://127.0.0.1:' + str(self.server.server_port) + path
+
+
+def chrome_arguments(root, page, pages):
+    rect = page['rectCGPoints']
+    return ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '--user-data-dir=' + str(root / ('chrome-' + page['profile'])),
+        '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-default-apps',
+        '--window-position=%d,%d' % (rect['x'], rect['y']), '--window-size=288,224', '--app=' + pages.url(page['path'])]
 
 
 def run(root, evidence, observer_binary, app, helper, app_hash, helper_hash, chrome_hash, manifest, env, log, deadline, journal):
     journal.call('setup-host', shared.require_host)
     env = dict(env, **ASSERTIONS)
     with journal.step('setup-directories'):
-        for name in ['surface-home', 'browser-home', 'chrome-a', 'chrome-b']:
+        for name in ['surface-home', 'browser-home'] + ['chrome-' + page['profile'] for page in manifest['pages']]:
             (root / name).mkdir(mode=0o700)
     observer = Observer(observer_binary, evidence, env, deadline, journal)
     owned, cleanup = [], []
@@ -343,30 +530,29 @@ def run(root, evidence, observer_binary, app, helper, app_hash, helper_hash, chr
                     raise ValueError('spawn-identity-unavailable')
                 return child
             launch('app-preview', [str(app / 'Contents/MacOS/Sliccy'), '--preview'], 'ai.sliccy.mac', app_hash, env)
-            launch('surface', [str(helper / 'Contents/MacOS/ScreenProofSurface')], 'ai.sliccy.proof-helper', helper_hash, dict(env, HOME=str(root / 'surface-home')))
+            surface = launch('surface', [str(helper / 'Contents/MacOS/ScreenProofSurface')], 'ai.sliccy.proof-helper', helper_hash, dict(env, HOME=str(root / 'surface-home')))
             threading.Event().wait(2)
             observer.read('app-helper')
             for page in manifest['pages']:
-                rect = page['rectCGPoints']
-                args = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '--user-data-dir=' + str(root / ('chrome-' + page['profile'])),
-                    '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-default-apps',
-                    '--window-position=%d,%d' % (rect['x'], rect['y']), '--window-size=288,224', '--app=' + pages.url(page['path'])]
+                args = chrome_arguments(root, page, pages)
                 launch(page['path'].rsplit('/', 1)[1], args, 'com.google.Chrome', chrome_hash, dict(env, HOME=str(root / 'browser-home')))
             threading.Event().wait(2)
             observer.read('chrome-launched')
             launch('authorization-requester', ['/usr/bin/osascript', '-e', 'do shell script "/usr/bin/true" with administrator privileges'], 'com.apple.osascript', manifest['osascriptCDHash'], dict(env, HOME=str(root / 'browser-home')))
             threading.Event().wait(2)
             observer.read('authorization-requested')
+            pages.wait_all(deadline)
             final = observer.read('final-setup')
-            visible = {row['pid'] for row in final['windows'] if row.get('validShape') is True}
-            expected = {child.child.pid for child in owned if child.label in {'app-preview', 'surface', 'host-a-1', 'host-b-1'}}
             with journal.step('setup-presence'):
-                body_ok = expected.issubset(visible) and all(count > 0 for count in pages.counts.values())
+                readiness = surface.surface_ready()
+                (evidence / 'surface-ready-evidence.json').write_text(json.dumps(readiness, indent=2) + '\n')
+                presence = setup_presence(final, owned, manifest, pages.counts, readiness, os.getpid(), os.geteuid())
+                body_ok = presence['complete']
                 if not body_ok:
-                    journal.finish({'kind': 'setup', 'step': 'setup-presence', 'tool': {'pythonModule': 'owner_identity_setup'}, 'arguments': []}, None, error=ValueError('required-owner-or-fixed-page-absent'))
-            (evidence / 'setup-presence.json').write_text(json.dumps({'requiredDirectOwnersPresent': expected.issubset(visible),
-                'allFixedPagesRequested': all(count > 0 for count in pages.counts.values()),
-                'authorizationWindowInferred': False, 'renderInferredFromGET': False}) + '\n')
+                    journal.finish({'kind': 'setup', 'step': 'setup-presence', 'tool': {'pythonModule': 'owner_identity_setup'}, 'arguments': []},
+                        None, error=ValueError('required-owner-fixed-page-geometry-or-helper-absent'))
+            (evidence / 'setup-presence.json').write_text(json.dumps(presence, indent=2) + '\n')
+
         finally:
             cleanup_deadline = min(deadline, time.monotonic() + 25)
             for child in reversed(owned):
