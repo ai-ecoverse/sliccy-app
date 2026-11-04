@@ -20,11 +20,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Read-only staging prerequisite probe
+      - name: Staging prerequisite probe
         id: prerequisite
         shell: bash
         env:
           SLICCY_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set +x
           umask 077

@@ -8,10 +8,11 @@ import subprocess
 import tempfile
 import time
 import signal
+import capture_stage
 
 LIMIT = 4096
-STEPS = frozenset('host-preflight source-preflight evidence-setup source-copy age-download age-check launcher-identity interpreter-discovery interpreter-facts interpreter-validation system-tools observer-build root-visibility outcome evidence-package evidence-seal'.split())
-SYSTEM = frozenset(['/usr/bin/curl', '/usr/bin/ditto', '/usr/bin/codesign', '/usr/bin/xcrun', '/usr/sbin/spctl', '/usr/bin/lipo', '/usr/bin/osascript', '/usr/bin/sudo'])
+STEPS = frozenset('host-preflight source-preflight evidence-setup source-copy age-download age-check launcher-identity interpreter-discovery interpreter-facts interpreter-validation system-tools observer-build root-visibility outcome evidence-package evidence-seal gh-discovery artifact-download artifact-check artifact-signature artifact-staple artifact-gatekeeper source-normalize windowserver-discovery staged-signature staging staging-cleanup artifact-after'.split())
+SYSTEM = frozenset(['/usr/bin/curl', '/usr/bin/ditto', '/usr/bin/codesign', '/usr/bin/xcrun', '/usr/sbin/spctl', '/usr/bin/lipo', '/usr/bin/osascript', '/usr/bin/sudo', '/usr/bin/pgrep'])
 
 
 class Journal:
@@ -20,6 +21,30 @@ class Journal:
         self.secrets = tuple(value for value in secrets if value)
         self.stack, self.count, self.last_failure = [], 0, None
         self.path.touch(exist_ok=False)
+
+    def begin_async(self):
+        if hasattr(self, 'delivery'):
+            raise ValueError('diagnostics already asynchronous')
+        self.direct_write = self.write
+        self.delivery = capture_stage.DiagnosticDelivery(lambda name, row: self.direct_write(row))
+        def submit(row):
+            if row.get('status') == 'failed':
+                self.last_failure = row
+            self.delivery.submit('row', row)
+            return row
+        self.write = submit
+
+    def check_async(self):
+        if hasattr(self, 'delivery') and not self.delivery.finish_success()['complete']:
+            raise ValueError('diagnostic-delivery-incomplete')
+
+    def end_async(self):
+        if not hasattr(self, 'delivery'):
+            return {'complete': True}
+        self.delivery.idle.wait(0.1)
+        status = self.delivery.close()
+        self.write = self.direct_write
+        return status
 
     def text(self, value, limit=LIMIT):
         if isinstance(value, bytes):
@@ -117,13 +142,16 @@ class Journal:
         stdout, stderr = kwargs.pop('stdout', None), kwargs.pop('stderr', None)
         capture = kwargs.pop('capture_output', False)
         check = kwargs.pop('check', False)
+        output_limit = kwargs.pop('output_limit', 4 * 1024 * 1024)
+        if output_limit not in (4 * 1024 * 1024, 128 * 1024 * 1024):
+            raise ValueError('command output limit')
         with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
             result, delivered = None, False
             try:
                 result = subprocess.run(args, stdout=out, stderr=err, check=False, **kwargs)
                 out.seek(0); err.seek(0)
-                data, errors = out.read(4 * 1024 * 1024 + 1), err.read(4 * 1024 * 1024 + 1)
-                if len(data) > 4 * 1024 * 1024 or len(errors) > 4 * 1024 * 1024:
+                data, errors = out.read(output_limit + 1), err.read(4 * 1024 * 1024 + 1)
+                if len(data) > output_limit or len(errors) > 4 * 1024 * 1024:
                     raise ValueError('command output bound')
                 if stdout is not None and stdout != subprocess.PIPE:
                     stdout.write(data)
@@ -137,8 +165,8 @@ class Journal:
             except BaseException as error:
                 if not delivered:
                     out.seek(0); err.seek(0)
-                    data, errors = out.read(4 * 1024 * 1024 + 1), err.read(4 * 1024 * 1024 + 1)
-                    if len(data) <= 4 * 1024 * 1024 and len(errors) <= 4 * 1024 * 1024:
+                    data, errors = out.read(output_limit + 1), err.read(4 * 1024 * 1024 + 1)
+                    if len(data) <= output_limit and len(errors) <= 4 * 1024 * 1024:
                         if stdout is not None and stdout != subprocess.PIPE:
                             stdout.write(data)
                         if stderr is not None and stderr != subprocess.PIPE:
@@ -154,8 +182,9 @@ class Journal:
         child = None
         with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
             try:
-                if len(args) != 1 or Path(args[0]).name != 'prerequisite-visibility' or timeout != 10:
+                if len(args) != 3 or Path(args[0]).name != 'prerequisite-kernel' or timeout != 10:
                     raise ValueError('fixed native invocation')
+                self.check_async()
                 child = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=out, stderr=err, env=env)
                 code = child.wait(timeout=timeout)
                 out.seek(0); err.seek(0)
@@ -166,6 +195,7 @@ class Journal:
             except BaseException as error:
                 out.seek(0); err.seek(0)
                 stdout.write(out.read(4 * 1024 * 1024)); stderr.write(err.read(4 * 1024 * 1024))
+                error.native_started = child is not None
                 common['observerPID'] = child.pid if child else None
                 common['observerReaped'] = child is not None and child.returncode is not None
                 error.owner_diagnostic = self.finish(common, child.returncode if child else None, self.tail(out), self.tail(err), error)

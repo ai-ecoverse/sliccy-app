@@ -1,0 +1,124 @@
+{
+  "schema": 1,
+  "run": "41847302926",
+  "artifact": "13331283695",
+  "source": "fa4ad8c65d47b075bbe0b96c20f920752108d732",
+  "outerSHA256": "caa03b02211f96f67db141795a75a60cd5a036593e805dd630af47ff97c1be5f",
+  "innerSHA256": "9198555bc50d455f4d9cdbcd9c79e30d4f38bfbe0c82db178b245a93ba58befe",
+  "manifestSHA256": "4e90c156cc7415a98cd2f727df0f05542269ae5846a327de9aae196962fd42f9",
+  "manifest": {
+    "identifier": "ai.sliccy.mac",
+    "team": "S8LB56P782",
+    "executable": {
+      "architecture": "arm64",
+      "sha256": "21ff00942b9b26582dbab001de788d41f3b8b0ee5a0733d2d806f0cd15e15363",
+      "CDHash": "b2d3f288756f0dc7a38e0be8f747ebb0ee536767",
+      "codeDirectorySHA256": "b2d3f288756f0dc7a38e0be8f747ebb0ee536767bab19adac9c6fc3902439c5b"
+    },
+    "emptyEntitlements": true,
+    "infoPlistSHA256": "6e4c7c6147689b1de313b5e4b2493daf7c67cd3cc9455c07d1593a689bda53ef",
+    "designatedRequirement": "identifier \"ai.sliccy.mac\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = S8LB56P782",
+    "schema": 1,
+    "sourceCommit": "fa4ad8c65d47b075bbe0b96c20f920752108d732",
+    "version": "0.1.0",
+    "build": "12",
+    "resources": {
+      "slicc": {
+        "architecture": "arm64",
+        "sha256": "0055c051f48364dbf6d3744c637a06353305a392d06edbedd96bd6764adb5a73",
+        "CDHash": "5da1a3199bd3f895bce2e53023c28ca1c33d249e",
+        "codeDirectorySHA256": "5da1a3199bd3f895bce2e53023c28ca1c33d249e2cf402c81cb1ad0bb4666eb9"
+      }
+    },
+    "helpers": {
+      "ScreenProofSurface.app": {
+        "identifier": "ai.sliccy.proof-helper",
+        "team": "S8LB56P782",
+        "executable": {
+          "architecture": "arm64",
+          "sha256": "baff7b8b21264018138c9f7e2e7f6b8052bdcaf6e10b8ffa06dde854ac2b20c9",
+          "CDHash": "3e61ce8a28e4b7659f2e711f7fb752ce4935f256",
+          "codeDirectorySHA256": "3e61ce8a28e4b7659f2e711f7fb752ce4935f256e6d6f5aab2d08ac217a0c90f"
+        },
+        "emptyEntitlements": true,
+        "infoPlistSHA256": "11a51ca14176be56ce266330b5c15f8341301a5a9dab8f891765ac11b112e794",
+        "designatedRequirement": "identifier \"ai.sliccy.proof-helper\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = S8LB56P782",
+        "appRoleRefused": true,
+        "immutableArtifact": {
+          "run": "41752885433",
+          "source": "34fdccf5158e6e4e82d49b006857c6018433a8f2",
+          "artifact": "13286983486",
+          "files": {
+            "Contents/Info.plist": "11a51ca14176be56ce266330b5c15f8341301a5a9dab8f891765ac11b112e794",
+            "Contents/MacOS/ScreenProofSurface": "baff7b8b21264018138c9f7e2e7f6b8052bdcaf6e10b8ffa06dde854ac2b20c9",
+            "Contents/_CodeSignature/CodeResources": "6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b"
+          }
+        }
+      }
+    },
+    "cases": [
+      "selected-window",
+      "display-exclusion",
+      "authorization-exclusion",
+      "reciprocal-revoke",
+      "active-stop",
+      "hotkey-stop"
+    ],
+    "hostedOnly": true,
+    "productionEnabled": false,
+    "nativeTrialsPerformed": false
+  },
+  "files": {
+    "Contents/CodeResources": {
+      "sha256": "b767b20fcda0901689b054cc48ec0e59b4eedacfce2c3d72b164154011f29f4e",
+      "size": 1695,
+      "mode": 384
+    },
+    "Contents/Helpers/ScreenProofSurface.app/Contents/Info.plist": {
+      "sha256": "11a51ca14176be56ce266330b5c15f8341301a5a9dab8f891765ac11b112e794",
+      "size": 754,
+      "mode": 384
+    },
+    "Contents/Helpers/ScreenProofSurface.app/Contents/MacOS/ScreenProofSurface": {
+      "sha256": "baff7b8b21264018138c9f7e2e7f6b8052bdcaf6e10b8ffa06dde854ac2b20c9",
+      "size": 223184,
+      "mode": 448
+    },
+    "Contents/Helpers/ScreenProofSurface.app/Contents/_CodeSignature/CodeResources": {
+      "sha256": "6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b",
+      "size": 2200,
+      "mode": 384
+    },
+    "Contents/Info.plist": {
+      "sha256": "6e4c7c6147689b1de313b5e4b2493daf7c67cd3cc9455c07d1593a689bda53ef",
+      "size": 713,
+      "mode": 420
+    },
+    "Contents/MacOS/Sliccy": {
+      "sha256": "21ff00942b9b26582dbab001de788d41f3b8b0ee5a0733d2d806f0cd15e15363",
+      "size": 7700032,
+      "mode": 493
+    },
+    "Contents/Resources/slicc": {
+      "sha256": "0055c051f48364dbf6d3744c637a06353305a392d06edbedd96bd6764adb5a73",
+      "size": 18103712,
+      "mode": 493
+    },
+    "Contents/_CodeSignature/CodeResources": {
+      "sha256": "6ede3fa929106f14e5d990d00130750887b84b95048d0013267ac371868425eb",
+      "size": 2852,
+      "mode": 420
+    }
+  },
+  "directories": [
+    "Contents",
+    "Contents/Helpers",
+    "Contents/Helpers/ScreenProofSurface.app",
+    "Contents/Helpers/ScreenProofSurface.app/Contents",
+    "Contents/Helpers/ScreenProofSurface.app/Contents/MacOS",
+    "Contents/Helpers/ScreenProofSurface.app/Contents/_CodeSignature",
+    "Contents/MacOS",
+    "Contents/Resources",
+    "Contents/_CodeSignature"
+  ]
+}

@@ -221,15 +221,15 @@ class BoundaryTests(TestCase):
             with (root / 'raw').open('wb') as raw, (root / 'err').open('wb') as err:
                 with mock.patch.object(diagnostics.subprocess, 'Popen', side_effect=spawn), self.assertRaises(subprocess.TimeoutExpired):
                     with journal.step('root-visibility'):
-                        journal.read_only_native([str(root / 'prerequisite-visibility')], raw, err, {}, 10)
+                        journal.read_only_native([str(root / 'prerequisite-kernel'), '5', '42'], raw, err, {}, 10)
             child.kill.assert_not_called(); child.terminate.assert_not_called(); child.send_signal.assert_not_called()
             self.assertEqual((root / 'raw').read_bytes(), b'partial')
             row = next(x for x in map(json.loads, journal.path.read_text().splitlines()) if 'observerReaped' in x)
             self.assertFalse(row['observerReaped'])
             self.assertEqual(row['stderrTail'], 'cause')
 
-    def test_actual_suite_all_tool_failures_named(self):
-        for failure in range(7):
+    def test_actual_suite_build_and_platform_failures_named(self):
+        for failure in range(3):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory); evidence = root / 'evidence'; evidence.mkdir()
                 journal = diagnostics.Journal(evidence / 'journal', root, ROOT, time.monotonic())
@@ -237,27 +237,16 @@ class BoundaryTests(TestCase):
                 def run(args, stdout, stderr, **kwargs):
                     nonlocal count
                     index = count; count += 1
-                    stdout.write(b'Identifier=com.apple.test\nCDHash=' + b'a' * 40 + b'\n')
-                    stderr.write(b'fixed-stderr')
+                    stdout.write(b'fixed-stdout'); stderr.write(b'fixed-stderr')
                     if '-o' in args: Path(args[-1]).write_bytes(b'fake-built-observer')
                     return subprocess.CompletedProcess(args, 17 if index == failure else 0)
-                def spawn(args, stdout, stderr, **kwargs):
-                    nonlocal count
-                    index = count; count += 1
-                    stdout.write(encode(records())); stderr.write(b'native-stderr')
-                    return mock.Mock(pid=22, returncode=17 if index == failure else 0,
-                                     wait=mock.Mock(return_value=17 if index == failure else 0))
-                with mock.patch.object(probe, 'path_facts', side_effect=lambda p, r: Path(p)), \
-                     mock.patch.object(probe, 'interpreter_component', return_value=True), \
-                     mock.patch.object(diagnostics.subprocess, 'run', side_effect=run), \
-                     mock.patch.object(diagnostics.subprocess, 'Popen', side_effect=spawn):
+                with mock.patch.object(diagnostics.subprocess, 'run', side_effect=run):
                     result = wrapper.suite(root, evidence, None, {}, time.monotonic() + 100, ROOT, journal)
-                self.assertEqual(result, 0 if failure == 6 else 1)
+                self.assertEqual(result, 1)
                 rows = [json.loads(x) for x in journal.path.read_text().splitlines()]
-                if failure < 6:
-                    row = next(x for x in rows if x['kind'] == 'command' and x['status'] == 'failed')
-                    self.assertEqual(row['exitStatus'], 17)
-                    for key in ('step', 'tool', 'arguments', 'stdoutTail', 'stderrTail'): self.assertTrue(row[key])
+                row = next(x for x in rows if x['kind'] == 'command' and x['status'] == 'failed')
+                self.assertEqual(row['exitStatus'], 17)
+                for key in ('step', 'tool', 'arguments', 'stdoutTail', 'stderrTail'): self.assertTrue(row[key])
 
     def test_caller_boundary_exact(self):
         source = Path('/Users/trieloff/.bb/thread-storage/thr_desfnajij8/capture-fix-worktree')
