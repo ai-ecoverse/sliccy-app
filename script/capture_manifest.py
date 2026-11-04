@@ -14,7 +14,7 @@ CASES = ['selected-window', 'display-exclusion', 'authorization-exclusion', 'rec
 
 
 def signed_bundle(app, role, name):
-    build = '12' if role == 'ai.sliccy.mac' else '11'
+    build = '13' if role == 'ai.sliccy.mac' else '11'
     plist = (app / 'Contents/Info.plist').read_bytes()
     info = plistlib.loads(plist)
     if (info['CFBundleIdentifier'], info['CFBundleShortVersionString'], info['CFBundleVersion'], info['CFBundleExecutable']) != (role, '0.1.0', build, name):
@@ -57,7 +57,7 @@ def manifest(app):
     source = os.environ.get('GITHUB_SHA', '')
     if not re.fullmatch('[0-9a-f]{40}', source):
         raise ValueError('source commit required')
-    return dict(value, schema=1, sourceCommit=source, version='0.1.0', build='12',
+    return dict(value, schema=1, sourceCommit=source, version='0.1.0', build='13',
                 resources={'slicc': resource}, helpers={'ScreenProofSurface.app': surface}, cases=CASES,
                 hostedOnly=True, productionEnabled=False, nativeTrialsPerformed=False)
 
