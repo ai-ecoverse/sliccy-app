@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "branch": "proof/runner-capture-v1",
+  "callerSource": "2d34d9ad55a86001594798f3ce7df9f22bac2281",
+  "mode": "staging-prerequisite-only",
+  "files": {
+    ".github/workflows/runner-proof.yml": "b540486338c82ebe9408cb5ddb6014460f75d4724ea73dce3ffa1bbcb37476d6",
+    "script/runner-proof/sealed_prerequisite.py": "0c70b715570d9d9667588013ae0c191acb8c5d5d9ba35c7d52f534208b3c21c4",
+    "script/runner-proof/prerequisite_probe.py": "b05d7946a5ca24891cc96eab624556edb5ed73135f784ebc5faf7f2437d3039c",
+    "script/runner-proof/prerequisite_diagnostics.py": "4e9f51187e0276aebbab1014a79210c62a476a0beb7026e873e8064db19540c6",
+    "script/runner-proof/prerequisite_visibility.m": "cb4d95c1787bec24d312c86bed7303c6b980a23f917f9163958616d4d62da064",
+    "script/runner-proof/prerequisite_bsd_boundary.h": "a6e18f265d9130e5b4becac57fd53e4564324033959c58b38c09f6d23cc3d061",
+    "script/runner-proof/capture_stage.py": "e9ba88d102a8dd091b5eca894871198a46b39d228803c1629ee99bce5426a1d5",
+    "script/runner-proof/capture_stage_root.py": "110e24d9ad2d9cac483d75cd2b01ed7b7400409aa8f99a61d6d6fc55da92002f",
+    "script/runner-proof/sealed_runner.py": "a885f78f2951a31d367f67761461ac793e110ba2b2a5a8ce65b39811b5cf8ed2",
+    "script/runner-proof/mac_rosetta_preflight.py": "f2682a4466f334ba1a27be80fc02be5d0c15f59d7fc6e3492ce15e2fdbc6781b",
+    "script/runner-proof/universal_manifest.py": "3ce896a09383f713f50040a05eb416da64e9ea5980fd2a62f4c36bf64c2f2ffe",
+    "script/runner-proof/snapshot_manifest.py": "386719e42128d2c5565a40afba7ee87b1d02f1de209c6c3bdca6e9b8688ad064",
+    "script/runner-proof/capture_manifest.py": "bfc4ae44e202310bfbc33b2e6cfe7474e6e9cf7dc91be7861f4baa605ac48cc6",
+    "script/runner-proof/capture_setup_support.py": "1f000a0fa59ea26b1b90cbc2419b63217ba790073a6bb1cfd8afd02fd91b7ff5",
+    "script/runner-proof/capture_tcc.py": "b9fc8930c3e40da76f7ff05d879a0c2baa758f84d7f0a75464d21df81ee51635",
+    "script/runner-proof/capture_evidence.py": "25d3a6ecc7da56ad030d5914321903b1f7588d0af0e6e0f01c4ef6d34406c0fe"
+  }
+}
