@@ -117,11 +117,35 @@ class PresenceTests(unittest.TestCase):
                 self.assertIn('--user-data-dir=/synthetic/chrome-' + page['profile'], row)
                 self.assertIn('--window-position=%d,%d' % (page['rectCGPoints']['x'], page['rectCGPoints']['y']), row)
                 self.assertFalse(any('remote-debug' in arg for arg in row))
+                self.assertEqual(row.count('--use-mock-keychain'), 1)
+                self.assertEqual(row.count('--disable-background-networking'), 1)
             self.assertEqual(sum(pages.counts.values()), 0)
 
+    def test_pre_authorization_records_genuine_security_agent_and_refuses_unresolved(self):
+        observation = self.fixture()[0]
+        self.assertTrue(setup.pre_authorization_presence(observation, 'initial')['clear'])
+        owner = observation['owners'][0]
+        owner.update(signingIdentifier='com.apple.SecurityAgent', appleAnchored=True, stableKernelSamples=True)
+        value = setup.pre_authorization_presence(observation, 'chrome-launched')
+        self.assertFalse(value['clear'])
+        self.assertEqual(value['verifiedSecurityAgentWindows'], [{'pid': 100, 'windowID': 7}])
+        self.assertFalse(value['captureProtectionChanged'])
+        for field in ['appleAnchored', 'stableKernelSamples', 'liveStaticKernelConsistent']:
+            changed = copy.deepcopy(observation); changed['owners'][0][field] = None
+            value = setup.pre_authorization_presence(changed, 'app-helper')
+            self.assertFalse(value['clear'])
+            self.assertEqual(value['unresolvedWindowOwners'], [{'pid': 100, 'windowID': 7}])
+        changed = copy.deepcopy(observation); changed['owners'][0]['signingIdentifier'] = None
+        self.assertFalse(setup.pre_authorization_presence(changed, 'initial')['clear'])
+        changed = copy.deepcopy(observation); changed['owners'].append(copy.deepcopy(owner))
+        self.assertFalse(setup.pre_authorization_presence(changed, 'initial')['clear'])
+        with self.assertRaises(ValueError): setup.pre_authorization_presence(observation, 'authorization-requested')
+
     def test_actual_run_uses_four_launch_profiles_and_gates_final_presence(self):
-        for missing_get in [False, True]:
-            with self.subTest(missing_get=missing_get), tempfile.TemporaryDirectory() as name:
+        for scenario in ['success', 'missing-get', 'early-security-agent']:
+            missing_get = scenario == 'missing-get'
+            early_agent = scenario == 'early-security-agent'
+            with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as name:
                 root = Path(name)
                 evidence = root / 'evidence'; evidence.mkdir()
                 fixture = self.fixture()
@@ -131,7 +155,10 @@ class PresenceTests(unittest.TestCase):
                     def __init__(self, *args): pass
                     def read(self, phase, pid=None):
                         observer_phases.append(phase)
-                        return fixture[0]
+                        observed = copy.deepcopy(fixture[0])
+                        if early_agent and phase == 'chrome-launched':
+                            observed['owners'][0].update(signingIdentifier='com.apple.SecurityAgent', appleAnchored=True, stableKernelSamples=True)
+                        return observed
                 class Pages:
                     def __init__(self, manifest):
                         self.counts = fixture[3].copy()
@@ -151,11 +178,22 @@ class PresenceTests(unittest.TestCase):
                     def cleanup(self, deadline): return {'label': self.label, 'pid': self.child.pid, 'reaped': True}
                 journal = diagnostics.Journal(evidence / 'steps', root, root, time.monotonic())
                 with patch.object(setup, 'Observer', Observer), patch.object(setup, 'Owned', Owned), patch.object(setup, 'Pages', Pages), patch.object(setup.shared, 'require_host'), patch.object(setup.threading.Event, 'wait'):
-                    result = setup.run(root, evidence, root / 'observer', root / 'preview.app', root / 'helper.app', 'a' * 40, 'a' * 40, 'a' * 40, manifest, {}, io.BytesIO(), time.monotonic() + 100, journal)
+                    args = (root, evidence, root / 'observer', root / 'preview.app', root / 'helper.app', 'a' * 40, 'a' * 40, 'a' * 40, manifest, {}, io.BytesIO(), time.monotonic() + 100, journal)
+                    if early_agent:
+                        with self.assertRaisesRegex(ValueError, 'pre-authorization-security-agent'):
+                            setup.run(*args)
+                    else:
+                        result = setup.run(*args)
+                if early_agent:
+                    self.assertNotIn('authorization-requester', [label for label, _ in launched])
+                    self.assertEqual(len(json.loads((evidence / 'owned-cleanup.json').read_text())), 6)
+                    self.assertFalse(json.loads((evidence / 'pre-authorization-presence.json').read_text())[-1]['clear'])
+                    continue
                 self.assertEqual(result, not missing_get)
                 self.assertEqual([label for label, _ in launched], ['app-preview', 'surface', 'host-a-1', 'host-a-2', 'host-b-1', 'host-b-2', 'authorization-requester'])
                 browser_args = [args for label, args in launched if label.startswith('host-')]
                 self.assertEqual(len({next(arg for arg in row if arg.startswith('--user-data-dir=')) for row in browser_args}), 4)
+                self.assertTrue(all(row.count('--use-mock-keychain') == 1 for row in browser_args))
                 self.assertEqual(observer_phases, ['initial', 'app-helper', 'chrome-launched', 'authorization-requested', 'final-setup', 'after-owned-cleanup'])
                 self.assertEqual(json.loads((evidence / 'setup-presence.json').read_text())['complete'], not missing_get)
                 self.assertEqual(len(json.loads((evidence / 'owned-cleanup.json').read_text())), 7)

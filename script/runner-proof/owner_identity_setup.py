@@ -502,10 +502,35 @@ class Pages:
         return 'http://127.0.0.1:' + str(self.server.server_port) + path
 
 
+def pre_authorization_presence(observation, phase):
+    if phase not in ['initial', 'app-helper', 'chrome-launched']:
+        raise ValueError('pre-authorization-phase')
+    verified, unresolved = [], []
+    owners = observation['owners']
+    for window in observation['windows']:
+        if window.get('validShape') is not True or type(window.get('pid')) is not int or type(window.get('windowID')) is not int:
+            raise ValueError('pre-authorization-window-shape')
+        matches = [owner for owner in owners if owner.get('pid') == window['pid']]
+        if len(matches) != 1 or type(matches[0].get('signingIdentifier')) is not str:
+            unresolved.append({'pid': window['pid'], 'windowID': window['windowID']})
+            continue
+        owner = matches[0]
+        if owner['signingIdentifier'] != 'com.apple.SecurityAgent':
+            continue
+        entry = {'pid': window['pid'], 'windowID': window['windowID']}
+        if owner.get('appleAnchored') is True and owner.get('stableKernelSamples') is True and owner.get('liveStaticKernelConsistent') is True:
+            verified.append(entry)
+        else:
+            unresolved.append(entry)
+    return {'schema': 1, 'phase': phase, 'verifiedSecurityAgentWindows': verified,
+        'unresolvedWindowOwners': unresolved, 'clear': not verified and not unresolved,
+        'scope': 'owner-probe-setup-only', 'captureProtectionChanged': False, 'promptPurposeInferred': False}
+
+
 def chrome_arguments(root, page, pages):
     rect = page['rectCGPoints']
     return ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '--user-data-dir=' + str(root / ('chrome-' + page['profile'])),
-        '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-default-apps',
+        '--no-first-run', '--no-default-browser-check', '--use-mock-keychain', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-default-apps',
         '--window-position=%d,%d' % (rect['x'], rect['y']), '--window-size=288,224', '--app=' + pages.url(page['path'])]
 
 
@@ -516,11 +541,15 @@ def run(root, evidence, observer_binary, app, helper, app_hash, helper_hash, chr
         for name in ['surface-home', 'browser-home'] + ['chrome-' + page['profile'] for page in manifest['pages']]:
             (root / name).mkdir(mode=0o700)
     observer = Observer(observer_binary, evidence, env, deadline, journal)
-    owned, cleanup = [], []
+    owned, cleanup, pre_authorization = [], [], []
     body_ok = False
     with journal.call('page-server', Pages, manifest) as pages:
         try:
-            observer.read('initial')
+            def before_authorization(phase):
+                value = observer.read(phase)
+                pre_authorization.append(pre_authorization_presence(value, phase))
+                (evidence / 'pre-authorization-presence.json').write_text(json.dumps(pre_authorization, indent=2) + '\n')
+            before_authorization('initial')
             def launch(label, args, role, digest, child_env):
                 if deadline - time.monotonic() < 35:
                     raise ValueError('setup-admission-deadline')
@@ -532,12 +561,15 @@ def run(root, evidence, observer_binary, app, helper, app_hash, helper_hash, chr
             launch('app-preview', [str(app / 'Contents/MacOS/Sliccy'), '--preview'], 'ai.sliccy.mac', app_hash, env)
             surface = launch('surface', [str(helper / 'Contents/MacOS/ScreenProofSurface')], 'ai.sliccy.proof-helper', helper_hash, dict(env, HOME=str(root / 'surface-home')))
             threading.Event().wait(2)
-            observer.read('app-helper')
+            before_authorization('app-helper')
             for page in manifest['pages']:
                 args = chrome_arguments(root, page, pages)
                 launch(page['path'].rsplit('/', 1)[1], args, 'com.google.Chrome', chrome_hash, dict(env, HOME=str(root / 'browser-home')))
             threading.Event().wait(2)
-            observer.read('chrome-launched')
+            before_authorization('chrome-launched')
+            with journal.step('pre-authorization-presence'):
+                if not all(row['clear'] for row in pre_authorization):
+                    raise ValueError('pre-authorization-security-agent-or-unresolved-owner')
             launch('authorization-requester', ['/usr/bin/osascript', '-e', 'do shell script "/usr/bin/true" with administrator privileges'], 'com.apple.osascript', manifest['osascriptCDHash'], dict(env, HOME=str(root / 'browser-home')))
             threading.Event().wait(2)
             observer.read('authorization-requested')
