@@ -134,6 +134,7 @@ def candidate(row):
         value = sample(item)
         require(value['pid'] not in samples, 'chain-duplicate')
         samples[value['pid']] = value
+    require(next((item for item in chain if item['pid'] == root['pid']), None) == row['before'], 'root-chain-binding')
     pid = root['pid']
     for _ in range(5):
         require(pid in samples, 'chain-incomplete')
@@ -149,6 +150,9 @@ def visibility_records(data, code):
     require(0 < len(rows) <= 1500, 'visibility-count')
     pending = None
     candidates = []
+    spawn = None
+    spawn_entered = False
+    reap_entered = False
     last_clock = -1
     for index, row in enumerate(rows, 1):
         require(type(row) is dict and set(row) == {'schema', 'seq', 'phase', 'state', 'elapsedMs', 'facts'}, 'visibility-shape')
@@ -163,11 +167,28 @@ def visibility_records(data, code):
         if row['state'] == 'entered':
             require(pending is None, 'phase-incomplete')
             pending = phase
+            if phase == 'spawn':
+                require(not spawn_entered and row['facts'] == {'tool': '/usr/bin/sudo', 'arguments': ['-n', '--', '/bin/sleep', '2']}, 'single-fixed-spawn')
+                spawn_entered = True
+            if phase == 'reap':
+                require(spawn is not None and not reap_entered and set(row['facts']) == {'pid'}
+                        and type(row['facts']['pid']) is int and row['facts']['pid'] == spawn['pid'], 'reap-spawn-binding')
+                reap_entered = True
         else:
             require(row['state'] == 'completed', 'visibility-state')
             if phase not in {'candidate', 'failure', 'result'}:
                 require(pending == phase, 'phase-unmatched')
                 pending = None
+            if phase == 'spawn':
+                facts = row['facts']
+                require(spawn_entered and spawn is None and set(facts) == {'status', 'pid', 'launchWall'}
+                        and type(facts['status']) is int and facts['status'] == 0
+                        and type(facts['pid']) is int and facts['pid'] > 0
+                        and type(facts['launchWall']) in (int, float) and math.isfinite(facts['launchWall']), 'successful-spawn')
+                spawn = facts
+            if phase == 'candidate':
+                require(spawn is not None and not reap_entered and row['facts'].get('sudoPID') == spawn['pid']
+                        and row['facts'].get('launchWall') == spawn['launchWall'], 'candidate-spawn-binding')
             if phase == 'candidate' and elapsed <= 2000:
                 try:
                     candidates.append(candidate(row['facts']))
@@ -177,6 +198,6 @@ def visibility_records(data, code):
     require(all(type(rows[-1]['facts'].get(k)) is bool for k in ('candidateObserved', 'reaped')), 'result-boolean-type')
     require(code == 0 and any(candidates) and rows[-1]['facts'] == {'candidateObserved': True, 'reaped': True}, 'visibility-inconclusive')
     reap = [x for x in rows if x['phase'] == 'reap' and x['state'] == 'completed']
-    require(len(reap) == 1 and all(type(reap[0]['facts'].get(k)) is int for k in ('pid', 'waitStatus', 'errno')) and reap[0]['facts']['reaped'] is True and reap[0]['facts']['waitStatus'] == 0
+    require(spawn is not None and reap_entered and len(reap) == 1 and reap[0]['facts'].get('pid') == spawn['pid'] and all(type(reap[0]['facts'].get(k)) is int for k in ('pid', 'waitStatus', 'errno')) and reap[0]['facts']['reaped'] is True and reap[0]['facts']['waitStatus'] == 0
             and reap[0]['facts']['errno'] == 0, 'owned-reap')
     return {'schema': 1, 'rootVisibility': True, 'appDesignatedRequirementProtocolProven': False, 'captureProven': False}

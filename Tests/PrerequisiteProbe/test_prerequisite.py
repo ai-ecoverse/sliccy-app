@@ -36,8 +36,8 @@ def records():
     rows = []
     def add(phase, state, facts):
         rows.append(dict(schema=1, seq=len(rows) + 1, phase=phase, state=state, elapsedMs=len(rows) * 20, facts=facts))
-    add('spawn', 'entered', {})
-    add('spawn', 'completed', {})
+    add('spawn', 'entered', {'tool': '/usr/bin/sudo', 'arguments': ['-n', '--', '/bin/sleep', '2']})
+    add('spawn', 'completed', dict(status=0, pid=11, launchWall=100.1))
     add('candidate', 'completed', candidate())
     add('reap', 'entered', {'pid': 11})
     add('reap', 'completed', dict(pid=11, reaped=True, waitStatus=0, errno=0))
@@ -76,6 +76,40 @@ class BoundaryTests(TestCase):
 
     def test_visibility_complete(self):
         self.assertEqual(probe.visibility_records(encode(records()), 0)['rootVisibility'], True)
+
+    def test_spawn_candidate_reap_binding(self):
+        self.assertTrue(probe.visibility_records(encode(records()), 0)['rootVisibility'])
+        for change in ('different-spawn-reap', 'spawn-only', 'reap-only', 'entered-reap', 'launch', 'spawn-failed', 'duplicate-spawn', 'no-spawn', 'candidate-before-spawn', 'bool-pid', 'bool-launch'):
+            items = records()
+            if change == 'different-spawn-reap':
+                items[1]['facts']['pid'] = 99
+                items[3]['facts']['pid'] = items[4]['facts']['pid'] = 99
+            if change == 'spawn-only': items[1]['facts']['pid'] = 99
+            if change == 'reap-only': items[4]['facts']['pid'] = 99
+            if change == 'entered-reap': items[3]['facts']['pid'] = 99
+            if change == 'launch': items[1]['facts']['launchWall'] = 99.9
+            if change == 'spawn-failed': items[1]['facts']['status'] = 1
+            if change == 'duplicate-spawn': items[2:2] = copy.deepcopy(items[:2])
+            if change == 'no-spawn': items = items[2:]
+            if change == 'candidate-before-spawn': items = [items[2]] + items[:2] + items[3:]
+            if change == 'bool-pid': items[1]['facts']['pid'] = True
+            if change == 'bool-launch': items[1]['facts']['launchWall'] = True
+            for index, item in enumerate(items, 1): item['seq'] = index; item['elapsedMs'] = index * 20
+            with self.subTest(change=change), self.assertRaises(ValueError): probe.visibility_records(encode(items), 0)
+
+    def test_root_sample_exact_in_both_chain_brackets(self):
+        for key, value in [('uid', 501), ('parent', 99), ('seconds', '101'), ('microseconds', 1)]:
+            item = candidate()
+            for side in ('chain', 'chainAfter'): item[side][1]['bsd'][key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError): probe.candidate(item)
+            rows = records(); rows[2]['facts'] = item
+            with self.assertRaises(ValueError): probe.visibility_records(encode(rows), 0)
+        for key, value in [('path', '/wrong'), ('bsdStatus', 1), ('pathStatus', 1), ('pid', 55)]:
+            item = candidate()
+            for side in ('chain', 'chainAfter'): item[side][1][key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError): probe.candidate(item)
+        item = candidate(); item['chain'] = [item['before']]; item['chainAfter'] = copy.deepcopy(item['chain']); item['sudoPID'] = item['before']['pid']
+        self.assertTrue(probe.candidate(item))
 
     def test_visibility_missing_completion_and_boundaries(self):
         for change in ('pending', 'no-result', 'gap', 'late', 'failure', 'no-reap', 'truncated'):
