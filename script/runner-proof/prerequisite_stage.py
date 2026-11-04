@@ -125,10 +125,10 @@ class FixedCommand:
                 require(remaining > 0, 'staging-command-deadline')
                 child = self.spawn(args, stdin=subprocess.DEVNULL, stdout=out, stderr=err, env={}, close_fds=True, umask=0o022)
                 code = child.wait(timeout=remaining)
-                result = SimpleNamespace(returncode=code, settled=True, pid=child.pid)
+                result = SimpleNamespace(returncode=code, settled=type(code) is int and code == 0, pid=child.pid)
             except BaseException as error:
-                settled = child is None or child.poll() is not None
-                if not settled:
+                settled = child is None or child.poll() == 0
+                if child is not None and child.returncode is None:
                     self.retained.append(child)
                 error.settled = settled
                 error.started = child is not None
@@ -141,7 +141,9 @@ class FixedCommand:
                     stream.seek(max(0, stream.tell() - 4096))
                     tails.append(stream.read().decode('utf-8', 'replace'))
                 self.record('command-completed', dict(common, exitStatus=child.returncode if child else None,
-                    started=child is not None, settled=child is None or child.returncode is not None,
+                    started=child is not None, sudoReaped=child is not None and child.returncode is not None,
+                    settled=child is None or child.returncode == 0,
+                    writerSettlement='not-started' if child is None else 'normal-zero-exit' if child.returncode == 0 else 'unconfirmed',
                     stdoutTail=tails[0], stderrTail=tails[1]))
             return result
 
@@ -200,7 +202,7 @@ class Stage:
         self.settled = False
         try:
             result = self.invoke(step, ['/usr/bin/sudo', '-n', '--'] + tail, deadline)
-            self.settled = result.settled is True
+            self.settled = result.settled is True and type(result.returncode) is int and result.returncode == 0
             require(self.settled, 'staging-writer-unsettled')
             require(type(result.returncode) is int and result.returncode == 0, step + '-failed')
         except BaseException as error:
@@ -253,7 +255,9 @@ class Stage:
         self.validated = False
         self.removal_state = 'unconfirmed'
         require(self.identity is not None, 'cleanup-creation-identity-unavailable')
-        require(self.settled, 'cleanup-writer-unsettled')
+        if not self.settled:
+            self.removal_state = 'unconfirmed-writer'
+            raise ValueError('cleanup-writer-unsettled')
         require(self.clock() < deadline, 'cleanup-reserve-exhausted')
         self.inspect(self.path.parent)
         if not self.path.exists() and not self.path.is_symlink():

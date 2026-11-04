@@ -13,6 +13,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "prerequisite_bsd_boundary.h"
+#include "prerequisite_launch_boundary.h"
 extern int csops(pid_t, unsigned int, void *, size_t);
 
 static uint64_t sequence;
@@ -139,7 +140,7 @@ static NSArray *chain(pid_t root, pid_t sudoPID) {
     }
     require(NO, @"ancestry-depth"); return nil;
 }
-static int spawnChild(NSString *executable, NSString *target, pid_t *child, int *input, int *output) {
+static int spawnChild(const struct sliccy_prerequisite_launch *launch, pid_t *child, int *input, int *output) {
     int in[2] = {-1, -1}, out[2] = {-1, -1};
     if (pipe(in)) return errno;
     if (pipe(out)) { int error = errno; close(in[0]); close(in[1]); return error; }
@@ -152,11 +153,7 @@ static int spawnChild(NSString *executable, NSString *target, pid_t *child, int 
     if (!error) error = posix_spawn_file_actions_adddup2(&actions, in[0], 0);
     if (!error) error = posix_spawn_file_actions_adddup2(&actions, out[1], 1);
     if (!error) error = posix_spawn_file_actions_adddup2(&actions, 2, 2);
-    char *args[] = {"/usr/bin/sudo", "-n", "--preserve-env=GITHUB_ACTIONS,GITHUB_EVENT_NAME,GITHUB_REF,GITHUB_REPOSITORY,SLICCY_RUNNER_ENVIRONMENT",
-        "--", (char *)executable.fileSystemRepresentation, "--runner-kernel", (char *)target.UTF8String, NULL};
-    char *env[] = {"GITHUB_ACTIONS=true", "GITHUB_EVENT_NAME=workflow_dispatch", "GITHUB_REF=refs/heads/proof/runner-capture-v1",
-        "GITHUB_REPOSITORY=ai-ecoverse/sliccy-app", "SLICCY_RUNNER_ENVIRONMENT=github-hosted", NULL};
-    if (!error) error = posix_spawn(child, args[0], &actions, &attr, args, env);
+    if (!error) error = posix_spawn(child, launch->arguments[0], &actions, &attr, launch->arguments, launch->environment);
     if (haveActions) posix_spawn_file_actions_destroy(&actions);
     if (haveAttr) posix_spawnattr_destroy(&attr);
     close(in[0]); close(out[1]);
@@ -173,13 +170,11 @@ int main(int argc, const char **argv) {
         @try {
             emit(@"placement", @"entered", @{});
             require(argc == 3 && hosted(), @"placement");
-            NSString *run = [NSString stringWithUTF8String:argv[1]], *targetText = [NSString stringWithUTF8String:argv[2]];
-            unsigned long long runNumber = strtoull(argv[1], NULL, 10);
-            long targetNumber = strtol(argv[2], NULL, 10);
-            require(runNumber > 0 && [run isEqual:[NSString stringWithFormat:@"%llu", runNumber]] && targetNumber > 0 && targetNumber <= INT32_MAX &&
-                [targetText isEqual:[NSString stringWithFormat:@"%ld", targetNumber]], @"arguments");
-            pid_t target = (pid_t)targetNumber;
-            NSString *executable = [NSString stringWithFormat:@"/Library/SliccyProof-%@/Sliccy.app/Contents/MacOS/Sliccy", run];
+            struct sliccy_prerequisite_launch launch;
+            require(sliccy_prerequisite_launch_arguments(argc, argv, &launch) == 0, @"arguments");
+            NSString *run = [NSString stringWithUTF8String:launch.run];
+            pid_t target = launch.target_pid;
+            NSString *executable = [NSString stringWithUTF8String:launch.executable];
             emit(@"placement", @"completed", @{@"run": run, @"target": @(target), @"executable": executable});
             NSDictionary *targetBefore = sample(target);
             require([targetBefore[@"pathStatus"] intValue] == 0, @"target-path");
@@ -190,7 +185,7 @@ int main(int argc, const char **argv) {
             NSData *expected = [[NSData alloc] initWithBase64EncodedString:@"stPyiHVvDcejjgvo90frsO5TZ2c=" options:0];
             emit(@"spawn", @"entered", @{@"tool": @"/usr/bin/sudo", @"executable": executable, @"target": @(target)});
             double launchWall = NSDate.date.timeIntervalSince1970, end = clockNow() + 2;
-            int error = spawnChild(executable, targetText, &child, &input, &output);
+            int error = spawnChild(&launch, &child, &input, &output);
             emit(@"spawn", @"completed", @{@"status": @(error), @"pid": @(child), @"launchWall": @(launchWall)});
             require(!error && child > 0, @"spawn");
             emit(@"hello", @"entered", @{});

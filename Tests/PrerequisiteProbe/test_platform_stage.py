@@ -189,6 +189,79 @@ class StageTests(unittest.TestCase):
         self.assertFalse(caught.exception.facts['removalConfirmed'])
         self.assertNotIn('staging-removal', [x[0] for x in self.calls]); subject.delivery.close()
 
+    def test_reaped_sudo_with_surviving_writer_never_admits_removal(self):
+        for code in (-9, -15, 1, 137):
+            with self.subTest(code=code):
+                subject = self.make()
+                actual = subject.invoke
+                writer_started, release_writer = threading.Event(), threading.Event()
+                def surviving_writer():
+                    writer_started.set()
+                    release_writer.wait()
+                writer = threading.Thread(target=surviving_writer)
+                writer.start()
+                self.assertTrue(writer_started.wait(.5))
+                command_records = []
+                child = mock.Mock(pid=777, returncode=code)
+                child.wait.return_value = code
+                child.poll.return_value = code
+                command = stage.FixedCommand(lambda *row: command_records.append(row), spawn=mock.Mock(return_value=child))
+                def invoke(name, args, deadline):
+                    if name == 'staging-copy':
+                        return command(name, args, deadline)
+                    if name == 'staging-removal':
+                        self.fail('removal raced surviving writer')
+                    return actual(name, args, deadline)
+                subject.invoke = invoke
+                try:
+                    with self.assertRaises(ValueError) as caught:
+                        subject.create(time.monotonic() + 70)
+                    self.assertTrue(writer.is_alive())
+                    self.assertFalse(subject.settled)
+                    self.assertEqual(subject.removal_state, 'unconfirmed-writer')
+                    self.assertFalse(caught.exception.facts['removalConfirmed'])
+                    self.assertEqual(caught.exception.facts['cleanup'], 'cleanup-writer-unsettled')
+                    completed = command_records[-1][1]
+                    self.assertTrue(completed['sudoReaped'])
+                    self.assertFalse(completed['settled'])
+                    self.assertEqual(completed['writerSettlement'], 'unconfirmed')
+                    child.kill.assert_not_called(); child.terminate.assert_not_called()
+                finally:
+                    release_writer.set(); writer.join(.5)
+                    self.assertFalse(writer.is_alive())
+                    subject.delivery.close()
+                    shutil.rmtree(subject.path)
+
+    def test_abnormal_adapter_result_cannot_claim_settled(self):
+        subject = self.make()
+        subject.invoke = lambda *args: SimpleNamespace(returncode=-9, settled=True)
+        with self.assertRaisesRegex(ValueError, 'staging-writer-unsettled'):
+            subject.command('staging-copy', ['/bin/cp', '-R', '/source', '/destination'], time.monotonic()+5)
+        self.assertFalse(subject.settled)
+        subject.delivery.close()
+
+    def test_timeout_with_reaped_nonzero_sudo_leaves_writer_unconfirmed(self):
+        for code in (-9, 1, 137):
+            child = mock.Mock(pid=777, returncode=code)
+            child.wait.side_effect = TimeoutError('deadline')
+            child.poll.return_value = code
+            rows = []
+            command = stage.FixedCommand(lambda *args: rows.append(args), spawn=mock.Mock(return_value=child))
+            with self.assertRaises(TimeoutError) as caught:
+                command('staging-copy', ['/usr/bin/sudo', '-n', '--', '/bin/cp', '-R', '/source', '/destination'], time.monotonic()+5)
+            self.assertFalse(caught.exception.settled)
+            self.assertTrue(rows[-1][1]['sudoReaped'])
+            self.assertFalse(rows[-1][1]['settled'])
+
+    def test_fixed_command_zero_exit_control(self):
+        child = mock.Mock(pid=777, returncode=0)
+        child.wait.return_value = 0
+        rows = []
+        command = stage.FixedCommand(lambda *args: rows.append(args), spawn=mock.Mock(return_value=child))
+        result = command('staging-copy', ['/usr/bin/sudo', '-n', '--', '/bin/cp', '-R', '/source', '/destination'], time.monotonic()+5)
+        self.assertTrue(result.settled)
+        self.assertEqual(rows[-1][1]['writerSettlement'], 'normal-zero-exit')
+
     def test_validation_failure_removes_and_never_ready(self):
         def fail(path, end): raise ValueError('signature')
         subject = self.make(verify=fail)

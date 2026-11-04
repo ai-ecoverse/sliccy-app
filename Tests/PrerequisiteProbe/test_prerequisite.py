@@ -268,11 +268,19 @@ class BoundaryTests(TestCase):
             self.assertIn(b'synthetic production boundary PASS', result.stdout)
 
     def test_no_runtime_subject_override(self):
-        source = (SCRIPTS / 'prerequisite_visibility.m').read_text()
-        self.assertIn('char *args[] = {"/usr/bin/sudo", "-n", "--", "/bin/sleep", "2", NULL}', source)
-        self.assertIn('BOOL placed = argc == 1 && hosted()', source)
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / 'launch-fixture'
+            subprocess.run(['/usr/bin/clang', '-Wall', '-Wextra', '-Werror', '-I', str(SCRIPTS),
+                            str(Path(__file__).with_name('launch_fixture.c')), '-o', str(executable)],
+                           check=True, capture_output=True, timeout=20)
+            result = subprocess.run([str(executable)], check=True, capture_output=True, timeout=2)
+            self.assertIn(b'synthetic actual launch boundary PASS', result.stdout)
+        source = (SCRIPTS / 'prerequisite_kernel.m').read_text()
+        self.assertIn('sliccy_prerequisite_launch_arguments(argc, argv, &launch)', source)
+        self.assertIn('spawnChild(&launch, &child, &input, &output)', source)
+        self.assertIn('posix_spawn(child, launch->arguments[0], &actions, &attr, launch->arguments, launch->environment)', source)
+        self.assertNotIn('/bin/sleep', source)
         self.assertNotIn('kill(', source)
-        self.assertNotIn('proc_listallpids', source)
         self.assertNotIn('CGWindow', source)
 
 
