@@ -59,6 +59,47 @@ static NSDictionary *kernel(pid_t pid) {
         @"platformBinary": status == 0 ? @((flags & 0x04000000) != 0) : absent(),
         @"cdHash": hashStatus == 0 ? hex(hash, sizeof(hash)) : absent(), @"cdHashError": @(hashError)};
 }
+static NSString *chromeRule(void) {
+    return @"anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and identifier \"com.google.Chrome\" and certificate leaf[subject.OU] = \"EQHXZ8M8AV\"";
+}
+static BOOL chromeAccepted(OSStatus identity, OSStatus strict) {
+    return identity == errSecSuccess && (strict == errSecSuccess || strict == errSecCSInvalidAssociatedFileData);
+}
+static NSDictionary *chromeStatic(SecStaticCodeRef code, SecRequirementRef requirement) {
+    SecCSFlags flags = kSecCSCheckAllArchitectures | kSecCSCheckNestedCode;
+    CFErrorRef error = NULL;
+    OSStatus identity = SecStaticCodeCheckValidity(code, flags, requirement);
+    OSStatus strict = SecStaticCodeCheckValidityWithErrors(code, flags | kSecCSStrictValidate, requirement, &error);
+    NSDictionary *result = @{@"requirement": chromeRule(), @"identityFlags": @(flags), @"strictFlags": @(flags | kSecCSStrictValidate), @"identityStatus": @(identity), @"strictStatus": @(strict),
+        @"strictErrorDomain": error ? (__bridge NSString *)CFErrorGetDomain(error) : absent(),
+        @"strictErrorCode": error ? @(CFErrorGetCode(error)) : absent(),
+        @"accepted": @(chromeAccepted(identity, strict)),
+        @"detritusTolerated": @(identity == errSecSuccess && strict == errSecCSInvalidAssociatedFileData)};
+    if (error) CFRelease(error);
+    return result;
+}
+static NSDictionary *chromePreflight(void) {
+    SecStaticCodeRef code = NULL;
+    SecRequirementRef requirement = NULL;
+    CFDictionaryRef raw = NULL;
+    OSStatus created = SecStaticCodeCreateWithPath((__bridge CFURLRef)[NSURL fileURLWithPath:@"/Applications/Google Chrome.app"], kSecCSDefaultFlags, &code);
+    OSStatus rule = SecRequirementCreateWithString((__bridge CFStringRef)chromeRule(), kSecCSDefaultFlags, &requirement);
+    NSDictionary *policy = code && requirement && created == errSecSuccess && rule == errSecSuccess ? chromeStatic(code, requirement) : @{};
+    OSStatus details = code ? SecCodeCopySigningInformation(code, kSecCSSigningInformation, &raw) : errSecParam;
+    NSDictionary *info = raw ? (__bridge NSDictionary *)raw : @{};
+    id digest = info[(__bridge NSString *)kSecCodeInfoUnique];
+    NSString *hash = [digest isKindOfClass:NSData.class] && [digest length] == 20 ? hex([digest bytes], [digest length]) : nil;
+    id identifier = info[(__bridge NSString *)kSecCodeInfoIdentifier], team = info[(__bridge NSString *)kSecCodeInfoTeamIdentifier];
+    BOOL accepted = [policy[@"accepted"] boolValue] && details == errSecSuccess && hash &&
+        [identifier isEqual:@"com.google.Chrome"] && [team isEqual:@"EQHXZ8M8AV"];
+    NSDictionary *result = @{@"schema": @1, @"kind": @"chrome-static-identity", @"accepted": @(accepted),
+        @"createStatus": @(created), @"requirementStatus": @(rule), @"signingInformationStatus": @(details),
+        @"policy": policy, @"cdHash": hash ?: absent(), @"identifier": identifier ?: absent(), @"team": team ?: absent()};
+    if (raw) CFRelease(raw);
+    if (requirement) CFRelease(requirement);
+    if (code) CFRelease(code);
+    return result;
+}
 static NSDictionary *owner(pid_t pid) {
     NSDictionary *before = kernel(pid);
     SecCodeRef guest = NULL;
@@ -87,13 +128,31 @@ static NSDictionary *owner(pid_t pid) {
     id digest = info[(__bridge NSString *)kSecCodeInfoUnique];
     NSString *codeHash = [digest isKindOfClass:NSData.class] ? hex([digest bytes], [digest length]) : nil;
     NSString *imagePath = [image isKindOfClass:NSURL.class] ? [image path] : nil;
-    OSStatus liveAfter = guest ? SecCodeCheckValidity(guest, kSecCSStrictValidate, NULL) : errSecParam;
+    OSStatus guestStrictStatus = staticStatus;
+    NSDictionary *chromePolicy = nil;
+    SecRequirementRef chromeRequirement = NULL;
+    OSStatus chromeRequirementStatus = errSecParam;
+    BOOL isChrome = [identifier isEqual:@"com.google.Chrome"];
+    if (isChrome && code && guest) {
+        chromeRequirementStatus = SecRequirementCreateWithString((__bridge CFStringRef)chromeRule(), kSecCSDefaultFlags, &chromeRequirement);
+        if (chromeRequirementStatus == errSecSuccess && chromeRequirement) {
+            chromePolicy = chromePreflight();
+            staticStatus = SecStaticCodeCheckValidity(code, kSecCSDefaultFlags, chromeRequirement);
+            live = SecCodeCheckValidity(guest, kSecCSDefaultFlags, chromeRequirement);
+        } else {
+            staticStatus = errSecCSReqFailed;
+            live = errSecCSReqFailed;
+        }
+    }
+    OSStatus liveAfter = guest ? SecCodeCheckValidity(guest, isChrome ? kSecCSDefaultFlags : kSecCSStrictValidate, isChrome ? chromeRequirement : NULL) : errSecParam;
     NSDictionary *after = kernel(pid);
     BOOL same = [before[@"processInfoAvailable"] boolValue] && [after[@"processInfoAvailable"] boolValue];
     for (NSString *key in @[@"pid", @"parent", @"uid", @"startSeconds", @"startMicroseconds", @"path", @"cdHash", @"codeStatus"])
         same = same && before[key] != absent() && [before[key] isEqual:after[key]];
     BOOL bound = same && live == errSecSuccess && liveAfter == errSecSuccess && staticStatus == errSecSuccess &&
-        codeHash && [codeHash isEqual:before[@"cdHash"]] && imagePath && [imagePath isEqual:before[@"path"]];
+        codeHash && [codeHash isEqual:before[@"cdHash"]] && imagePath && [imagePath isEqual:before[@"path"]] &&
+        (!isChrome || ([chromePolicy[@"accepted"] boolValue] && [chromePolicy[@"cdHash"] isEqual:codeHash] &&
+            [team isEqual:@"EQHXZ8M8AV"] && chromeAccepted(staticStatus, guestStrictStatus)));
     NSDictionary *result = @{@"pid": @(pid), @"before": before, @"after": after,
         @"guestLookupStatus": @(lookup), @"liveValidityStatus": @(live), @"liveValidityAfterStatus": @(liveAfter),
         @"appleRequirementStatus": @(requirementStatus), @"appleAnchorStatus": @(apple), @"appleAnchored": apple == errSecSuccess ? @YES : apple == errSecCSReqFailed ? @NO : absent(),
@@ -101,7 +160,8 @@ static NSDictionary *owner(pid_t pid) {
         @"signingIdentifier": [identifier isKindOfClass:NSString.class] ? identifier : absent(),
         @"teamIdentifier": [team isKindOfClass:NSString.class] ? team : absent(),
         @"securedExecutablePath": imagePath ?: absent(), @"securityCDHash": codeHash ?: absent(),
-        @"stableKernelSamples": @(same), @"liveStaticKernelConsistent": @(bound)};
+        @"guestStrictStatus": @(guestStrictStatus), @"chromePolicy": chromePolicy ?: absent(), @"chromeRequirementStatus": @(chromeRequirementStatus), @"stableKernelSamples": @(same), @"liveStaticKernelConsistent": @(bound)};
+    if (chromeRequirement) CFRelease(chromeRequirement);
     if (raw) CFRelease(raw);
     if (code) CFRelease(code);
     if (anchor) CFRelease(anchor);
@@ -138,7 +198,9 @@ int main(int argc, const char **argv) {
     @autoreleasepool {
         if (!hosted()) return failed("observer-host-preflight", 2);
         id value = nil;
-        if (argc == 1) value = snapshot();
+        BOOL staticMode = argc == 2 && strcmp(argv[1], "--chrome-static") == 0;
+        if (staticMode) value = chromePreflight();
+        else if (argc == 1) value = snapshot();
         else if (argc == 3 && strcmp(argv[1], "--owner") == 0) {
             char *end = NULL;
             long pid = strtol(argv[2], &end, 10);
@@ -150,6 +212,6 @@ int main(int argc, const char **argv) {
         if (!data) return failed("observer-json-serialization", 1);
         if (data.length > 4194304) return failed("observer-json-bound", 1);
         if (fwrite(data.bytes, 1, data.length, stdout) != data.length || fputc('\n', stdout) == EOF || fflush(stdout) == EOF) return failed("observer-output-write", 1);
-        return 0;
+        return staticMode && ![value[@"accepted"] boolValue] ? 1 : 0;
     }
 }

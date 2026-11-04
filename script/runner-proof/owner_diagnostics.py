@@ -100,7 +100,7 @@ class Journal:
         elif name == 'lipo':
             operation = 'archs'
         elif name == 'owner-identity-probe':
-            operation = 'owner' if '--owner' in args else 'windows'
+            operation = 'chrome-static' if '--chrome-static' in args else 'owner' if '--owner' in args else 'windows'
         return {'kind': 'command', 'step': self.stack[-1], 'operation': operation,
                 'tool': self.tool(args[0]), 'arguments': self.tokens(args)}
 

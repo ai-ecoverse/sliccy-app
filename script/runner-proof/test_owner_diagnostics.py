@@ -18,6 +18,14 @@ import owner_identity_setup as identity
 import sealed_owner_identity as wrapper
 
 
+def chrome_record():
+    return {'schema': 1, 'kind': 'chrome-static-identity', 'accepted': True,
+        'createStatus': 0, 'requirementStatus': 0, 'signingInformationStatus': 0,
+        'identifier': 'com.google.Chrome', 'team': 'EQHXZ8M8AV', 'cdHash': 'a' * 40,
+        'policy': {'requirement': wrapper.CHROME_REQUIREMENT, 'identityFlags': 9, 'strictFlags': 25,
+            'identityStatus': 0, 'strictStatus': -66999, 'accepted': True, 'detritusTolerated': True}}
+
+
 class Pipeline:
     def __init__(self, directory, fail_at=None):
         self.root = Path(directory)
@@ -89,6 +97,8 @@ class Pipeline:
                 return (3, b'', b'app role refused') if mismatch else (0, b'', b'valid signature')
             full = self.fullhash(args[-1])
             return 0, b'', ('CDHash=' + full[:40] + '\nCandidateCDHashFull sha256=' + full + '\nTeamIdentifier=S8LB56P782\nflags=0x10000(runtime)\n').encode()
+        if name == 'owner-identity-probe' and args[1:] == ['--chrome-static']:
+            return 0, json.dumps(chrome_record()).encode(), b''
         if name == 'xcrun' and args[1] == 'clang':
             Path(args[-1]).write_bytes(b'fixed observer')
         return 0, b'fixed stdout', b'fixed stderr'
@@ -298,6 +308,36 @@ class DiagnosticsTests(unittest.TestCase):
                 self.assert_complete(row)
                 self.assertEqual(row['step'], stage)
                 self.assertEqual(row['stderrTail'], 'download-or-seal-error')
+
+    def test_chrome_typed_policy_accepts_only_valid_identity_and_exact_detritus(self):
+        import copy
+        cases = [(chrome_record(), 0, True)]
+        clean = chrome_record(); clean['policy'].update(strictStatus=0, detritusTolerated=False)
+        cases.append((clean, 0, True))
+        for key, value in [('identityStatus', -67050), ('strictStatus', -67054), ('strictStatus', -67055),
+                           ('strictStatus', -67050), ('strictStatus', -50), ('identityFlags', 0), ('strictFlags', 16),
+                           ('requirement', 'identifier "com.google.Chrome"'), ('detritusTolerated', False)]:
+            bad = copy.deepcopy(chrome_record()); bad['policy'][key] = value
+            cases.append((bad, 0, False))
+        for key, value in [('team', 'WRONGTEAM'), ('identifier', 'other'), ('cdHash', 'bad'), ('accepted', False), ('createStatus', -50)]:
+            bad = copy.deepcopy(chrome_record()); bad[key] = value
+            cases.append((bad, 0, False))
+        cases.append((chrome_record(), 1, False))
+        for record, code, accepted in cases:
+            with self.subTest(record=record, code=code), tempfile.TemporaryDirectory() as name:
+                root = Path(name)
+                journal = diagnostics.Journal(root / 'rows', root, root, time.monotonic())
+                def run(args, **kwargs):
+                    kwargs['stdout'].write(json.dumps(record).encode())
+                    kwargs['stderr'].write(b'fixed typed verifier output')
+                    return subprocess.CompletedProcess(args, code)
+                with patch.object(diagnostics.subprocess, 'run', side_effect=run):
+                    if accepted:
+                        self.assertEqual(journal.call('chrome-signature', wrapper.chrome_identity, root / 'owner-identity-probe', root, {}, time.monotonic() + 10, journal), 'a' * 40)
+                    else:
+                        with self.assertRaises(ValueError):
+                            journal.call('chrome-signature', wrapper.chrome_identity, root / 'owner-identity-probe', root, {}, time.monotonic() + 10, journal)
+                self.assertEqual(json.loads((root / 'chrome-static-identity.json').read_text()), record)
 
     def test_every_closed_validation_stage_preserves_failure_cause(self):
         for stage in diagnostics.STEPS:

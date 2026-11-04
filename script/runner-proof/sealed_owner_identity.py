@@ -86,6 +86,34 @@ def fixed_role(path, identifier, checked, apple=False):
     return matches[0]
 
 
+CHROME_REQUIREMENT = 'anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate 1[field.1.2.840.113635.100.6.2.6] exists and identifier "com.google.Chrome" and certificate leaf[subject.OU] = "EQHXZ8M8AV"'
+
+
+def chrome_identity(binary, evidence, env, deadline, journal):
+    remaining = min(10, deadline - time.monotonic())
+    if remaining <= 0:
+        raise ValueError('chrome-static-deadline')
+    result = journal.run([str(binary), '--chrome-static'], stdin=shared.subprocess.DEVNULL,
+        capture_output=True, timeout=remaining, check=False, env=dict(env, **identity.ASSERTIONS))
+    record = json.loads(result.stdout)
+    (evidence / 'chrome-static-identity.json').write_text(json.dumps(record, indent=2) + '\n')
+    policy = record.get('policy', {})
+    status_keys = ['createStatus', 'requirementStatus', 'signingInformationStatus']
+    policy_status_keys = ['identityFlags', 'strictFlags', 'identityStatus', 'strictStatus']
+    if (not isinstance(record, dict) or not isinstance(policy, dict) or
+        any(type(record.get(k)) is not int for k in status_keys + ['schema']) or
+        any(type(policy.get(k)) is not int for k in policy_status_keys) or
+        result.returncode != 0 or record.get('schema') != 1 or record.get('kind') != 'chrome-static-identity' or
+        record.get('accepted') is not True or any(record.get(k) != 0 for k in status_keys) or
+        record.get('identifier') != 'com.google.Chrome' or record.get('team') != 'EQHXZ8M8AV' or
+        policy.get('requirement') != CHROME_REQUIREMENT or policy.get('identityFlags') != 9 or policy.get('strictFlags') != 25 or
+        policy.get('identityStatus') != 0 or policy.get('strictStatus') not in (0, -66999) or policy.get('accepted') is not True or
+        policy.get('detritusTolerated') is not (policy.get('strictStatus') == -66999) or
+        not isinstance(record.get('cdHash'), str) or not re.fullmatch('[0-9a-f]{40}', record['cdHash'])):
+        raise ValueError('chrome-static-identity-refused')
+    return record['cdHash']
+
+
 def preview(root, evidence, log, env, deadline, workspace, checked, journal):
     directory = root / 'preview-artifact'
     directory.mkdir(mode=0o700)
@@ -125,15 +153,14 @@ def suite(root, evidence, log, env, deadline, workspace, trace, journal):
     preview_app = journal.call('preview-prepare', preview, root, evidence, log, env, deadline, workspace, checked, journal)
     before = journal.call('bundle-before', lambda: {'capture': bundle_bytes(app), 'preview': bundle_bytes(preview_app)})
     (evidence / 'before-bundle-bytes.json').write_text(json.dumps(before, indent=2) + '\n')
-    chrome = Path('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
-    chrome_hash = journal.call('chrome-signature', fixed_role, chrome, 'com.google.Chrome', checked)
-    osascript_hash = journal.call('authorization-signature', fixed_role, Path('/usr/bin/osascript'), 'com.apple.osascript', checked, apple=True)
     binary = root / 'owner-identity-probe'
     journal.call('observer-build', shared.run_owned, ['/usr/bin/xcrun', 'clang', '-fobjc-arc', '-Wall', '-Wextra', '-Werror',
         '-framework', 'Foundation', '-framework', 'CoreGraphics', '-framework', 'Security',
         str(workspace / 'script/runner-proof/owner_identity_probe.m'), '-o', str(binary)], log, env, deadline, maximum=30)
     (evidence / 'probe-build.json').write_text(json.dumps({'sourceSHA256': shared.sha(workspace / 'script/runner-proof/owner_identity_probe.m'),
         'executableSHA256': shared.sha(binary), 'compiledOnHostedRunner': True, 'signedRole': None, 'permissionGranted': False}) + '\n')
+    chrome_hash = journal.call('chrome-signature', chrome_identity, binary, evidence, env, deadline, journal)
+    osascript_hash = journal.call('authorization-signature', fixed_role, Path('/usr/bin/osascript'), 'com.apple.osascript', checked, apple=True)
     pages = journal.call('page-manifest', lambda: json.loads((workspace / 'script/runner-proof/owner-probe-pages.json').read_text()))
     pages['osascriptCDHash'] = osascript_hash
     helper = app / 'Contents/Helpers/ScreenProofSurface.app'

@@ -13,10 +13,10 @@
     "script/runner-proof/capture_tcc_dry_run.py": "819598d61f92370874d096c2a3848bd9cf41f7c84b2781473491e5546fa71122",
     "script/runner-proof/mac_rosetta_preflight.py": "f2682a4466f334ba1a27be80fc02be5d0c15f59d7fc6e3492ce15e2fdbc6781b",
     "script/runner-proof/owner-probe-pages.json": "83dc759e32021310a88df41fbde12470b2733a37d6373b7f9647d1ba5e709cc0",
-    "script/runner-proof/owner_diagnostics.py": "c4c91b1dbcd7c43776ac2508b3fab42107246fbcea773c37515632976c60c6e6",
-    "script/runner-proof/owner_identity_probe.m": "6370728f855e768ed74b83e76cb02e744fd5937f4c016ac4c6b01138f6e00979",
+    "script/runner-proof/owner_diagnostics.py": "d9af1abc1f0c2bdc53a684b70186ac2eb3977a0cc20403e802ad1b546f4bc16a",
+    "script/runner-proof/owner_identity_probe.m": "22a1b2b27bd3a4ebb3a829839473220fab6eec75e63037c4b5d83d84c88fe88c",
     "script/runner-proof/owner_identity_setup.py": "9db3415076f4c74fe6665cb60578eeb60ab7f345ae497c8a3086cd23bfc829c7",
-    "script/runner-proof/sealed_owner_identity.py": "9bfe0b01b72c92f2946688e11c6878705a81abd95aab64cde469d8a5969d3db7",
+    "script/runner-proof/sealed_owner_identity.py": "e98e6ceed15d2bb54eb4e491cb9a6310e4752c327f5c1e708fce27f3798527b2",
     "script/runner-proof/sealed_runner.py": "a48e39e1531c801e8a95e41cffe0660f78ea6c7c2555f575b0d89652305feb2a",
     "script/runner-proof/snapshot_manifest.py": "386719e42128d2c5565a40afba7ee87b1d02f1de209c6c3bdca6e9b8688ad064",
     "script/runner-proof/universal_manifest.py": "3ce896a09383f713f50040a05eb416da64e9ea5980fd2a62f4c36bf64c2f2ffe"
