@@ -2,6 +2,7 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import re
 import subprocess
 import time
 
@@ -42,6 +43,47 @@ PLAN = [
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
+def named_assertions(value, selected):
+    if value is None or value.returncode != 1:
+        return []
+    output = re.sub(rb'\x1b\[[0-9;]*m', b'', value.stdout + value.stderr).decode('utf-8', errors='replace')
+    if any(marker in output for marker in ['Caught error:', 'SIGKILL', 'unexpected signal', 'Fatal error:', 'fatal error:', 'error: Exited']):
+        return []
+    pattern = r'Test ' + re.escape(selected) + r'\(\) recorded an issue at [^\n]+: Expectation failed:[^\n]*'
+    return re.findall(pattern, output)
+
+
+def overlay(root, row, run, build, test):
+    name, path, old, new, selected = row
+    target = root / path
+    original = target.read_bytes()
+    assert original.decode().count(old) == 1, name
+    compiled = runtime = restored_build = restored_runtime = None
+    try:
+        target.write_text(original.decode().replace(old, new))
+        compiled = run(name + '-build', build, 180)
+        if compiled.returncode == 0:
+            runtime = run(name + '-runtime', test + [selected], 60)
+    finally:
+        target.write_bytes(original)
+    restored_build = run(name + '-restored-build', build, 180)
+    if restored_build.returncode == 0:
+        restored_runtime = run(name + '-restored-runtime', test + [selected], 60)
+    assertions = named_assertions(runtime, selected)
+    red = compiled.returncode == 0 and bool(assertions)
+    green = restored_build.returncode == 0 and restored_runtime is not None and restored_runtime.returncode == 0
+    unchanged = target.read_bytes() == original
+    assert unchanged, name
+    return {'name': name, 'selected': selected, 'compileExit': compiled.returncode,
+        'runtimeExit': runtime.returncode if runtime is not None else None,
+        'namedAssertions': assertions, 'runtimeRed': red,
+        'restoredCompileExit': restored_build.returncode,
+        'restoredRuntimeExit': restored_runtime.returncode if restored_runtime is not None else None,
+        'restoredGreen': green, 'sourceRestored': unchanged,
+        'originalSHA256': hashlib.sha256(original).hexdigest(), 'restoredSHA256': digest(target),
+        'valid': red and green and unchanged}
+
+
 def main():
     assert os.environ.get('GITHUB_ACTIONS') == 'true' and os.environ.get('RUNNER_ENVIRONMENT') == 'github-hosted'
     assert os.environ.get('RUNNER_OS') == 'macOS' and os.environ.get('RUNNER_ARCH') == 'ARM64'
@@ -68,31 +110,24 @@ def main():
     build = ['/usr/bin/xcrun', 'swift', 'build', '--build-tests', *FLAGS]
     test = ['/usr/bin/xcrun', 'swift', 'test', '--skip-build', *FLAGS, '--filter']
     success = False
+    overlays = []
     try:
         assert run('baseline-build', build, 600).returncode == 0
         assert run('baseline-components', test + [FILTER], 120).returncode == 0
-        for name, path, old, new, selected in PLAN:
-            target = ROOT / path
-            original = target.read_bytes()
-            assert original.decode().count(old) == 1, name
-            try:
-                target.write_text(original.decode().replace(old, new))
-                assert run(name + '-build', build, 180).returncode == 0, name
-                value = run(name + '-runtime', test + [selected], 60)
-                output = value.stdout + value.stderr
-                assert value.returncode == 1 and b'Expectation failed' in output and selected.encode() in output, name
-            finally:
-                target.write_bytes(original)
-            assert run(name + '-restored-build', build, 180).returncode == 0, name
-            assert run(name + '-restored-runtime', test + [selected], 60).returncode == 0, name
-        assert run('restored-components', test + [FILTER], 120).returncode == 0
-        success = True
+        for row in PLAN:
+            overlays.append(overlay(ROOT, row, run, build, test))
+            (OUT / 'overlays.json').write_text(json.dumps(overlays, indent=2) + '\n')
+        final = run('restored-components', test + [FILTER], 120)
+        success = final.returncode == 0 and len(overlays) == len(PLAN) and all(row['valid'] for row in overlays)
     finally:
         after = {path: digest(ROOT / path) for path in inputs}
         (OUT / 'source-after.json').write_text(json.dumps(after, indent=2) + '\n')
         assert inputs == after
-        (OUT / 'summary.json').write_text(json.dumps({'success': success, 'mutations': len(PLAN), 'sourceUnchanged': True,
+        (OUT / 'summary.json').write_text(json.dumps({'success': success, 'mutations': len(PLAN), 'completedOverlays': len(overlays),
+            'validRuntimeRedRestoredGreen': sum(row['valid'] for row in overlays), 'sourceUnchanged': True,
             'scope': 'synthetic byte/struct/Security-adapter fixtures; no native process, Security, GUI or capture query'}, indent=2) + '\n')
 
+    return success
+
 if __name__ == '__main__':
-    main()
+    raise SystemExit(0 if main() else 1)

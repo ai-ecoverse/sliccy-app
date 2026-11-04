@@ -13,7 +13,7 @@ struct ScreenRunnerSliceTests {
         .init(slice: .init(cpu: 16777228, subtype: Int32(offset), offset: offset, size: 64), identity: identity(byte, type: type))
     }
     @Test func sameTypeUniqueSelectionAndFullHashPrefixAreMandatory() throws {
-        #expect(try B.unique(identity(), [member(2), member()]) == 1)
+        #expect((try? B.unique(identity(), [member(2), member()])) == 1)
         #expect(throws: ScreenFailure.peerUntrusted) { try B.unique(identity(), [member(2)]) }
         #expect(throws: ScreenFailure.peerUntrusted) { try B.unique(identity(), [member(), member(offset: 128)]) }
         #expect(throws: ScreenFailure.peerUntrusted) { try B.unique(identity(), [member(type: 1)]) }
