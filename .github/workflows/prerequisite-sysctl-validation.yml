@@ -1,0 +1,61 @@
+name: Prerequisite sysctl validation
+
+on:
+  push:
+    branches: [proof/prerequisite-sysctl-validation-b0fc62c]
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-and-syntax:
+    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'push' && github.ref == 'refs/heads/proof/prerequisite-sysctl-validation-b0fc62c'
+    runs-on: xcode-27
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: b0fc62c9ae222bcb67a02344504298295c3555fd
+          persist-credentials: false
+      - name: Verify reviewed sources and validate synthetic fixtures and syntax
+        run: |
+          python3 -B - <<'PY'
+          from pathlib import Path
+          import hashlib,json,os,subprocess,sys
+          expected='b0fc62c9ae222bcb67a02344504298295c3555fd'
+          assert subprocess.check_output(['/usr/bin/git','rev-parse','HEAD'],text=True).strip()==expected
+          assert os.environ['RUNNER_ENVIRONMENT']=='github-hosted' and os.environ['RUNNER_OS']=='macOS' and os.environ['RUNNER_ARCH']=='ARM64'
+          output=Path('validation-results');output.mkdir(mode=0o700)
+          raw=Path('script/runner-proof/prerequisite-reviewed-sources.json').read_bytes()
+          assert hashlib.sha256(raw).hexdigest()=='fed354196471bd2a4feb24390ada058f6c5dc185d23f0bf1ed862b8dd34b41e4'
+          files=json.loads(raw)['files'];assert len(files)==33
+          def verify():
+              for name,digest in files.items():assert hashlib.sha256(Path(name).read_bytes()).hexdigest()==digest
+          verify()
+          record={'source':expected,'workflowSource':os.environ['GITHUB_SHA'],'run':os.environ['GITHUB_RUN_ID'],'attempt':os.environ['GITHUB_RUN_ATTEMPT'],'sourceMap':hashlib.sha256(raw).hexdigest(),'scope':'synthetic structs and syntax only; no observer or native identity query','results':[]}
+          environment={'PATH':'/usr/bin:/bin:/usr/sbin:/sbin','TMPDIR':os.environ['RUNNER_TEMP'],'GITHUB_ACTIONS':'true','RUNNER_ENVIRONMENT':'github-hosted','PYTHONDONTWRITEBYTECODE':'1'}
+          commands=[('fixtures',[sys.executable,'-B','-m','unittest','discover','-s','Tests/PrerequisiteProbe','-p','test_sysctl_native_fixture.py','-v'])]
+          commands += [(name,['/usr/bin/xcrun','--sdk','macosx','clang','-fsyntax-only','-fobjc-arc','-Wall','-Wextra','-Werror','script/runner-proof/prerequisite_'+name+'.m']) for name in ('platform','kernel')]
+          for name,args in commands:
+              try:
+                  result=subprocess.run(args,capture_output=True,timeout=60,env=environment)
+                  status,stdout,stderr=result.returncode,result.stdout,result.stderr
+              except subprocess.TimeoutExpired as error:
+                  status,stdout,stderr=None,error.stdout or b'',error.stderr or b''
+              (output/(name+'.stdout')).write_bytes(stdout);(output/(name+'.stderr')).write_bytes(stderr)
+              record['results'].append({'name':name,'args':args,'exit':status,'stdoutSHA256':hashlib.sha256(stdout).hexdigest(),'stderrSHA256':hashlib.sha256(stderr).hexdigest()})
+              verify()
+              (output/'summary.json').write_text(json.dumps(record,indent=2)+'\n')
+              if status!=0:raise SystemExit(1)
+          record['allPassedUnchanged']=True
+          record['testSources']={str(path):hashlib.sha256(path.read_bytes()).hexdigest() for path in Path('Tests/PrerequisiteProbe').glob('*') if path.is_file()}
+          (output/'summary.json').write_text(json.dumps(record,indent=2)+'\n')
+          PY
+      - name: Retain validation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: prerequisite-sysctl-validation-results
+          path: validation-results/
+          if-no-files-found: error
+          retention-days: 14
