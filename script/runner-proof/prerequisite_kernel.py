@@ -5,12 +5,15 @@ import re
 import capture_stage_root as boundary
 from prerequisite_probe import sample
 import prerequisite_binding as binding
+import prerequisite_image as image
 
 APP_HASH = 'stPyiHVvDcejjgvo90frsO5TZ2c='
 PAIRED = {'placement', 'bsd', 'pidpath', 'file-static', 'requirement', 'static-validity', 'file-info',
           'guest', 'dynamic-validity', 'guest-static', 'live-info', 'kernel-hash', 'spawn', 'hello', 'facts', 'reap', 'root-exit-bsd', 'binding-requirement-text', 'binding-apple-requirement',
           'binding-static-validity', 'binding-live-apple-anchor', 'binding-kernel-flags', 'binding-path-resolve', 'binding-path-stat'}
+PAIRED |= image.PAIRED
 SINGLES = {'target-before', 'target-after', 'candidate', 'ack', 'failure', 'result', 'binding-code-info', 'binding-comparison'}
+SINGLES |= image.SINGLES
 
 
 def require(value, reason):
@@ -33,6 +36,8 @@ def parse(data):
         require(type(row['facts']) is dict, 'kernel-facts')
         if row['phase'] == 'binding-static-validity':
             binding.static_validity(row['state'], row['facts'])
+        if row['state'] == 'completed' and row['phase'] in image.PAIRED | image.SINGLES:
+            image.record(row['phase'],row['facts'])
         if row['state'] == 'completed':
             if row['phase'] == 'binding-comparison':
                 binding.comparison(row['facts'])

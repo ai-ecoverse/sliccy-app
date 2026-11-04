@@ -106,6 +106,7 @@ static void bindingMetadata(pid_t pid, SecCodeRef guest, SecRequirementRef requi
     emit(@"binding-comparison", @"completed", sliccy_inode_row(@"filesystem-input-static-inode", input, file));
     emit(@"binding-comparison", @"completed", sliccy_inode_row(@"filesystem-live-static-inode", live, file));
 }
+#include "prerequisite_image_native.h"
 static NSDictionary *code(pid_t pid, NSString *path, NSString *rule, NSString *identifier, NSData *expected, BOOL designated) {
     SecRequirementRef requirement = NULL;
     SecCodeRef guest = NULL;
@@ -148,6 +149,7 @@ static NSDictionary *code(pid_t pid, NSString *path, NSString *rule, NSString *i
         for (NSDictionary *comparison in sliccy_binding_rows(kernelStatus, ah, bh, kernelHash, expected, ai, bi, identifier, image, path))
             emit(@"binding-comparison", @"completed", comparison);
         bindingMetadata(pid, guest, requirement, a, b, path);
+        if (!expected) imageDiagnostics(pid, requirement, a, b, path, kernelHash);
         require(kernelStatus == 0 && [ah isKindOfClass:NSData.class] && ah.length == 20 && [ah isEqual:bh] &&
             [ah isEqual:kernelHash] && (!expected || [ah isEqual:expected]) && [ai isEqual:identifier] && [bi isEqual:identifier] &&
             [image.path isEqual:path], @"code-binding");
