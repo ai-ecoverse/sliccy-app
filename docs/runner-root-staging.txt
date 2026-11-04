@@ -1,3 +1,5 @@
+Historical design, retained only. The current capture identity path no longer uses staging, sudo or a root child. See runner-bsd-binding.txt. Previous code/evidence remain in the accepted build12 commit and immutable freezes.
+
 # Capture proof root staging — source under review
 
 This is a wrapper prerequisite, separate from the proof-only read-only `--runner-kernel` entry. It has not been executed. The integrated source, regression sources and exact wrapper binding require both reads before compilation, signing or dispatch.

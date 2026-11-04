@@ -168,7 +168,7 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
         guard before == original.sample, try ScreenRunnerProcessSample.read(pid) == before,
               path == executable.path, hash == original.hash else { throw ScreenFailure.peerUntrusted }
         return .init(pid: pid, parent: before.parent, uid: before.uid, seconds: before.seconds, microseconds: before.microseconds,
-                     identifier: identifier, path: path, hash: hash, appleAnchored: false, verified: true, privilegedBracket: false)
+                     identifier: identifier, path: path, hash: hash, appleAnchored: false, verified: true, sysctlBound: false)
     }
 
     func stop() {

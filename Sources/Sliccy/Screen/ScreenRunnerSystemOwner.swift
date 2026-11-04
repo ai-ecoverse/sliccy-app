@@ -26,11 +26,6 @@ struct ScreenRunnerKernelSample: Equatable, Codable, Sendable {
 
 enum ScreenRunnerSystemOwner {
     struct Code: Equatable, Sendable { let identifier: String, path: String, hash: Data }
-    struct Observation: Equatable {
-        let before: ScreenRunnerKernelSample?, beforeError: Int32
-        let after: ScreenRunnerKernelSample?, afterError: Int32
-        let code: Code, kernelPath: String, kernelHash: Data
-    }
     static func identifier(_ pid: pid_t) throws -> String {
         var guest: SecCode?, staticCode: SecStaticCode?, info: CFDictionary?
         guard SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributePid as String: pid] as CFDictionary, [], &guest) == errSecSuccess,
@@ -47,7 +42,7 @@ enum ScreenRunnerSystemOwner {
               try ScreenRunnerKernelSample.hash(pid) == value.hash,
               ScreenRunnerKernelSample.read(pid).0 == before else { throw ScreenFailure.peerUntrusted }
         return .init(pid: pid, parent: before.parent, uid: before.uid, seconds: before.seconds, microseconds: before.microseconds,
-                     identifier: value.identifier, path: value.path, hash: value.hash, appleAnchored: false, verified: true, privilegedBracket: false)
+                     identifier: value.identifier, path: value.path, hash: value.hash, appleAnchored: false, verified: true, sysctlBound: false)
     }
     static func code(pid: pid_t, identifier: String, app: Bool = false) throws -> Code {
         guard ScreenRunnerInventoryBoundary.systemRoles.contains(identifier) || identifier == "com.apple.SecurityAgent" || (app && identifier == "ai.sliccy.mac") else { throw ScreenFailure.peerUntrusted }
@@ -65,42 +60,18 @@ enum ScreenRunnerSystemOwner {
               SecCodeCheckValidity(guest, SecCSFlags(rawValue: kSecCSStrictValidate), rule) == errSecSuccess else { throw ScreenFailure.peerUntrusted }
         return .init(identifier: identifier, path: path.path, hash: hash)
     }
-    static func observe(_ pid: pid_t, identifier: String) throws -> Observation {
-        let before = ScreenRunnerKernelSample.read(pid)
+    static func verify(_ pid: pid_t, identifier: String, identityRecord: @Sendable (ScreenRunnerBSD.Evidence) -> Void) throws -> ScreenRunnerInventoryBoundary.Identity {
+        let before = try ScreenRunnerBSD.observe(pid, phase: "before", record: identityRecord)
         let path = try ScreenRunnerKernelSample.path(pid), hash = try ScreenRunnerKernelSample.hash(pid)
         let verified = try code(pid: pid, identifier: identifier)
-        let after = ScreenRunnerKernelSample.read(pid)
+        let after = try ScreenRunnerBSD.observe(pid, phase: "after", record: identityRecord)
         guard path == verified.path, hash == verified.hash,
               try ScreenRunnerKernelSample.path(pid) == path, try ScreenRunnerKernelSample.hash(pid) == hash else { throw ScreenFailure.peerUntrusted }
-        return .init(before: before.0, beforeError: before.1, after: after.0, afterError: after.1, code: verified, kernelPath: path, kernelHash: hash)
-    }
-    static func bind(_ sample: Observation, pid: pid_t, privileged: ScreenRunnerKernelSample? = nil) throws -> ScreenRunnerKernelSample {
-        for (value, error) in [(sample.before, sample.beforeError), (sample.after, sample.afterError)] {
-            if let value {
-                guard error == 0, value.pid == pid, privileged == nil || value == privileged else { throw ScreenFailure.peerUntrusted }
-            } else {
-                guard error == EPERM, sample.code.identifier == "com.apple.WindowServer", privileged != nil else { throw ScreenFailure.peerUntrusted }
-            }
-        }
-        guard let value = privileged ?? sample.before, value.pid == pid,
-              privileged != nil || sample.before == sample.after else { throw ScreenFailure.peerUntrusted }
-        return value
-    }
-    static func verify(_ pid: pid_t, identifier: String, kernelRecord: @Sendable (ScreenRunnerKernelChild.Evidence) -> Void) throws -> ScreenRunnerInventoryBoundary.Identity {
-        let original = try observe(pid, identifier: identifier)
-        let identity: ScreenRunnerKernelSample
-        let privileged: Bool
-        if identifier == "com.apple.WindowServer" {
-            let first = try ScreenRunnerKernelChild.query(pid, expected: original.code, record: kernelRecord)
-            let current = try observe(pid, identifier: identifier)
-            let last = try ScreenRunnerKernelChild.query(pid, expected: original.code, record: kernelRecord)
-            guard first == last, original.code == current.code, original.kernelPath == current.kernelPath,
-                  original.kernelHash == current.kernelHash else { throw ScreenFailure.peerUntrusted }
-            _ = try bind(original, pid: pid, privileged: first)
-            identity = try bind(current, pid: pid, privileged: last); privileged = true
-        } else { identity = try bind(original, pid: pid); privileged = false }
-        return .init(pid: pid, parent: identity.parent, uid: identity.uid, seconds: identity.seconds, microseconds: identity.microseconds,
-            identifier: identifier, path: original.code.path, hash: original.code.hash, appleAnchored: true, verified: true, privilegedBracket: privileged)
+        let isWindowServer = identifier == "com.apple.WindowServer"
+        let identity = try ScreenRunnerBSD.bind(before, after, windowServer: isWindowServer)
+        return .init(pid: pid, parent: identity.parent, uid: identity.effectiveUID, seconds: identity.seconds, microseconds: identity.microseconds,
+            identifier: identifier, path: verified.path, hash: verified.hash, appleAnchored: true, verified: true, sysctlBound: isWindowServer,
+            realUID: identity.realUID, savedUID: identity.savedUID)
     }
 }
 #endif

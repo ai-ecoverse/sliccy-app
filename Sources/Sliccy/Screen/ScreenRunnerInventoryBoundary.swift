@@ -13,7 +13,8 @@ enum ScreenRunnerInventoryBoundary {
     struct Identity: Equatable, Sendable {
         let pid: pid_t, parent: pid_t, uid: uid_t, seconds: UInt64, microseconds: UInt64
         let identifier: String, path: String, hash: Data
-        let appleAnchored: Bool, verified: Bool, privilegedBracket: Bool
+        let appleAnchored: Bool, verified: Bool, sysctlBound: Bool
+        var realUID: uid_t? = nil, savedUID: uid_t? = nil
     }
     struct Context: Sendable {
         let app: pid_t, surface: pid_t, browsers: [ScreenRunnerBrowserWindow: pid_t]
@@ -77,7 +78,7 @@ enum ScreenRunnerInventoryBoundary {
             } else if owner.identifier == "com.apple.SecurityAgent", owner.appleAnchored {
                 kind = .authorization
             } else if systemRoles.contains(owner.identifier), owner.appleAnchored {
-                guard owner.identifier != "com.apple.WindowServer" || owner.privilegedBracket else { throw ScreenRunnerInventoryIssue.ownerAttribution }
+                guard owner.identifier != "com.apple.WindowServer" || (owner.sysctlBound && owner.parent == 1 && owner.uid == 88 && owner.realUID == 0 && owner.savedUID == 0) else { throw ScreenRunnerInventoryIssue.ownerAttribution }
                 kind = .system
             } else { throw ScreenRunnerInventoryIssue.unclassifiedOwner }
             owners.append(owner)

@@ -25,8 +25,7 @@ int sliccy_screen_proof_ancillary(int safety, const void *record, size_t size);
 int sliccy_screen_proof_helper_spawn(const char *helper, pid_t *pid, int *channel, int *output);
 int sliccy_screen_proof_handoff(int channel, int safety, pid_t cli, const void *record, size_t size);
 #if defined(SLICCY_CAPTURE_RUNNER_PROOF)
-int sliccy_runner_spawn_kernel(const char *executable, const char *target, pid_t *pid, int *input, int *output);
-int sliccy_runner_wait_kernel(pid_t pid, int *kind, int *status);
+#include "ScreenRunnerBSD.h"
 int sliccy_runner_identity(pid_t pid, struct sliccy_screen_process_identity *identity);
 int sliccy_runner_path(pid_t pid, char *path, uint32_t size);
 int sliccy_runner_hash(pid_t pid, unsigned char *hash);

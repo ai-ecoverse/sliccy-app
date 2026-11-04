@@ -52,7 +52,7 @@ final class ScreenRunnerInventory {
         let work = Task.detached(operation: body)
         return try await withTaskCancellationHandler(operation: { try await work.value }, onCancel: { work.cancel() })
     }
-    static func authorizationBaseline(surface: ScreenRunnerOwnedProcess, browsers: [ScreenRunnerOwnedProcess], kernelRecord: @escaping @Sendable (ScreenRunnerKernelChild.Evidence) -> Void) async throws -> Set<UInt32> {
+    static func authorizationBaseline(surface: ScreenRunnerOwnedProcess, browsers: [ScreenRunnerOwnedProcess], identityRecord: @escaping @Sendable (ScreenRunnerBSD.Evidence) -> Void) async throws -> Set<UInt32> {
         let cg = try cgRecords()
         let pids = Set(cg.map(\.pid))
         let known = [surface] + browsers
@@ -67,7 +67,7 @@ final class ScreenRunnerInventory {
                     guard ScreenRunnerInventoryBoundary.systemRoles.contains(identifier) || identifier == "com.apple.SecurityAgent" else {
                         throw ScreenRunnerInventoryIssue.unclassifiedOwner
                     }
-                    _ = try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, kernelRecord: kernelRecord)
+                    _ = try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, identityRecord: identityRecord)
                     if identifier == "com.apple.SecurityAgent" { authorized.insert(pid) }
                 }
             }
@@ -76,7 +76,7 @@ final class ScreenRunnerInventory {
     }
     static func read(surface: ScreenRunnerOwnedProcess, browsers: [ScreenRunnerOwnedProcess], selected: ScreenRunnerCase,
                      authorization: ScreenRunnerOwnedProcess? = nil, correlation: Authorization? = nil,
-                     kernelRecord: @escaping @Sendable (ScreenRunnerKernelChild.Evidence) -> Void) async throws -> ScreenRunnerInventory {
+                     identityRecord: @escaping @Sendable (ScreenRunnerBSD.Evidence) -> Void) async throws -> ScreenRunnerInventory {
         guard try ScreenRunnerHost.require() == selected else { throw ScreenFailure.protection }
         guard CGPreflightScreenCaptureAccess() else { throw ScreenRunnerInventoryIssue.permission }
         guard surface.identifier == "ai.sliccy.proof-helper" else { throw ScreenRunnerInventoryIssue.surfaceIdentity }
@@ -110,7 +110,7 @@ final class ScreenRunnerInventory {
                     guard ScreenRunnerInventoryBoundary.systemRoles.contains(identifier) || identifier == "com.apple.SecurityAgent" else {
                         throw ScreenRunnerInventoryIssue.unclassifiedOwner
                     }
-                    result[pid] = try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, kernelRecord: kernelRecord)
+                    result[pid] = try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, identityRecord: identityRecord)
                 }
             }
             if selected == .authorizationExclusion {

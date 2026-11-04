@@ -25,9 +25,9 @@ struct ScreenRunnerInventoryBoundaryTests {
             owners[pid] = Self.owner(pid, bundle: bundle, apple: apple)
         }
         static func owner(_ pid: pid_t, bundle: String, apple: Bool, hash: UInt8 = 1, seconds: UInt64 = 123) -> B.Identity {
-            .init(pid: pid, parent: 1, uid: 501, seconds: seconds, microseconds: 42,
+            .init(pid: pid, parent: 1, uid: bundle == "com.apple.WindowServer" ? 88 : 501, seconds: seconds, microseconds: 42,
                   identifier: bundle, path: "/fixed/" + bundle, hash: Data(repeating: hash, count: 20),
-                  appleAnchored: apple, verified: true, privilegedBracket: bundle == "com.apple.WindowServer")
+                  appleAnchored: apple, verified: true, sysctlBound: bundle == "com.apple.WindowServer", realUID: bundle == "com.apple.WindowServer" ? 0 : nil, savedUID: bundle == "com.apple.WindowServer" ? 0 : nil)
         }
         func read(display: UInt32 = 1, rect: CGRect = CGRect(x: 0, y: 0, width: 1024, height: 768)) throws -> B.Validated {
             try B.validate(display: display, rect: rect, cg: cg, sck: sck,
@@ -115,7 +115,7 @@ struct ScreenRunnerInventoryBoundaryTests {
     }
     @Test func ownerAndAPIPresenceFieldsCannotDisappearFromFingerprint() throws {
         let baseline = Fixture(), fingerprint = try baseline.read().fingerprint
-        for field in ["parent", "uid", "microseconds", "path", "privilegedBracket", "inCG", "inSCK", "kind"] {
+        for field in ["parent", "uid", "microseconds", "path", "sysctlBound", "inCG", "inSCK", "kind"] {
             var changed = baseline
             let owner = changed.owners[30]!
             changed.owners[30] = .init(pid: owner.pid, parent: field == "parent" ? 2 : owner.parent,
@@ -124,7 +124,7 @@ struct ScreenRunnerInventoryBoundaryTests {
                 identifier: field == "kind" ? "com.apple.SecurityAgent" : owner.identifier,
                 path: field == "path" ? "/fixed/replaced" : owner.path, hash: owner.hash,
                 appleAnchored: owner.appleAnchored, verified: owner.verified,
-                privilegedBracket: field == "privilegedBracket" ? true : owner.privilegedBracket)
+                sysctlBound: field == "sysctlBound" ? true : owner.sysctlBound)
             if field == "inCG" { changed.cg.removeAll { $0.id == 30 } }
             if field == "inSCK" { changed.sck.removeAll { $0.id == 30 } }
             if field == "kind" {
@@ -141,7 +141,7 @@ struct ScreenRunnerInventoryBoundaryTests {
             let owner = changed.owners[30]!
             changed.owners[30] = .init(pid: owner.pid, parent: owner.parent, uid: owner.uid,
                 seconds: owner.seconds, microseconds: owner.microseconds, identifier: owner.identifier,
-                path: owner.path, hash: owner.hash, appleAnchored: field != "appleAnchored", verified: field != "verified", privilegedBracket: false)
+                path: owner.path, hash: owner.hash, appleAnchored: field != "appleAnchored", verified: field != "verified", sysctlBound: false)
             #expect(throws: (any Error).self) { try changed.read() }
         }
     }
@@ -161,7 +161,7 @@ struct ScreenRunnerInventoryBoundaryTests {
             fixture.add(id: 50, pid: 50, bundle: identifier, apple: apple)
             let owner = fixture.owners[50]!
             fixture.owners[50] = .init(pid: owner.pid, parent: owner.parent, uid: owner.uid, seconds: owner.seconds, microseconds: owner.microseconds,
-                identifier: owner.identifier, path: owner.path, hash: owner.hash, appleAnchored: apple, verified: true, privilegedBracket: bracket)
+                identifier: owner.identifier, path: owner.path, hash: owner.hash, appleAnchored: apple, verified: true, sysctlBound: bracket)
             #expect(throws: (any Error).self) { try fixture.read() }
             fixture.owners[50] = Fixture.owner(50, bundle: identifier, apple: true)
             let accepted = try fixture.read()
@@ -199,7 +199,7 @@ struct ScreenRunnerInventoryBoundaryTests {
                 seconds: owner.seconds, microseconds: owner.microseconds,
                 identifier: field == "identifier" ? "com.apple.finder" : owner.identifier, path: owner.path, hash: owner.hash,
                 appleAnchored: field == "appleAnchored" ? false : owner.appleAnchored,
-                verified: field == "verified" ? false : owner.verified, privilegedBracket: owner.privilegedBracket)
+                verified: field == "verified" ? false : owner.verified, sysctlBound: owner.sysctlBound)
             let other = B.Fingerprint(display: fingerprint.display, rect: fingerprint.rect,
                 windows: fingerprint.windows, owners: fingerprint.owners.map { $0.pid == owner.pid ? changed : $0 })
             #expect(other != fingerprint)
@@ -230,7 +230,7 @@ struct ScreenRunnerInventoryBoundaryTests {
                 changed.owners[30] = .init(pid: field == "pid" ? 31 : owner.pid, parent: owner.parent, uid: owner.uid,
                     seconds: owner.seconds, microseconds: owner.microseconds, identifier: owner.identifier,
                     path: owner.path, hash: owner.hash, appleAnchored: owner.appleAnchored,
-                    verified: field != "verified", privilegedBracket: owner.privilegedBracket)
+                    verified: field != "verified", sysctlBound: owner.sysctlBound)
             }
             #expect(throws: (any Error).self) { try changed.read() }
         }

@@ -1,0 +1,51 @@
+name: Runner BSD synthetic tests
+
+on:
+  push:
+    branches: [proof/capture-no-root-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-bsd-tests:
+    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'push' && github.ref == 'refs/heads/proof/capture-no-root-v1'
+    runs-on: xcode-27
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Record exact inputs
+        run: |
+          python3 -B - <<'PY'
+          from pathlib import Path
+          import hashlib,json,os,subprocess
+          assert os.environ['RUNNER_ENVIRONMENT']=='github-hosted' and os.environ['RUNNER_OS']=='macOS' and os.environ['RUNNER_ARCH']=='ARM64'
+          assert subprocess.check_output(['/usr/bin/git','rev-parse','HEAD'],text=True).strip()==os.environ['GITHUB_SHA']
+          files=['Sources/ScreenSystem/include/ScreenRunnerBSD.h','Tests/RunnerBSD/fixture.c','Tests/RunnerBSD/hosted.py','Tests/RunnerBSD/test_source.py','.github/workflows/runner-bsd-tests.yml']
+          Path('bsd-inputs.json').write_text(json.dumps({'source':os.environ['GITHUB_SHA'],'run':os.environ['GITHUB_RUN_ID'],'attempt':os.environ['GITHUB_RUN_ATTEMPT'],'files':{p:hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in files}},indent=2)+'\n')
+          PY
+      - name: Run pure source and actual synthetic boundary tests
+        run: |
+          python3 -B -m unittest discover -s Tests/RunnerBSD -p test_source.py -v
+          python3 -B Tests/RunnerBSD/hosted.py
+      - name: Confirm unchanged inputs
+        if: always()
+        run: |
+          python3 -B - <<'PY'
+          from pathlib import Path
+          import json,hashlib
+          record=json.loads(Path('bsd-inputs.json').read_text())
+          for p,h in record['files'].items():assert hashlib.sha256(Path(p).read_bytes()).hexdigest()==h
+          output=Path('bsd-results');output.mkdir(exist_ok=True)
+          (output/'inputs.json').write_text(json.dumps(record,indent=2)+'\n')
+          PY
+      - name: Retain synthetic evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runner-bsd-test-results
+          path: bsd-results/
+          if-no-files-found: error
+          retention-days: 14

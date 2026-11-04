@@ -256,47 +256,51 @@ int sliccy_screen_proof_handoff(int channel, int safety, pid_t cli, const void *
 #include <sys/acl.h>
 #include <sys/wait.h>
 extern int csops(pid_t, unsigned int, void *, size_t);
-int sliccy_runner_spawn_kernel(const char *executable, const char *target, pid_t *pid, int *input, int *output) {
-    if (geteuid() == 0 || !executable || !target || !pid || !input || !output) return EINVAL;
-    int in[2] = {-1, -1}, out[2] = {-1, -1};
-    int result = private_pipe(in);
-    if (result) return result;
-    result = private_pipe(out);
-    if (result) { close(in[0]); close(in[1]); return result; }
-    posix_spawn_file_actions_t actions;
-    posix_spawnattr_t attributes;
-    int have_actions = 0, have_attributes = 0;
-    if ((result = posix_spawn_file_actions_init(&actions))) goto done;
-    have_actions = 1;
-    if ((result = posix_spawnattr_init(&attributes))) goto done;
-    have_attributes = 1;
-    if ((result = posix_spawnattr_setflags(&attributes, POSIX_SPAWN_CLOEXEC_DEFAULT))) goto done;
-    if ((result = posix_spawn_file_actions_adddup2(&actions, in[0], STDIN_FILENO))) goto done;
-    if ((result = posix_spawn_file_actions_adddup2(&actions, out[1], STDOUT_FILENO))) goto done;
-    if ((result = posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0))) goto done;
-    char *arguments[] = {"/usr/bin/sudo", "-n", "--preserve-env=GITHUB_ACTIONS,GITHUB_EVENT_NAME,GITHUB_REF,GITHUB_REPOSITORY,SLICCY_RUNNER_ENVIRONMENT",
-                         "--", (char *)executable, "--runner-kernel", (char *)target, NULL};
-    char *environment[] = {"GITHUB_ACTIONS=true", "GITHUB_EVENT_NAME=workflow_dispatch", "GITHUB_REF=refs/heads/proof/runner-capture-v1",
-                          "GITHUB_REPOSITORY=ai-ecoverse/sliccy-app", "SLICCY_RUNNER_ENVIRONMENT=github-hosted", NULL};
-    result = posix_spawn(pid, "/usr/bin/sudo", &actions, &attributes, arguments, environment);
-done:
-    if (have_actions) posix_spawn_file_actions_destroy(&actions);
-    if (have_attributes) posix_spawnattr_destroy(&attributes);
-    close(in[0]); close(out[1]);
-    if (result) { close(in[1]); close(out[0]); }
-    else { *input = in[1]; *output = out[0]; }
+#include <sys/sysctl.h>
+static struct sliccy_runner_bsd_read runner_bsd_sysctl(pid_t pid) {
+    struct kinfo_proc info = {0}; size_t length = sizeof(info);
+    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
+    errno = 0; int status = sysctl(mib, 4, &info, &length, NULL, 0), error = errno;
+    struct sliccy_runner_bsd_read result = {.status = status == 0 ? 0 : (error ? error : EINVAL),
+        .count = length, .expected = sizeof(info)};
+    if (status == 0 && length == sizeof(info) && info.kp_proc.p_starttime.tv_sec > 0 && info.kp_proc.p_starttime.tv_usec >= 0) {
+        result.value = (struct sliccy_runner_bsd_value){info.kp_proc.p_pid, info.kp_eproc.e_ppid,
+            info.kp_eproc.e_ucred.cr_uid, info.kp_eproc.e_pcred.p_ruid, info.kp_eproc.e_pcred.p_svuid,
+            (uint64_t)info.kp_proc.p_starttime.tv_sec, (uint64_t)info.kp_proc.p_starttime.tv_usec};
+    }
     return result;
 }
-int sliccy_runner_wait_kernel(pid_t pid, int *kind, int *status) {
-    if (pid <= 0 || !kind || !status) return EINVAL;
-    int value = 0;
-    pid_t result;
-    do { result = waitpid(pid, &value, 0); } while (result < 0 && errno == EINTR);
-    if (result != pid) return errno ? errno : ECHILD;
-    if (WIFEXITED(value)) { *kind = 0; *status = WEXITSTATUS(value); }
-    else if (WIFSIGNALED(value)) { *kind = 1; *status = WTERMSIG(value); }
-    else { *kind = 2; *status = value; }
-    return 0;
+static struct sliccy_runner_bsd_read runner_bsd_proc(pid_t pid) {
+    struct proc_bsdinfo info = {0}; errno = 0;
+    int count = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, sizeof(info)), error = errno;
+    struct sliccy_runner_bsd_read result = {.status = count == (int)sizeof(info) ? 0 : (error ? error : EINVAL),
+        .count = count > 0 ? (size_t)count : 0, .expected = sizeof(info)};
+    if (count == (int)sizeof(info) && info.pbi_pid <= INT32_MAX && info.pbi_ppid <= INT32_MAX) {
+        result.value = (struct sliccy_runner_bsd_value){(int32_t)info.pbi_pid, (int32_t)info.pbi_ppid,
+            info.pbi_uid, info.pbi_ruid, info.pbi_svuid, info.pbi_start_tvsec, info.pbi_start_tvusec};
+    }
+    return result;
+}
+static struct sliccy_runner_bsd_bracket runner_bsd_bracket(pid_t pid) {
+    struct sliccy_runner_bsd_bracket value;
+    value.before = runner_bsd_sysctl(pid); value.proc = runner_bsd_proc(pid); value.after = runner_bsd_sysctl(pid);
+    return value;
+}
+int sliccy_runner_bsd_observe(int32_t pid, struct sliccy_runner_bsd_observation *value) {
+    if (!value || pid <= 0 || geteuid() == 0) return EINVAL;
+    *value = (struct sliccy_runner_bsd_observation){0};
+    value->self_pid = getpid(); value->parent_pid = getppid();
+    value->controls[0] = runner_bsd_bracket(value->self_pid);
+    value->controls[1] = runner_bsd_bracket(value->parent_pid);
+    value->target = runner_bsd_bracket(pid);
+    return getpid() == value->self_pid && getppid() == value->parent_pid ? 0 : EINVAL;
+}
+int sliccy_runner_bsd_select(const struct sliccy_runner_bsd_observation *observation, int32_t pid,
+                            struct sliccy_runner_bsd_value *value, int *used_sysctl) {
+    return observation ? sliccy_bsd_select(*observation, pid, value, used_sysctl) : EINVAL;
+}
+int sliccy_runner_bsd_windowserver(const struct sliccy_runner_bsd_value *a, const struct sliccy_runner_bsd_value *b) {
+    return a && b && sliccy_bsd_windowserver(*a, *b);
 }
 int sliccy_runner_identity(pid_t pid, struct sliccy_screen_process_identity *identity) {
     if (!identity || pid <= 0) return EINVAL;

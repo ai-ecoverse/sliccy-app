@@ -49,11 +49,12 @@ class SurfacePinTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         main = (root / 'Sources/Sliccy/App/SliccyMain.swift').read_text()
         proof = main.split('#if SLICCY_CAPTURE_RUNNER_PROOF\n', 1)[1].split('#elseif', 1)[0]
-        self.assertIn('--runner-kernel', proof)
+        self.assertNotIn('--runner-kernel', main)
+        self.assertNotIn('/usr/bin/sudo', (root / 'Sources/ScreenSystem/ScreenSystem.c').read_text())
         self.assertNotIn('--runner-kernel', main.replace(proof, ''))
         code = (root / 'Sources/ScreenSystem/ScreenSystem.c').read_text()
         guarded = code.split('#if defined(SLICCY_CAPTURE_RUNNER_PROOF)\n', 1)[1].split('#endif', 1)[0]
-        for name in ('sliccy_runner_identity', 'sliccy_runner_path', 'sliccy_runner_hash', 'sliccy_runner_no_acl', 'sliccy_runner_spawn_kernel', 'sliccy_runner_wait_kernel'):
+        for name in ('sliccy_runner_identity', 'sliccy_runner_path', 'sliccy_runner_hash', 'sliccy_runner_no_acl', 'sliccy_runner_bsd_observe', 'sliccy_runner_bsd_select'):
             self.assertIn(name, guarded)
             self.assertNotIn(name, code.replace(guarded, ''))
         script = (root / 'script/build_and_run.sh').read_text()

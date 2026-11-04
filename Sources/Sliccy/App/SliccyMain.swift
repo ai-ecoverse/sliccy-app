@@ -5,7 +5,6 @@ import SwiftUI
 enum SliccyMain {
     @MainActor static func main() {
 #if SLICCY_CAPTURE_RUNNER_PROOF
-        if CommandLine.arguments.dropFirst().first == "--runner-kernel" { ScreenRunnerKernelChild.run() }
         guard geteuid() != 0 else { exit(2) }
         ScreenRunnerProofApp.run()
 #elseif SLICCY_HOSTED_PID_PROOF
