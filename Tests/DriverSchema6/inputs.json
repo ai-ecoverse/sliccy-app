@@ -18,26 +18,28 @@
     "pid_reuse_darwin_test.go": "11c92388831dff2c2cc8867e2996e369ec9e70fc770ea235cb1ce6719509075a",
     "process_observer_darwin_test.go": "3d1d45844092ac2080ae91ba8934c1041e85ea7b7759d8ca3c6356e356bc3846",
     "released_test.go": "7bfc09b585caf4ef895e0ec7944cd6d9cc88222c1961b5860ba54e307b59b4f5",
+    "runner_bsd_native_darwin_test.go": "d5f9dbc09b2d710cfc9a1a170705c9fa9f9a24791d063fddd8bda9307fa59961",
     "runner_bsd_receipt_darwin_test.go": "ec4593d03401fe50f9463047476e83f5bcfa475a58730545194400279895af2f",
     "runner_clock_darwin_test.go": "3a9fa2be818be194ed2d9fc28ee540d3a21c935814839deadaaa413b8fd4b041",
     "runner_code_receipt_darwin_test.go": "0700a01b2824c8677dd128cc50179ac16e6532291188b5d59f4655b02d833c94",
-    "runner_controller_darwin_test.go": "9e844acc270948b99213a1f88672af98da07c3d9f5ee709e608b1ac2b3c20024",
-    "runner_entry_darwin_test.go": "65c4c1ea705d3867e5782fad7a4662ca6cab5cbbff9c6bbc55279ce7d1c152f3",
+    "runner_controller_darwin_test.go": "23d9428a7addd51f1d508855fc557f535cdde45d8162e562fba9d6ec49d574be",
+    "runner_entry_darwin_test.go": "d4e826fd7e7c0a7b940f3fb9b3ec2702328f39422c864ef725c15f5ff3340405",
     "runner_inventory_darwin_test.go": "3e7b687085eb8ef38c95811a57a19c0c3be5414cfe0cde3b2838164335222520",
-    "runner_io_fixture_darwin_test.go": "b7e11383921f334a8896a8bbbffb14377f85dad153ddebe86f15e367800b4d7d",
+    "runner_io_fixture_darwin_test.go": "8421f60cba0f5573c17f87aaaf45d8265bcb4a9177fa429e6ae5d821b6b0255a",
     "runner_loop_darwin_test.go": "d3e871e6936175f4b55c308e7ca6ed02cd8d5372edf488373bdf9cc745dcf730",
-    "runner_native_darwin_test.go": "a804b6be9f9478b9d27226f6708f89084be1581bd684341e16b39bf0e9a29d99",
+    "runner_native_darwin_test.go": "47c822e39150e3e5bbaca68f7a04280f4d2930b64017825dab16c36850008bf8",
     "runner_page_darwin_test.go": "19962f1a235ddf241d06313310b85b4b801950af8dc24aac74d83bee63b5fa14",
-    "runner_pages_darwin_test.go": "97120f7f16f822fceec9cbaa23fbfe222e0d50b1e4d22acca13decaf5f93febd",
+    "runner_pages_darwin_test.go": "0d94c6428e39a7c78dd38d54f0106853b336256d536d50c45d337d1b28e4c6c8",
     "runner_pattern_darwin_test.go": "f43504ad40b21447d25515e0cb15ad2734b3b0a77d53ff9de669cb101c6e8f09",
     "runner_pion_fixture_darwin_test.go": "50e54ea7c4ec5e4f39fde6a629b809d54ed081b9ecfa828cee7eae5b3e422b6e",
     "runner_pixels_darwin_test.go": "28d079f7fe539d96edf8084163f6931c778ca3f837a0e8f696e3b07fe7119bf7",
     "runner_receipts_darwin_test.go": "739c0cbf751beb790acb39d1b0306e58fd227c6c13b3d7c4c94ddc1a1f887514",
     "runner_receiver_darwin_test.go": "366bbe77ace708a4fc324a7b9c3f7d9be4208f34f07f9afc78e8c0eeb54d4858",
     "runner_record_darwin_test.go": "b9c38e82f621e4ca1c833db130ffe3fb20b8bed2755bce0af022435c5f1856fe",
-    "runner_schema_darwin_test.go": "da3eb941cc05c3b1025792a299baa65c4a3fa3431350571b0015b799f6843104",
+    "runner_schema_darwin_test.go": "892fc4cb8455216ae71eea6fb75ffbedb8f20b5d6ee5b37a8e8852773369336c",
     "runner_timing_darwin_test.go": "e77ff7b1e712004eb6c08e84d9b88821a95bb703c5b4ff64b165dbfcece41fcc",
-    "runner_windows_darwin_test.go": "1b746365fe87ae65f1c28fcdde37b79fd9b28594368efdca196bd8ad4a9dfae2",
+    "runner_union_darwin_test.go": "6b83d0a651b98c9f10966d33ec08ee8dcce2f24288e76ba17e3fa02a360ddd8c",
+    "runner_windows_darwin_test.go": "6cf518b401af03a728a35f9df77fcdead0aa4b9649f5ab5fb743b1383b5a8d74",
     "runner_wire_decode_darwin_test.go": "68efb087cdcc02575d3665b2754a030c95bcd549830a7abbe0faf46d0bd61d2d",
     "safety_handoff_darwin_test.go": "680ff5cae19825aa39288dfa7df162d4ffbf29d83be1e6c2e10ee49ecf260be0",
     "safety_handoff_parser_test.go": "7c794e21e9f848b7bb78125994d60b57652bb16ff053c4017cc76b56a2bbd615",
@@ -52,7 +54,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "93b9ec2c255ae0368445b4579061d93d256f68ccba832d215608c99390b1aec2",
+    "inputs/driver-source.tar.gz": "569639bb47223985c33c587289014f6045ef038da2a45d3ff7b8a7dd1bbd2577",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
   },
   "fixtureSHA256": "618f9204dda8b8160796fd3a56dd3cfd4eb79a9aa365213131f6964eda069649",
@@ -60,5 +62,6 @@
   "actualEncoderSources": {
     "Sources/Sliccy/Screen/ScreenRunnerReceiptLedger.swift": "2c39093785f4e6c05fc211be25756a83f61ac2a8bdf90e97675b49d588668b4b",
     "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6"
-  }
+  },
+  "scope": "partial schema6 driver components, native adapters compile only; no native query or subject execution"
 }

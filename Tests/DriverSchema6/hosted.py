@@ -92,10 +92,30 @@ try:
     fixture_path = results.resolve() / 'foundation-encode.stdout'
     env['SLICCY_RECEIPT_FIXTURE'] = str(fixture_path)
     os.chdir(source)
-    test = command('go-components', [go, 'test', '-count=1', '-timeout=30s', './test/nativeproof', '-run', '^(TestRunnerBSDReceipt.*|TestRunnerReceiptBook.*|TestRunnerReceiptFoundationEncoderInteroperability|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission)$'], 300)
+    selected = '^(TestRunnerBSDReceipt.*|TestRunnerReceiptBook.*|TestRunnerReceiptFoundationEncoderInteroperability|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission)$'
+    test = command('go-components', [go, 'test', '-count=1', '-timeout=30s', './test/nativeproof', '-run', selected], 300)
+    assert test.returncode == 0
+    path = target / 'runner_schema_darwin_test.go'
+    original = path.read_bytes()
+    guard = b'strings.TrimSpace(string(fields[key])) == "null" || '
+    assert original.count(guard) == 1
+    try:
+        path.write_bytes(original.replace(guard, b'', 1))
+        mutant = command('null-integer-mutant', [go, 'test', '-count=1', '-timeout=30s', './test/nativeproof', '-run', '^TestRunnerBSDReceiptStrictParserRecomputesFlags$'], 120)
+        assert mutant.returncode == 1 and b'null integer accepted status' in mutant.stdout and b'[build failed]' not in mutant.stdout
+    finally:
+        path.write_bytes(original)
+    restored = command('go-restored', [go, 'test', '-count=1', '-timeout=30s', './test/nativeproof', '-run', selected], 120)
+    assert restored.returncode == 0
     assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == manifest['files']
     (results / 'after-source-map.json').write_text(json.dumps(manifest['files'], indent=2))
-    assert test.returncode == 0
+    formatted = results / 'formatted'
+    formatted.mkdir()
+    for name in manifest['files']:
+        result = subprocess.run([str(private / 'go/bin/gofmt'), str(target / name)], stdin=subprocess.DEVNULL, capture_output=True, env=env, timeout=10)
+        assert result.returncode == 0 and result.stderr == b'' and len(result.stdout) <= 1048576
+        (formatted / name).write_bytes(result.stdout)
+    (results / 'formatted-source-map.json').write_text(json.dumps({p.name: sha(p.read_bytes()) for p in formatted.iterdir()}, indent=2))
 finally:
     output = Path(os.environ['GITHUB_WORKSPACE']) / 'driver-schema6-results'
     (output / 'commands.json').write_text(json.dumps(records, indent=2))
