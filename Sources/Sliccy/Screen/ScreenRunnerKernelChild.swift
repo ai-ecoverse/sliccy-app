@@ -154,9 +154,10 @@ enum ScreenRunnerKernelChild {
         try immutableExecutable(ownPath)
         let own = try ScreenRunnerSystemOwner.code(pid: getpid(), identifier: "ai.sliccy.mac", app: true)
         guard own.path == ownPath, try ScreenRunnerKernelSample.hash(getpid()) == own.hash else { throw ScreenFailure.peerUntrusted }
-        var selfCode: SecCode?, designated: SecRequirement?
+        var selfCode: SecCode?, selfStaticCode: SecStaticCode?, designated: SecRequirement?
         guard SecCodeCopySelf([], &selfCode) == errSecSuccess, let selfCode,
-              SecCodeCopyDesignatedRequirement(selfCode, [], &designated) == errSecSuccess, let designated else { throw ScreenFailure.peerUntrusted }
+              SecCodeCopyStaticCode(selfCode, [], &selfStaticCode) == errSecSuccess, let selfStaticCode,
+              SecCodeCopyDesignatedRequirement(selfStaticCode, [], &designated) == errSecSuccess, let designated else { throw ScreenFailure.peerUntrusted }
         let deadline = ContinuousClock.now.advanced(by: .seconds(2)), began = Date().timeIntervalSince1970
         try Task.checkCancellation()
         var child: pid_t = 0, input: Int32 = -1, output: Int32 = -1
