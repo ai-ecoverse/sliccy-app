@@ -54,7 +54,7 @@ final class ScreenRunnerJournal: @unchecked Sendable {
     func emit(_ stage: String, _ fields: [String: Any] = [:], at: ContinuousClock.Instant = .now) -> Bool {
         lock.lock()
         guard !writeFailed else { lock.unlock(); return false }
-        var row: [String: Any] = ["schema": 3, "case": selected.rawValue, "capture": true, "stage": stage,
+        var row: [String: Any] = ["schema": 5, "case": selected.rawValue, "capture": true, "stage": stage,
             "elapsedMs": Self.ms(began.duration(to: .now)), "eventElapsedMs": Self.ms(began.duration(to: at))]
         fields.forEach { row[$0.key] = $0.value }
         do {
@@ -68,6 +68,10 @@ final class ScreenRunnerJournal: @unchecked Sendable {
             writeFailed = true; lock.unlock()
             authorityFailed(); return false
         }
+    }
+    func rejectEvidence() {
+        lock.lock(); let first = !writeFailed; writeFailed = true; lock.unlock()
+        if first { authorityFailed() }
     }
     func gateInvalidated(start: ContinuousClock.Instant, end: ContinuousClock.Instant) {
         lock.lock(); let first = !gateReported; gateReported = true; lock.unlock()

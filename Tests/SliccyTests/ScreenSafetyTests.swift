@@ -97,7 +97,8 @@ struct ScreenSafetyTests {
         _ = try state.receive(link, now: now)
         let grant = try state.grant(binding, scope: "window", now: now)
         #expect(state.phase == .pending)
-        let revoke = try state.revoke(.stopped, now: now)
+        let revokeValue = try state.revoke(.stopped, now: now)
+        let revoke = try #require(revokeValue)
         var ack = state.base("granted"); ack.request = grant.request; ack.binding = grant.binding
         _ = try state.receive(ack, now: now)
         #expect(state.phase == .revoked)

@@ -11,6 +11,9 @@ final class ScreenChild: @unchecked Sendable {
     private let lock = NSLock()
     private var live = true
     private var hasReaped = false
+#if SLICCY_CAPTURE_RUNNER_PROOF
+    private(set) var runnerIdentity: ScreenRunnerProcessIdentity?
+#endif
     private var monitor: DispatchSourceProcess?
     private let lost: @Sendable () -> Void
     private let reaped: @Sendable (Int32) -> Void
@@ -89,7 +92,7 @@ final class ScreenChild: @unchecked Sendable {
                 self.lock.unlock()
                 if result == self.pid { self.reaped(status) }
                 monitor?.cancel()
-            } else { _ = kill(self.pid, SIGKILL) }
+            } else { self.forceStop() }
         }
         monitor.resume()
         // Ordinary launches discard stdout. Diagnostic bytes go only to the
@@ -113,10 +116,16 @@ final class ScreenChild: @unchecked Sendable {
         do {
             defer { Darwin.close(input); Darwin.close(boot) }
             guard registered.wait(timeout: .now() + 1) == .success, ContinuousClock.now < deadline else { throw ScreenFailure.stalled }
-            guard kill(child, SIGCONT) == 0 else { throw ScreenFailure.peerLost }
+#if SLICCY_CAPTURE_RUNNER_PROOF
+            guard policy.hashes.count == 1, let hash = policy.hashes.first else { throw ScreenFailure.peerUntrusted }
+            let recorded = try ScreenRunnerProcessIdentity.capture(pid: pid, role: .cli, hash: hash, identifier: "ai.sliccy.slicc", team: "S8LB56P782")
+            lock.lock(); runnerIdentity = recorded; lock.unlock()
+#endif
+            lock.lock(); let resumed = signalLocked(SIGCONT); lock.unlock()
+            guard resumed else { throw ScreenFailure.peerLost }
             try Self.writePipe(bootstrap, fd: boot, until: deadline)
             try Self.writePipe(Data((join + "\n").utf8), fd: input, until: deadline)
-        } catch { invalidate(); _ = kill(child, SIGKILL); throw error }
+        } catch { forceStop(); throw error }
     }
     private func invalidate() {
         lock.lock(); let notify = live; live = false; lock.unlock()
@@ -124,14 +133,14 @@ final class ScreenChild: @unchecked Sendable {
     }
     func stop() {
         lock.lock()
-        if !hasReaped { _ = kill(pid, SIGTERM) }
+        if !hasReaped { _ = signalLocked(SIGTERM) }
         lock.unlock()
         invalidate()
     }
     /// Ownership and reaping share this lock, so escalation cannot target a reused PID.
     func forceStop() {
         lock.lock()
-        if !hasReaped { _ = kill(pid, SIGKILL) }
+        if !hasReaped { _ = signalLocked(SIGKILL) }
         lock.unlock()
         invalidate()
     }
@@ -141,9 +150,24 @@ final class ScreenChild: @unchecked Sendable {
         // No event handler can retain self during deinit. WNOHANG establishes
         // that this PID is still our unreaped child before sending a signal.
         if waitpid(pid, &status, WNOHANG) == 0 {
+#if SLICCY_CAPTURE_RUNNER_PROOF
+            if signalLocked(SIGKILL) { _ = waitpid(pid, &status, WNOHANG) }
+#else
             _ = kill(pid, SIGKILL)
             while waitpid(pid, &status, 0) < 0 && errno == EINTR {}
+#endif
         }
+    }
+    private func signalLocked(_ value: Int32) -> Bool {
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        guard let runnerIdentity else { return false }
+        return runnerIdentity.signal(value, owned: !hasReaped, reaped: hasReaped,
+            sample: { try ScreenRunnerProcessSample.read(pid) },
+            role: { try ScreenRunnerProcessIdentity.verifyRole(pid: pid, identifier: "ai.sliccy.slicc", team: "S8LB56P782", hash: runnerIdentity.hash) },
+            send: { kill($0, $1) })
+#else
+        return kill(pid, value) == 0
+#endif
     }
     private static func writePipe(_ data: Data, fd: Int32, until: ContinuousClock.Instant) throws {
         let one: Int32 = 1

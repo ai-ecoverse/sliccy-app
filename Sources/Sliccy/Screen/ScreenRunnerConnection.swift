@@ -18,13 +18,20 @@ final class ScreenRunnerHealth: @unchecked Sendable {
         sourceUntil = .now.advanced(by: .milliseconds(1500))
     }
     func check() -> Bool {
-        lock.lock(); defer { lock.unlock() }
-        return valid && !ended && sourceUntil.map({ .now < $0 }) == true && indicator?.check() == true && owners.allSatisfy(\.isAlive)
+        lockedOwnerCheck {
+            valid && !ended && sourceUntil.map({ .now < $0 }) == true && indicator?.check() == true && owners.allSatisfy(\.isAlive)
+        }
     }
+    private func lockedOwnerCheck(_ check: () -> Bool) -> Bool {
+        lock.lock(); defer { lock.unlock() }; return check()
+    }
+    #if DEBUG
+    func testOwnerCheck(_ check: () -> Bool) -> Bool { lockedOwnerCheck(check) }
+    #endif
 }
 
 final class ScreenRunnerConnection: @unchecked Sendable {
-    enum Event: Sendable { case started(pid_t), authenticated, lost, reaped(pid_t), transport(ScreenTransport.Event) }
+    enum Event: Sendable { case owned(ScreenRunnerProcessIdentity), started(pid_t), authenticated, lost, reaped(pid_t), transport(ScreenTransport.Event) }
     private let lock = NSLock()
     private var child: ScreenChild?, link: ScreenTransport?
     private var stopped = false, reaped = false
@@ -42,6 +49,7 @@ final class ScreenRunnerConnection: @unchecked Sendable {
             join: join, bootstrap: handshake.bootstrapRecord(), policy: policy,
             reaped: { [weak self] _ in self?.childReaped() }, lost: { [weak self] in self?.childLost() })
         lock.lock(); child = owned; let stop = stopped, alreadyReaped = reaped; lock.unlock()
+        if let identity = owned.runnerIdentity { event(.owned(identity)) }
         event(.started(owned.pid))
         if alreadyReaped { event(.reaped(owned.pid)) }
         if stop { owned.stop(); throw ScreenFailure.stopped }

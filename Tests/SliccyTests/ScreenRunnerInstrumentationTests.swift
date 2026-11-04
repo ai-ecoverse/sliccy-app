@@ -17,10 +17,10 @@ struct ScreenRunnerInstrumentationTests {
     }
     @Test func fixedPageGeometryAndTitlesMatchIndependentPageContract() {
         let expected: [(String, String, String, CGRect)] = [
-            ("host-a-1", "a", "Sliccy proof host A1", CGRect(x: 416, y: 64, width: 288, height: 224)),
-            ("host-a-2", "a", "Sliccy proof host A2", CGRect(x: 720, y: 64, width: 288, height: 224)),
-            ("host-b-1", "b", "Sliccy proof host B1", CGRect(x: 416, y: 320, width: 288, height: 224)),
-            ("host-b-2", "b", "Sliccy proof host B2", CGRect(x: 720, y: 320, width: 288, height: 224))]
+            ("host-a-1", "a-1", "Sliccy proof host A1", CGRect(x: 416, y: 64, width: 288, height: 224)),
+            ("host-a-2", "a-2", "Sliccy proof host A2", CGRect(x: 720, y: 64, width: 288, height: 224)),
+            ("host-b-1", "b-1", "Sliccy proof host B1", CGRect(x: 416, y: 320, width: 288, height: 224)),
+            ("host-b-2", "b-2", "Sliccy proof host B2", CGRect(x: 720, y: 320, width: 288, height: 224))]
         #expect(ScreenRunnerBrowserWindow.allCases.count == expected.count)
         for (window, row) in zip(ScreenRunnerBrowserWindow.allCases, expected) {
             #expect(window.rawValue == row.0 && window.profile == row.1 && window.title == row.2 && window.rect == row.3)

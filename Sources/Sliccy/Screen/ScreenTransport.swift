@@ -17,8 +17,8 @@ final class ScreenTransport: @unchecked Sendable {
         case proofControlSent(ContinuousClock.Instant)
         case proofControlEchoed(ContinuousClock.Instant)
 #endif
-        case revocationConfirmed
-        case revokeQueued(ContinuousClock.Instant)
+        case revocationConfirmed(ContinuousClock.Instant, ContinuousClock.Instant, Int)
+        case revokeQueued(ContinuousClock.Instant, ContinuousClock.Instant, Int)
         case link(String, ScreenRecipient, ScreenBrowserEvidence)
         case granted(ScreenBinding)
         case stopped(ScreenFailure)
@@ -39,7 +39,7 @@ final class ScreenTransport: @unchecked Sendable {
     private var inputBytes = ScreenRate(capacity: 65536, rate: 65536)
     private var outputRecords = ScreenRate(capacity: 16, rate: 16)
     private var outputBytes = ScreenRate(capacity: 65536, rate: 65536)
-    private let outputQueue = DispatchQueue(label: "ai.sliccy.screen.safety-write", qos: .userInteractive)
+    private let outputQueue: DispatchQueue
     private let imageQueue = DispatchQueue(label: "ai.sliccy.screen.frames", qos: .userInitiated)
     private var imageWriting = false
     private var controlWriting = false
@@ -99,12 +99,13 @@ final class ScreenTransport: @unchecked Sendable {
 
     init(pair: ScreenHandshake.Pair, verifier: ScreenPeerVerifier,
          noCapture: Bool = false,
+         controlQueue: DispatchQueue = DispatchQueue(label: "ai.sliccy.screen.safety-write", qos: .userInteractive),
          currentProtection: @escaping @Sendable () -> Bool,
          event: @escaping @Sendable (Event) -> Void) {
         safety = pair.safety; frames = pair.frames; identity = pair.identity; self.verifier = verifier
         state = ScreenSafetyState(launch: pair.launch, connection: pair.connection, now: pair.authenticatedAt, readyDeadline: pair.readyDeadline)
         self.currentProtection = currentProtection; self.event = event
-        self.noCapture = noCapture
+        self.noCapture = noCapture; outputQueue = controlQueue
     }
     func start() {
 #if SLICCY_CAPTURE_RUNNER_PROOF
@@ -164,7 +165,10 @@ final class ScreenTransport: @unchecked Sendable {
                         }
 #endif
                         if !wasReady, state.ready { return (reply, .ready) }
-                        if message.type == "revoked" { return (reply, .revocationConfirmed) }
+                        if message.type == "revoked" {
+                            guard let began = state.revokeStartedAt else { throw ScreenFailure.incompatible }
+                            return (reply, .revocationConfirmed(.now, began, state.revokeOrdinal))
+                        }
                         return (reply, message.type == "revoke" ? .stopped(ScreenFailure(rawValue: message.reason ?? "") ?? .stopped) : nil)
                     }
                     if let reply = outcome.0 { try enqueue(reply) }
@@ -204,17 +208,25 @@ final class ScreenTransport: @unchecked Sendable {
     }
 
     /// This invalidates synchronously, before locks, encoding, audit, or network work.
-    func stop(_ reason: ScreenFailure = .stopped) {
-        quiesceOutput()
+    func stop(_ reason: ScreenFailure = .stopped) { stopAfterInvalidation(reason, at: nil) }
+#if DEBUG
+    func testStop(_ reason: ScreenFailure, at: ContinuousClock.Instant) { stopAfterInvalidation(reason, at: at) }
+#endif
+    private func stopAfterInvalidation(_ reason: ScreenFailure, at instant: ContinuousClock.Instant?) {
+        let invalidation = quiesceOutput()
+        let began = instant ?? invalidation.0
         do {
-            let message = try locked {
+            let admission = try locked { () throws -> (Bool, ContinuousClock.Instant, Int)? in
                 guard !ended else { throw ScreenFailure.stopped }
-                return try state.revoke(reason)
+                guard let message = try state.revoke(reason, now: began) else { return nil }
+                let queued = try appendLocked(message)
+                return (queued.0, queued.1, state.revokeOrdinal)
             }
-            let queuedAt = try enqueue(message)
-            event(.revokeQueued(queuedAt))
+            guard let (start, queuedAt, ordinal) = admission else { return }
+            if start { outputQueue.async { [self] in writeControl() } }
+            event(.revokeQueued(queuedAt, began, ordinal))
             event(.stopped(reason))
-        } catch { fail(reason) }
+        } catch { fail(error as? ScreenFailure ?? reason) }
     }
 
     /// End image authority before the safety exchange. Socket lifetime and image
