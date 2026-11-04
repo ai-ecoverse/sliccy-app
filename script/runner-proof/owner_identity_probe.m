@@ -65,18 +65,32 @@ static NSString *chromeRule(void) {
 static BOOL chromeAccepted(OSStatus identity, OSStatus strict) {
     return identity == errSecSuccess && (strict == errSecSuccess || strict == errSecCSInvalidAssociatedFileData);
 }
+static NSDictionary *chromePolicyRecord(OSStatus identity, OSStatus strict, CFErrorRef error) {
+    SecCSFlags flags = kSecCSCheckAllArchitectures | kSecCSCheckNestedCode;
+    return @{@"requirement": chromeRule(), @"identityFlags": @(flags), @"strictFlags": @(flags | kSecCSStrictValidate), @"identityStatus": @(identity), @"strictStatus": @(strict),
+        @"strictErrorDomain": error ? (__bridge NSString *)CFErrorGetDomain(error) : absent(),
+        @"strictErrorCode": error ? @(CFErrorGetCode(error)) : absent(),
+        @"accepted": chromeAccepted(identity, strict) ? @YES : @NO,
+        @"detritusTolerated": identity == errSecSuccess && strict == errSecCSInvalidAssociatedFileData ? @YES : @NO};
+}
 static NSDictionary *chromeStatic(SecStaticCodeRef code, SecRequirementRef requirement) {
     SecCSFlags flags = kSecCSCheckAllArchitectures | kSecCSCheckNestedCode;
     CFErrorRef error = NULL;
     OSStatus identity = SecStaticCodeCheckValidity(code, flags, requirement);
     OSStatus strict = SecStaticCodeCheckValidityWithErrors(code, flags | kSecCSStrictValidate, requirement, &error);
-    NSDictionary *result = @{@"requirement": chromeRule(), @"identityFlags": @(flags), @"strictFlags": @(flags | kSecCSStrictValidate), @"identityStatus": @(identity), @"strictStatus": @(strict),
-        @"strictErrorDomain": error ? (__bridge NSString *)CFErrorGetDomain(error) : absent(),
-        @"strictErrorCode": error ? @(CFErrorGetCode(error)) : absent(),
-        @"accepted": @(chromeAccepted(identity, strict)),
-        @"detritusTolerated": @(identity == errSecSuccess && strict == errSecCSInvalidAssociatedFileData)};
+    NSDictionary *result = chromePolicyRecord(identity, strict, error);
     if (error) CFRelease(error);
     return result;
+}
+static NSDictionary *chromeIdentityRecord(OSStatus created, OSStatus rule, OSStatus details, NSDictionary *policy, NSDictionary *info) {
+    id digest = info[(__bridge NSString *)kSecCodeInfoUnique];
+    NSString *hash = [digest isKindOfClass:NSData.class] && [digest length] == 20 ? hex([digest bytes], [digest length]) : nil;
+    id identifier = info[(__bridge NSString *)kSecCodeInfoIdentifier], team = info[(__bridge NSString *)kSecCodeInfoTeamIdentifier];
+    BOOL accepted = [policy[@"accepted"] boolValue] && details == errSecSuccess && hash &&
+        [identifier isEqual:@"com.google.Chrome"] && [team isEqual:@"EQHXZ8M8AV"];
+    return @{@"schema": @1, @"kind": @"chrome-static-identity", @"accepted": accepted ? @YES : @NO,
+        @"createStatus": @(created), @"requirementStatus": @(rule), @"signingInformationStatus": @(details),
+        @"policy": policy, @"cdHash": hash ?: absent(), @"identifier": identifier ?: absent(), @"team": team ?: absent()};
 }
 static NSDictionary *chromePreflight(void) {
     SecStaticCodeRef code = NULL;
@@ -86,19 +100,14 @@ static NSDictionary *chromePreflight(void) {
     OSStatus rule = SecRequirementCreateWithString((__bridge CFStringRef)chromeRule(), kSecCSDefaultFlags, &requirement);
     NSDictionary *policy = code && requirement && created == errSecSuccess && rule == errSecSuccess ? chromeStatic(code, requirement) : @{};
     OSStatus details = code ? SecCodeCopySigningInformation(code, kSecCSSigningInformation, &raw) : errSecParam;
-    NSDictionary *info = raw ? (__bridge NSDictionary *)raw : @{};
-    id digest = info[(__bridge NSString *)kSecCodeInfoUnique];
-    NSString *hash = [digest isKindOfClass:NSData.class] && [digest length] == 20 ? hex([digest bytes], [digest length]) : nil;
-    id identifier = info[(__bridge NSString *)kSecCodeInfoIdentifier], team = info[(__bridge NSString *)kSecCodeInfoTeamIdentifier];
-    BOOL accepted = [policy[@"accepted"] boolValue] && details == errSecSuccess && hash &&
-        [identifier isEqual:@"com.google.Chrome"] && [team isEqual:@"EQHXZ8M8AV"];
-    NSDictionary *result = @{@"schema": @1, @"kind": @"chrome-static-identity", @"accepted": @(accepted),
-        @"createStatus": @(created), @"requirementStatus": @(rule), @"signingInformationStatus": @(details),
-        @"policy": policy, @"cdHash": hash ?: absent(), @"identifier": identifier ?: absent(), @"team": team ?: absent()};
+    NSDictionary *result = chromeIdentityRecord(created, rule, details, policy, raw ? (__bridge NSDictionary *)raw : @{});
     if (raw) CFRelease(raw);
     if (requirement) CFRelease(requirement);
     if (code) CFRelease(code);
     return result;
+}
+static NSData *encodeRecord(id value, NSError **error) {
+    return [NSJSONSerialization dataWithJSONObject:value options:NSJSONWritingSortedKeys error:error];
 }
 static NSDictionary *owner(pid_t pid) {
     NSDictionary *before = kernel(pid);
@@ -208,7 +217,7 @@ int main(int argc, const char **argv) {
             value = owner((pid_t)pid);
         } else return failed("observer-mode-argument", 2);
         NSError *error = nil;
-        NSData *data = [NSJSONSerialization dataWithJSONObject:value options:NSJSONWritingSortedKeys error:&error];
+        NSData *data = encodeRecord(value, &error);
         if (!data) return failed("observer-json-serialization", 1);
         if (data.length > 4194304) return failed("observer-json-bound", 1);
         if (fwrite(data.bytes, 1, data.length, stdout) != data.length || fputc('\n', stdout) == EOF || fflush(stdout) == EOF) return failed("observer-output-write", 1);

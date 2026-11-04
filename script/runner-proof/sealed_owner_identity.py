@@ -97,13 +97,41 @@ def chrome_identity(binary, evidence, env, deadline, journal):
         capture_output=True, timeout=remaining, check=False, env=dict(env, **identity.ASSERTIONS))
     record = json.loads(result.stdout)
     (evidence / 'chrome-static-identity.json').write_text(json.dumps(record, indent=2) + '\n')
-    policy = record.get('policy', {})
+    return parse_chrome_identity(record, result.returncode)
+
+
+def chrome_record_shape(record):
+    outer = {'schema', 'kind', 'accepted', 'createStatus', 'requirementStatus', 'signingInformationStatus', 'policy', 'cdHash', 'identifier', 'team'}
+    inner = {'requirement', 'identityFlags', 'strictFlags', 'identityStatus', 'strictStatus', 'strictErrorDomain', 'strictErrorCode', 'accepted', 'detritusTolerated'}
+    if not isinstance(record, dict) or set(record) != outer or record['schema'] != 1 or record['kind'] != 'chrome-static-identity':
+        raise ValueError('chrome-static-record-shape')
+    policy = record['policy']
+    if not isinstance(policy, dict) or (policy and set(policy) != inner):
+        raise ValueError('chrome-static-policy-shape')
+    for key in ['schema', 'createStatus', 'requirementStatus', 'signingInformationStatus']:
+        if type(record[key]) is not int:
+            raise ValueError('chrome-static-field-type:' + key)
+    if type(record['accepted']) is not bool:
+        raise ValueError('chrome-static-field-type:accepted')
+    for key in ['cdHash', 'identifier', 'team']:
+        if record[key] is not None and not isinstance(record[key], str):
+            raise ValueError('chrome-static-field-type:' + key)
+    if policy:
+        for key in ['identityFlags', 'strictFlags', 'identityStatus', 'strictStatus']:
+            if type(policy[key]) is not int:
+                raise ValueError('chrome-static-field-type:policy.' + key)
+        for key in ['accepted', 'detritusTolerated']:
+            if type(policy[key]) is not bool:
+                raise ValueError('chrome-static-field-type:policy.' + key)
+        if not isinstance(policy['requirement'], str) or (policy['strictErrorDomain'] is not None and not isinstance(policy['strictErrorDomain'], str)) or (policy['strictErrorCode'] is not None and type(policy['strictErrorCode']) is not int):
+            raise ValueError('chrome-static-policy-detail-type')
+    return policy
+
+
+def parse_chrome_identity(record, returncode):
+    policy = chrome_record_shape(record)
     status_keys = ['createStatus', 'requirementStatus', 'signingInformationStatus']
-    policy_status_keys = ['identityFlags', 'strictFlags', 'identityStatus', 'strictStatus']
-    if (not isinstance(record, dict) or not isinstance(policy, dict) or
-        any(type(record.get(k)) is not int for k in status_keys + ['schema']) or
-        any(type(policy.get(k)) is not int for k in policy_status_keys) or
-        result.returncode != 0 or record.get('schema') != 1 or record.get('kind') != 'chrome-static-identity' or
+    if (returncode != 0 or record.get('schema') != 1 or record.get('kind') != 'chrome-static-identity' or
         record.get('accepted') is not True or any(record.get(k) != 0 for k in status_keys) or
         record.get('identifier') != 'com.google.Chrome' or record.get('team') != 'EQHXZ8M8AV' or
         policy.get('requirement') != CHROME_REQUIREMENT or policy.get('identityFlags') != 9 or policy.get('strictFlags') != 25 or

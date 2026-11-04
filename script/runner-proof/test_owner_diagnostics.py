@@ -23,7 +23,7 @@ def chrome_record():
         'createStatus': 0, 'requirementStatus': 0, 'signingInformationStatus': 0,
         'identifier': 'com.google.Chrome', 'team': 'EQHXZ8M8AV', 'cdHash': 'a' * 40,
         'policy': {'requirement': wrapper.CHROME_REQUIREMENT, 'identityFlags': 9, 'strictFlags': 25,
-            'identityStatus': 0, 'strictStatus': -66999, 'accepted': True, 'detritusTolerated': True}}
+            'identityStatus': 0, 'strictStatus': -66999, 'strictErrorDomain': 'NSOSStatusErrorDomain', 'strictErrorCode': -66999, 'accepted': True, 'detritusTolerated': True}}
 
 
 class Pipeline:
