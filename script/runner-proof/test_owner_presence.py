@@ -141,6 +141,16 @@ class PresenceTests(unittest.TestCase):
         self.assertFalse(setup.pre_authorization_presence(changed, 'initial')['clear'])
         with self.assertRaises(ValueError): setup.pre_authorization_presence(observation, 'authorization-requested')
 
+    def test_empty_signing_identifier_is_unresolved_at_actual_pre_request_boundary(self):
+        observation = {'windows': [{'validShape': True, 'pid': 42, 'windowID': 7}],
+            'owners': [{'pid': 42, 'signingIdentifier': ''}]}
+        for phase in ['initial', 'app-helper', 'chrome-launched']:
+            with self.subTest(phase=phase):
+                result = setup.pre_authorization_presence(observation, phase)
+                self.assertFalse(result['clear'])
+                self.assertEqual(result['verifiedSecurityAgentWindows'], [])
+                self.assertEqual(result['unresolvedWindowOwners'], [{'pid': 42, 'windowID': 7}])
+
     def test_actual_run_uses_four_launch_profiles_and_gates_final_presence(self):
         for scenario in ['success', 'missing-get', 'early-security-agent']:
             missing_get = scenario == 'missing-get'

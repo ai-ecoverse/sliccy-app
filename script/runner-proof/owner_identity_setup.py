@@ -511,7 +511,7 @@ def pre_authorization_presence(observation, phase):
         if window.get('validShape') is not True or type(window.get('pid')) is not int or type(window.get('windowID')) is not int:
             raise ValueError('pre-authorization-window-shape')
         matches = [owner for owner in owners if owner.get('pid') == window['pid']]
-        if len(matches) != 1 or type(matches[0].get('signingIdentifier')) is not str:
+        if len(matches) != 1 or type(matches[0].get('signingIdentifier')) is not str or not matches[0]['signingIdentifier']:
             unresolved.append({'pid': window['pid'], 'windowID': window['windowID']})
             continue
         owner = matches[0]

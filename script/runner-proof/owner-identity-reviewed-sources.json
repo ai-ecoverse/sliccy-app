@@ -15,7 +15,7 @@
     "script/runner-proof/owner-probe-pages.json": "a6b275a8e109e82504eb45acf4b2cee99590f5c7d40625574baa2b9819e98da6",
     "script/runner-proof/owner_diagnostics.py": "4bbde08830f117d227a8a36c3093d51b6884e3fc9fa795e010ba1e325eed2e48",
     "script/runner-proof/owner_identity_probe.m": "308002b72cae5e39d2fec5b52bb6745bfdfbdd253e8a83a18f513669c553e9a3",
-    "script/runner-proof/owner_identity_setup.py": "6a4405f718f5355ec7629ff0ffdb6caf78caa4b2c88f23ab328af20bba71af72",
+    "script/runner-proof/owner_identity_setup.py": "710e02f87e2c4fa77649ba86f6176b69f49ce67c51c10e195dfb816b38f39a2c",
     "script/runner-proof/sealed_owner_identity.py": "477da583f909ec5b0f3a06a7bfec9446e0c52d3925318f3428cc23be9724ba35",
     "script/runner-proof/sealed_runner.py": "a885f78f2951a31d367f67761461ac793e110ba2b2a5a8ce65b39811b5cf8ed2",
     "script/runner-proof/snapshot_manifest.py": "386719e42128d2c5565a40afba7ee87b1d02f1de209c6c3bdca6e9b8688ad064",
