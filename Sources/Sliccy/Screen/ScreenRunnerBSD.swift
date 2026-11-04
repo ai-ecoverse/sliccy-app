@@ -14,9 +14,8 @@ enum ScreenRunnerBSD {
         var raw: sliccy_runner_bsd_value {
             .init(pid: pid, parent: parent, effective_uid: effectiveUID, real_uid: realUID, saved_uid: savedUID, seconds: seconds, microseconds: microseconds)
         }
-        var fields: [String: Any] {
-            ["pid": pid, "parent": parent, "effectiveUID": effectiveUID, "realUID": realUID, "savedUID": savedUID,
-             "seconds": String(seconds), "microseconds": microseconds]
+        var fields: [Any] {
+            [pid, parent, effectiveUID, realUID, savedUID, String(seconds), microseconds]
         }
     }
     struct Evidence: @unchecked Sendable {
@@ -31,12 +30,12 @@ enum ScreenRunnerBSD {
         guard sliccy_runner_bsd_select(&observation, pid, &value, &used) == 0 else { throw ScreenFailure.peerUntrusted }
         return .init(sample: .init(value), usedSysctl: used == 1, controlsAgreed: sliccy_bsd_controls(observation) != 0)
     }
-    static func readFields(_ value: sliccy_runner_bsd_read) -> [String: Any] {
-        ["status": value.status, "count": value.count, "expected": value.expected,
-         "value": value.status == 0 && value.count == value.expected ? Sample(value.value).fields as Any : NSNull()]
+    static func readFields(_ value: sliccy_runner_bsd_read) -> [Any] {
+        [value.status, value.count, value.expected,
+         value.status == 0 && value.count == value.expected ? Sample(value.value).fields as Any : NSNull()]
     }
-    static func bracketFields(_ value: sliccy_runner_bsd_bracket) -> [String: Any] {
-        ["before": readFields(value.before), "proc": readFields(value.proc), "after": readFields(value.after)]
+    static func bracketFields(_ value: sliccy_runner_bsd_bracket) -> [Any] {
+        [readFields(value.before), readFields(value.proc), readFields(value.after)]
     }
     static func observe(_ pid: pid_t, phase: String, record: @Sendable (Evidence) -> Void) throws -> Resolved {
         var raw = sliccy_runner_bsd_observation()
