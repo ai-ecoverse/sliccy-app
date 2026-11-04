@@ -92,22 +92,33 @@ try:
     fixture_path = results.resolve() / 'foundation-encode.stdout'
     env['SLICCY_RECEIPT_FIXTURE'] = str(fixture_path)
     os.chdir(source)
-    selected = '^(TestRunnerBSDReceipt.*|TestRunnerReceiptBook.*|TestRunnerReceiptFoundationEncoderInteroperability|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission)$'
-    test = command('go-components', [go, 'test', '-count=1', '-timeout=30s', './test/nativeproof', '-run', selected], 300)
-    assert test.returncode == 0
-    path = target / 'runner_schema_darwin_test.go'
-    original = path.read_bytes()
-    guard = b'strings.TrimSpace(string(fields[key])) == "null" || '
-    assert original.count(guard) == 1
-    try:
-        path.write_bytes(original.replace(guard, b'', 1))
-        mutant = command('null-integer-mutant', [go, 'test', '-count=1', '-timeout=30s', './test/nativeproof', '-run', '^TestRunnerBSDReceiptStrictParserRecomputesFlags$'], 120)
-        assert mutant.returncode == 1 and b'null integer accepted status' in mutant.stdout and b'[build failed]' not in mutant.stdout
-    finally:
-        path.write_bytes(original)
-    restored = command('go-restored', [go, 'test', '-count=1', '-timeout=30s', './test/nativeproof', '-run', selected], 120)
-    assert restored.returncode == 0
-    assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == manifest['files']
+    selected = '^(TestRunnerBSDReceipt.*|TestRunnerReceiptBook.*|TestRunnerReceiptFoundationEncoderInteroperability|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission|TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries|TestRunnerExecutableSlicesRetainSameCPUCapabilitiesAndBounds|TestRunnerUnionRequiresEveryIndependentOwnerAndProtectsSecurityAgent)$'
+    binary = str(private / 'driver-components')
+    compile_result = command('go-baseline-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 300)
+    assert compile_result.returncode == 0
+    baseline = command('go-baseline-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', selected], 45)
+    assert baseline.returncode == 0 and b'--- SKIP:' not in baseline.stdout
+    mutation_results = []
+    for mutation in json.loads((Path(os.environ['GITHUB_WORKSPACE']) / 'Tests/DriverSchema6/mutants.json').read_text()):
+        path = target / mutation['file']
+        original = path.read_bytes()
+        needle = mutation['old'].encode()
+        assert original.count(needle) == 1
+        try:
+            path.write_bytes(original.replace(needle, mutation['new'].encode(), 1))
+            compile_mutant = command(mutation['name']+'-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
+            assert compile_mutant.returncode == 0
+            runtime_mutant = command(mutation['name']+'-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', '^'+mutation['test']+'$'], 45)
+            assert runtime_mutant.returncode == 1 and mutation['assertion'].encode() in runtime_mutant.stdout and b'panic:' not in runtime_mutant.stdout and b'--- SKIP:' not in runtime_mutant.stdout
+            mutation_results.append({'name': mutation['name'], 'compile': 0, 'runtime': 1, 'assertion': mutation['assertion']})
+        finally:
+            path.write_bytes(original)
+        restored_compile = command(mutation['name']+'-restored-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
+        assert restored_compile.returncode == 0
+        restored = command(mutation['name']+'-restored-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', selected], 45)
+        assert restored.returncode == 0 and b'--- SKIP:' not in restored.stdout
+        assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == manifest['files']
+    (results / 'mutation-results.json').write_text(json.dumps(mutation_results, indent=2))
     (results / 'after-source-map.json').write_text(json.dumps(manifest['files'], indent=2))
     formatted = results / 'formatted'
     formatted.mkdir()

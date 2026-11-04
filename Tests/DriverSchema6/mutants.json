@@ -1,0 +1,58 @@
+[
+  {
+    "name": "null-integer",
+    "file": "runner_schema_darwin_test.go",
+    "old": "strings.TrimSpace(string(fields[key])) == \"null\" || ",
+    "new": "",
+    "test": "TestRunnerBSDReceiptStrictParserRecomputesFlags",
+    "assertion": "null integer accepted status"
+  },
+  {
+    "name": "same-type",
+    "file": "runner_independent_binding_darwin_test.go",
+    "old": "info.Type == live.Type && bytes.Equal(info.Hash, live.Hash)",
+    "new": "bytes.Equal(info.Hash, live.Hash)",
+    "test": "TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries",
+    "assertion": "ASSERTION:unique-same-type-control"
+  },
+  {
+    "name": "unique-count",
+    "file": "runner_independent_binding_darwin_test.go",
+    "old": "if matches != 1 {",
+    "new": "if matches < 1 {",
+    "test": "TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries",
+    "assertion": "ASSERTION:refuse-multiple-match"
+  },
+  {
+    "name": "platform",
+    "file": "runner_independent_binding_darwin_test.go",
+    "old": "if strings.HasPrefix(role, \"com.apple.\") && kernel.Flags&0x04000000 == 0 {",
+    "new": "if false && strings.HasPrefix(role, \"com.apple.\") && kernel.Flags&0x04000000 == 0 {",
+    "test": "TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries",
+    "assertion": "ASSERTION:refuse-platform"
+  },
+  {
+    "name": "selected-flags",
+    "file": "runner_independent_binding_darwin_test.go",
+    "old": "ops.ExplicitValidity(selectedSlice, 25, rule)",
+    "new": "ops.ExplicitValidity(selectedSlice, 16, rule)",
+    "test": "TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries",
+    "assertion": "ASSERTION:actual-role-flags"
+  },
+  {
+    "name": "chrome-guest-flags",
+    "file": "runner_independent_binding_darwin_test.go",
+    "old": "ops.GuestStaticValidity(0, rule)",
+    "new": "ops.GuestStaticValidity(16, rule)",
+    "test": "TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries",
+    "assertion": "ASSERTION:actual-role-flags"
+  },
+  {
+    "name": "slice-overlap",
+    "file": "runner_file_snapshot_darwin_test.go",
+    "old": "old.Offset < v.Offset+v.Size && v.Offset < old.Offset+old.Size",
+    "new": "false",
+    "test": "TestRunnerExecutableSlicesRetainSameCPUCapabilitiesAndBounds",
+    "assertion": "ASSERTION:invalid-slice-range"
+  }
+]
