@@ -32,9 +32,10 @@ enum ScreenRunnerSystemOwner {
         let code: Code, kernelPath: String, kernelHash: Data
     }
     static func identifier(_ pid: pid_t) throws -> String {
-        var guest: SecCode?, info: CFDictionary?
+        var guest: SecCode?, staticCode: SecStaticCode?, info: CFDictionary?
         guard SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributePid as String: pid] as CFDictionary, [], &guest) == errSecSuccess,
-              let guest, SecCodeCopySigningInformation(guest, [], &info) == errSecSuccess,
+              let guest, SecCodeCopyStaticCode(guest, [], &staticCode) == errSecSuccess, let staticCode,
+              SecCodeCopySigningInformation(staticCode, [], &info) == errSecSuccess,
               let value = (info as? [String: Any])?[kSecCodeInfoIdentifier as String] as? String,
               !value.isEmpty else { throw ScreenRunnerInventoryIssue.ownerAttribution }
         return value
