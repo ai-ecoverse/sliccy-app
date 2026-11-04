@@ -59,7 +59,7 @@ struct ScreenRunnerCauseTests {
             #expect(reason == .sourceChanged && origin == .workspaceTerminate)
             entered.signal(); _ = release.wait(timeout: .now() + 2)
         }, stop: { _ in stopped.signal() })
-        DispatchQueue.global().async { relay.invoke(.sourceChanged, origin: .workspaceTerminate); done.signal() }
+        Thread { relay.invoke(.sourceChanged, origin: .workspaceTerminate); done.signal() }.start()
         #expect(entered.wait(timeout: .now() + 1) == .success)
         #expect(gate.isInvalidated && stopped.wait(timeout: .now() + .milliseconds(100)) == .success)
         release.signal()

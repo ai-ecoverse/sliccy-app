@@ -31,7 +31,7 @@ struct ScreenRunnerJournalTests {
             observerEntered.signal()
             journal.emit("stop-handler-entered", ["trigger": "button"], at: at)
         }, observed: { first, last in journal.gateInvalidated(start: first, end: last) }, stop: { _ in stopped.signal() })
-        DispatchQueue.global().async { relay.invoke(.stopped, origin: .button); finished.signal() }
+        Thread { relay.invoke(.stopped, origin: .button); finished.signal() }.start()
         #expect(stopped.wait(timeout: .now() + 1) == .success)
         #expect(observerEntered.wait(timeout: .now() + 1) == .success)
         #expect(finished.wait(timeout: .now() + 1) == .success)

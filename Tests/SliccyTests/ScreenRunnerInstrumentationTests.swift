@@ -108,7 +108,7 @@ struct ScreenRunnerInstrumentationTests {
             }
             let relay = ScreenStopRelay(gate: gate, entered: { _, _ in if blockEntered { block() } },
                 observed: { _, _ in if !blockEntered { block() } }, stop: { _ in stopped.signal() })
-            DispatchQueue.global().async { relay.invoke(.stopped, origin: .button); finished.signal() }
+            Thread { relay.invoke(.stopped, origin: .button); finished.signal() }.start()
             #expect(entered.wait(timeout: .now() + 1) == .success)
             #expect(gate.isInvalidated)
             #expect(stopped.wait(timeout: .now() + .milliseconds(100)) == .success)
