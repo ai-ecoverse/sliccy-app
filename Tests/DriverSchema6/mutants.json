@@ -774,5 +774,21 @@
     "new": "case \"surface-unavailable\", \"inventory-refusal\":",
     "test": "TestRunnerV8ActualRefusalEncoderAndNoAuthority",
     "assertion": "ASSERTION:v8-refusal-no-verdict-authority"
+  },
+  {
+    "name": "v8-baseline-real-deadline-lost",
+    "file": "runner_baseline_identity_darwin_test.go",
+    "old": "if ctx.Err()!=nil||lost||pending!=0",
+    "new": "if lost||pending!=0",
+    "test": "TestRunnerV8BaselineActualDeadlineRefusesLateCallback",
+    "assertion": "ASSERTION:v8-baseline-actual-deadline-refused"
+  },
+  {
+    "name": "v8-baseline-real-deadline-widened",
+    "file": "runner_baseline_identity_darwin_test.go",
+    "old": "deadline:=now.Add(2*time.Second)",
+    "new": "deadline:=now.Add(3*time.Second)",
+    "test": "TestRunnerV8BaselineActualDeadlineRefusesLateCallback",
+    "assertion": "ASSERTION:v8-baseline-actual-two-second-window"
   }
 ]
