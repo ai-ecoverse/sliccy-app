@@ -1,0 +1,45 @@
+{
+  "source": "91c1b3ef7aae7a4f2581a2ca6631a740d5556755",
+  "purpose": "Additive final-wrapper/driver contract intake; exact existing emitter, no source or acceptance change",
+  "stage": "chrome-identity",
+  "ordinaryEnvelope": [
+    "schema",
+    "case",
+    "capture",
+    "stage",
+    "elapsedMs",
+    "eventElapsedMs"
+  ],
+  "stageFields": {
+    "label": [
+      "chrome-a-1",
+      "chrome-a-2",
+      "chrome-b-1",
+      "chrome-b-2"
+    ],
+    "phase": [
+      "preflight",
+      "initial-live",
+      "live",
+      "live-copy",
+      "signal"
+    ],
+    "identityStatus": "OSStatus signed integer",
+    "strictStatus": "OSStatus signed integer",
+    "guestStatus": "OSStatus signed integer",
+    "identityFlags": 9,
+    "strictFlags": 25,
+    "detritusTolerated": "strict JSON Boolean; true exactly when identityStatus==0 && guestStatus==0 && strictStatus==-66999"
+  },
+  "time": "eventElapsedMs uses actual Evidence.observedAt; elapsedMs is journal emission",
+  "aggregation": "This legacy stage is directly journal-emitted, not receipt-aggregate rows",
+  "bounds": "Shared proof journal cap1048576; row cap4096; no limit or authority change",
+  "sourceHashes": {
+    "Sources/Sliccy/Screen/ScreenRunnerProofApp.swift": "6512ac42987c430f6881e0b8f9bf0c3300dbeb5b4234032962bf3af9da870876",
+    "Sources/Sliccy/Screen/ScreenRunnerChromePolicy.swift": "0ab55dff64d21125e70c8816ec81b62faef76d1b49cb1592661500be0e90be71",
+    "Sources/Sliccy/Screen/ScreenRunnerOwnedProcess.swift": "ca5ea5a8bcfe8d2b73baefdd57b9ff1b1aca5a040946cc04500c11f200235e79",
+    "Sources/Sliccy/Screen/ScreenRunnerContract.swift": "1f19ff54320d197beff3c0ff28e7bc5074b0a228b831896416529c75e3885272"
+  },
+  "signingChange": false,
+  "captureDispatchCleared": false
+}

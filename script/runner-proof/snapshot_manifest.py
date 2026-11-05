@@ -1,3 +1,4 @@
+"""Static manifest for the closed disposable-snapshot fixture. Never executes it."""
 from pathlib import Path
 import hashlib
 import json

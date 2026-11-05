@@ -1,4 +1,4 @@
-
+"""Static signed-artifact manifest; never executes the app or the CLI."""
 from pathlib import Path
 import hashlib
 import json
@@ -53,7 +53,7 @@ def slices(data):
             command, length = struct.unpack_from('<II', data, cursor)
             if length < 8 or length % 8 or length > command_end - cursor:
                 raise ValueError('invalid command size')
-            if command == 0x1D:
+            if command == 0x1D:  # LC_CODE_SIGNATURE
                 if length != 16:
                     raise ValueError('invalid signature command')
                 start, length_on_disk = struct.unpack_from('<II', data, cursor + 8)

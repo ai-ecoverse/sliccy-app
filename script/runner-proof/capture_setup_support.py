@@ -11,7 +11,7 @@ import time
 GO_VERSION = 'go1.26.5'
 GO_SHA = 'efb87ff28af9a188d0536ef5d42e63dd52ba8263cd7344a993cc48dd11dedb6a'
 GO_SIZE = 64738542
-STAGES = frozenset(['age-download', 'age-check', 'source-extract', 'gh-discovery', 'go-download',
+STAGES = frozenset(['actual-version', 'artifact-metadata', 'crash-baseline', 'age-download', 'age-check', 'source-extract', 'gh-discovery', 'go-download',
                     'go-check', 'artifact-download', 'artifact-check', 'artifact-extract',
                     'artifact-signature', 'artifact-staple', 'artifact-gatekeeper',
                     'native-driver', 'translation-preflight', 'translated-driver',

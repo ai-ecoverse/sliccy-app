@@ -21,17 +21,22 @@ import capture_manifest
 import capture_setup_support as setup
 import capture_tcc
 import capture_evidence
+import capture_diagnostics as diagnostics
 
 RECIPIENT = 'age1n5hhvvjf65g96xjksnk2j7aqld83ae2mt3vfdymuxqsh0ex5qqxsarh2nk'
 AGE_SHA = 'e2020b073c44f692685a24d6abc378817eb81ffaaf49fd0531ef8565f767f2f5'
-APP_RUN = '41752885433'
-APP_SOURCE = '34fdccf5158e6e4e82d49b006857c6018433a8f2'
-APP_ZIP_SHA = '964c490824e573139c2f615f4674eea448717a9fe7b94f39feff5ec65b6565ba'
-APP_MANIFEST_SHA = '8fee85d48d71a406ea81f98b2c5b60cc85b798ebfb8fea9752e931075403f2f7'
+APP_RUN = '41926563094'
+APP_ARTIFACT = 13368474555
+APP_OUTER_SHA = '5ff67a7821a8c7920e55b99467b10e64482fbd39ee3f775bbfa6ae1ac9891baf'
+APP_SOURCE = '91c1b3ef7aae7a4f2581a2ca6631a740d5556755'
+APP_ZIP_SHA = 'bf4a64eb024bc2bff812944bd5cd3c3a2991246fe206b38ccfa7d2a168aaaf6a'
+APP_MANIFEST_SHA = '815e3778b711bb0bff94d5bb5dbcc741acd1f4f6f202c0d5e5a76ce22e572842'
 INPUTS = {
-    'capture-driver-handoff.json': 'd7f196fdbed604582438e76f2520868f4c078cfb22bd224d42cf02d1ef074ee3',
-    'capture-driver.tar.gz': '61bef34d8cb852268e36e4e84bb8485956c4c331dfb1111ef4c0272065b3f9c9',
-    'capture-driver-files.json': '931130ccceaa8e334b09fba9320b87eb2f938c616977f4ed638fa4c1359a9fb8',
+    'capture-app-schema6.txt': '2d47a525425c3e5cbb23acec0f413b111b3f03f5219c81c9befe3f41837f4ffc',
+    'capture-schema6-emitter-addendum.json': '5bac184af0533eae474726a09ec74a3aab2698817cc98277ae3931a6b255fde1',
+    'capture-driver-handoff.json': '8f7dd87a47108fd1fd7eb5cee8f3e48cfa8a0268b6c761a7a6f9feb5588024a1',
+    'capture-driver.tar.gz': '17998c2b2fd79c2d4ac03027fb38e748146a26f84dd6360de2d7f1e5130bb188',
+    'capture-driver-files.json': '0d199812771c10055855e83f4f7f0a89477948650a2493b4ebf9db2b565f4f48',
     'slicc-v1.59.0.tar.gz': '8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9',
 }
 PREFIX = 'ai-ecoverse-slicc-cli-cea8ec1'
@@ -78,12 +83,12 @@ def extract_sources(inputs, destination):
         'sourceArchiveRoot': PREFIX, 'CGO_ENABLED': '0', 'GOTOOLCHAIN': 'local',
         'entryTests': ['TestSignedRunnerCapture'],
         'entryCommand': ['go', 'test', '-mod=readonly', './test/nativeproof', '-run', '^TestSignedRunnerCapture$', '-count=1', '-timeout=470s'],
-        'fixtureSource': APP_SOURCE, 'signedRun': 41619548340, 'artifactID': 13223456379,
-        'appBuild': '11', 'driverTimeoutSeconds': 450, 'goTestTimeoutSeconds': 470,
+        'fixtureSource': APP_SOURCE, 'signedRun': int(APP_RUN), 'artifactID': APP_ARTIFACT,
+        'appBuild': '13', 'driverTimeoutSeconds': 450, 'goTestTimeoutSeconds': 470,
         'caseTotalSeconds': 45, 'caseExecutionSeconds': 40, 'caseCaptureSeconds': 10}:
         raise ValueError('driver contract')
     expected = metadata['files']
-    if len(expected) != 46 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
+    if len(expected) != 72 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
         raise ValueError('driver file set')
     package = destination / 'test/nativeproof'
     package.mkdir(mode=0o700)
@@ -129,7 +134,8 @@ def validate_source_manifest(workspace):
                 'script/runner-proof/mac_rosetta_preflight.py', 'script/runner-proof/universal_manifest.py',
                 'script/runner-proof/capture_setup_support.py', 'script/runner-proof/capture_tcc.py',
                 'script/runner-proof/capture_evidence.py', 'script/runner-proof/capture_manifest.py',
-                'script/runner-proof/snapshot_manifest.py'}
+                'script/runner-proof/snapshot_manifest.py', 'script/runner-proof/surface_pin.py',
+                'script/runner-proof/capture_diagnostics.py'}
     required.update('script/runner-proof/inputs/' + name for name in INPUTS)
     if set(record['files']) != required:
         raise ValueError('source manifest set')
@@ -150,11 +156,11 @@ def interrupted(signum, frame):
     raise Interrupted()
 
 
-def run_owned(args, log, env, deadline, maximum=60, cwd=None, check=True):
+def run_owned(args, log, env, deadline, maximum=60, cwd=None, check=True, stderr_log=None):
     remaining = min(maximum, deadline - time.monotonic())
     if remaining <= 0:
         raise subprocess.TimeoutExpired(args, 0)
-    child = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+    child = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=log, stderr=stderr_log if stderr_log is not None else log,
                              env=env, cwd=cwd, start_new_session=True)
     try:
         code = child.wait(timeout=remaining)
@@ -191,10 +197,35 @@ def prepare_artifact(root, evidence, log, env, deadline, workspace, trace):
 
     with trace.step('gh-discovery'):
         gh = setup.discover_gh(os.environ.get('PATH', ''), workspace, root, env, deadline)
+    gh_env = dict(env, GH_TOKEN=os.environ['GH_TOKEN'])
+    with trace.step('artifact-metadata'):
+        metadata_path = evidence / 'artifact-api.json'
+        with metadata_path.open('xb') as output:
+            run_owned([gh, 'api', 'repos/ai-ecoverse/sliccy-app/actions/artifacts/' + str(APP_ARTIFACT)],
+                      output, gh_env, deadline, stderr_log=log)
+        metadata = json.loads(metadata_path.read_text())
+        if (metadata['id'], metadata['name'], metadata['expired'], metadata['digest'],
+            metadata['workflow_run']['id'], metadata['workflow_run']['head_sha']) != (
+                APP_ARTIFACT, 'Sliccy-Capture-Proof-0.1.0-arm64-' + APP_SOURCE, False,
+                'sha256:' + APP_OUTER_SHA, int(APP_RUN), APP_SOURCE):
+            raise ValueError('artifact API binding')
     with trace.step('artifact-download'):
-        gh_env = dict(env, GH_TOKEN=os.environ['GH_TOKEN'])
-        run_owned([gh, 'run', 'download', APP_RUN, '--repo', 'ai-ecoverse/sliccy-app', '--name',
-                   'Sliccy-Capture-Proof-0.1.0-arm64-' + APP_SOURCE, '--dir', str(artifacts)], log, gh_env, deadline)
+        outer = root / 'artifact.zip'
+        with outer.open('xb') as output:
+            run_owned([gh, 'api', 'repos/ai-ecoverse/sliccy-app/actions/artifacts/' + str(APP_ARTIFACT) + '/zip'],
+                      output, gh_env, deadline, stderr_log=log)
+        if sha(outer) != APP_OUTER_SHA:
+            raise ValueError('outer artifact digest')
+        with zipfile.ZipFile(outer) as archive:
+            members = archive.infolist()
+            expected = {'Sliccy-0.1.0.zip', 'SHA256SUMS', 'signing.txt', 'capture-manifest.json'}
+            if len(members) != 4 or {e.filename for e in members} != expected:
+                raise ValueError('outer artifact members')
+            for entry in members:
+                if entry.is_dir() or stat.S_IFMT(entry.external_attr >> 16) not in (0, stat.S_IFREG) or entry.file_size > 128 * 1024 * 1024:
+                    raise ValueError('outer artifact type or bound')
+                with (artifacts / entry.filename).open('xb') as output:
+                    output.write(archive.read(entry))
     with trace.step('artifact-check'):
         if {p.name for p in artifacts.iterdir()} != {'Sliccy-0.1.0.zip', 'SHA256SUMS', 'signing.txt', 'capture-manifest.json'} or any(not p.is_file() or p.is_symlink() for p in artifacts.iterdir()):
             raise ValueError('artifact file set')
@@ -217,8 +248,9 @@ def prepare_artifact(root, evidence, log, env, deadline, workspace, trace):
         remaining = min(15, deadline - time.monotonic())
         if remaining <= 0: raise subprocess.TimeoutExpired(args, 0)
         return subprocess.run(args, stdin=subprocess.DEVNULL, capture_output=True,
-                              timeout=remaining, check=False, env=env)
+                              timeout=remaining, check=kwargs.get('check', False), env=env)
     capture_manifest.subprocess = SimpleNamespace(run=bounded_refusal, PIPE=subprocess.PIPE)
+    capture_manifest.surface_pin.subprocess = SimpleNamespace(run=bounded_refusal)
     universal_manifest.checked = bounded_static_check
     snapshot_manifest.checked = bounded_static_check
     capture_manifest.checked = bounded_static_check
@@ -238,14 +270,15 @@ def prepare_artifact(root, evidence, log, env, deadline, workspace, trace):
         run_owned(['/usr/sbin/spctl', '--assess', '--type', 'execute', str(app)], log, env, deadline)
     shutil.copy2(artifacts / 'capture-manifest.json', evidence / 'capture-manifest.json')
     (evidence / 'artifact-binding.json').write_text(json.dumps({'run': APP_RUN, 'source': APP_SOURCE,
-        'zipSHA256': APP_ZIP_SHA, 'manifestSHA256': APP_MANIFEST_SHA, 'staticVerification': True}) + '\n')
+        'artifactID': APP_ARTIFACT, 'outerSHA256': APP_OUTER_SHA, 'zipSHA256': APP_ZIP_SHA, 'manifestSHA256': APP_MANIFEST_SHA, 'staticVerification': True}) + '\n')
     return app, artifacts, recorded, bounded_static_check
 
 
 def suite(root, evidence, log, env, deadline, workspace, trace):
     inputs = workspace / 'script/runner-proof/inputs'
     sources = root / 'source'
-    crash_baseline = capture_evidence.crash_baseline()
+    with trace.step('crash-baseline'):
+        crash_baseline = capture_evidence.crash_baseline()
     with trace.step('source-extract'):
         metadata = extract_sources(inputs, sources)
     (evidence / 'driver-source-files.json').write_text(json.dumps(metadata, indent=2) + '\n')
@@ -265,12 +298,13 @@ def suite(root, evidence, log, env, deadline, workspace, trace):
     assertions = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'ai-ecoverse/sliccy-app',
                   'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_REF': 'refs/heads/proof/runner-capture-v1',
                   'SLICCY_RUNNER_ENVIRONMENT': 'github-hosted', 'RUNNER_ENVIRONMENT': 'github-hosted'}
-    require_host()
-    version = bounded_static_check(['/usr/bin/sw_vers', '-productVersion'])[0].decode().strip()
-    if not version.startswith('27.'):
-        raise ValueError('actual version')
+    with trace.step('actual-version'):
+        require_host()
+        version = bounded_static_check(['/usr/bin/sw_vers', '-productVersion'])[0].decode().strip()
+        if not version.startswith('27.'):
+            raise ValueError('actual version')
     run_env = dict(env, **assertions, PATH=str(go.parent) + ':' + PATH, GOROOT=str(go.parent.parent),
-                   CGO_ENABLED='0', GOTOOLCHAIN='local', GOFLAGS='-mod=readonly',
+                   CGO_ENABLED='0', GOTOOLCHAIN='local', GOFLAGS='-mod=readonly', GOARCH='arm64',
                    GOCACHE=str(root / 'go-cache'), GOMODCACHE=str(root / 'go-mod'),
                    SLICCY_SIGNED_PROOF_APP=str(app / 'Contents/MacOS/Sliccy'),
                    SLICCY_CAPTURE_MANIFEST=str(artifacts / 'capture-manifest.json'),
@@ -295,15 +329,16 @@ def suite(root, evidence, log, env, deadline, workspace, trace):
                 outcome = 'DRIVER_TIMEOUT'
     finally:
         try:
-            with trace.step('tcc-cleanup'):
-                grants.remove()
+            trace.cleanup(grants.remove)
         finally:
             with trace.step('crash-collection'):
                 capture_evidence.collect_crashes(crash_baseline, evidence)
     outcomes = {'capture': outcome}
     (evidence / 'invocation.json').write_text(json.dumps({'entryTest': 'TestSignedRunnerCapture', 'result': outcome,
         'CGO_ENABLED': '0', 'driverTimeoutSeconds': 450, 'goTestTimeoutSeconds': 470,
-        'observerGrantAdded': False, 'caseSeconds': 45, 'captureSeconds': 10}) + '\n')
+        'observerGrantAdded': False, 'identityRootOperations': False,
+        'authorizationPurposeProven': False, 'nonzeroExitPreservesAllCases': True,
+        'goCommandSeconds': 480, 'caseSeconds': 45, 'captureSeconds': 10}) + '\n')
 
     with trace.step('artifact-recheck'):
         try:
@@ -323,27 +358,50 @@ def require_host():
         raise ValueError('runner environment')
 
 
+def package_evidence(evidence, payload, bootstrap):
+    if bootstrap.exists():
+        if bootstrap.is_symlink() or not bootstrap.is_file() or bootstrap.stat().st_size > 1024 * 1024:
+            raise ValueError('bootstrap log bound')
+        shutil.copy2(bootstrap, evidence / 'bootstrap.log')
+    total_bytes = 0
+    with tarfile.open(payload, 'w') as bundle:
+        for path in sorted(evidence.rglob('*')):
+            if path.is_symlink(): raise ValueError('evidence symlink')
+            if path.is_dir(): continue
+            if not path.is_file() or path.stat().st_nlink != 1: raise ValueError('evidence type')
+            total_bytes += path.stat().st_size
+            if total_bytes > 128 * 1024 * 1024: raise ValueError('evidence bound')
+            bundle.add(path, arcname=str(path.relative_to(evidence)), recursive=False)
+
+
 def main():
     os.umask(0o077)
     signal.signal(signal.SIGTERM, interrupted); signal.signal(signal.SIGINT, interrupted)
     root = None; sealed = False; status = 1
     began = time.monotonic()
     try:
-        require_host()
-        os.environ['SLICC_NO_TELEMETRY'] = '1'; os.environ['SLICC_NO_UPDATE_CHECK'] = '1'
         workspace = Path.cwd().resolve()
-        source_manifest = validate_source_manifest(workspace)
         runner_temp = Path(os.environ['RUNNER_TEMP']).resolve(strict=True)
         root = Path(tempfile.mkdtemp(prefix='sliccy-capture-private-', dir=runner_temp))
         evidence = root / 'evidence'; evidence.mkdir(mode=0o700)
-        for name in ['home', 'tmp']: (root / name).mkdir(mode=0o700)
-        env = {'PATH': PATH, 'HOME': str(root / 'home'), 'TMPDIR': str(root / 'tmp') + '/', 'LANG': 'C',
-               'SLICC_NO_TELEMETRY': '1', 'SLICC_NO_UPDATE_CHECK': '1'}
-        destination = runner_temp / 'sliccy-screen-evidence.age'
-        if destination.exists() or destination.is_symlink(): raise ValueError('existing output')
-        (evidence / 'reviewed-sources.json').write_text(json.dumps(source_manifest, indent=2) + '\n')
-        trace = setup.SetupTrace(evidence / 'setup-stages.ndjson', began)
-        with (evidence / 'runner.log').open('xb') as log:
+        journal = diagnostics.Journal(evidence / 'step-diagnostics.ndjson', root, workspace, began,
+            [os.environ.get('GH_TOKEN'), os.environ.get('GITHUB_TOKEN')])
+        journal.call('host-preflight', require_host)
+        source_manifest = journal.call('source-preflight', validate_source_manifest, workspace)
+        with journal.step('evidence-setup'):
+            for name in ['home', 'tmp']: (root / name).mkdir(mode=0o700)
+            env = {'PATH': PATH, 'HOME': str(root / 'home'), 'TMPDIR': str(root / 'tmp') + '/', 'LANG': 'C',
+                   'SLICC_NO_TELEMETRY': '1', 'SLICC_NO_UPDATE_CHECK': '1'}
+            destination = runner_temp / 'sliccy-screen-evidence.age'
+            if destination.exists() or destination.is_symlink(): raise ValueError('existing output')
+        with journal.step('source-copy'):
+            (evidence / 'reviewed-sources.json').write_text(json.dumps(source_manifest, indent=2) + '\n')
+            for name in source_manifest['files']:
+                copy = evidence / 'reviewed-source' / name
+                copy.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                shutil.copyfile(workspace / name, copy)
+        trace = diagnostics.Trace(setup.SetupTrace(evidence / 'setup-stages.ndjson', began), journal)
+        with journal.bind(sys.modules[__name__]), (evidence / 'runner.log').open('xb') as log:
             age = root / 'age'
             try:
                 archive = root / 'age.tar.gz'
@@ -353,36 +411,30 @@ def main():
                                '--output', str(archive)], log, env, began + 900, maximum=35)
                 with trace.step('age-check'):
                     unpack_age(archive, age)
-
-                os.environ['SLICC_NO_TELEMETRY'] = '1'; os.environ['SLICC_NO_UPDATE_CHECK'] = '1'
                 status = suite(root, evidence, log, env, began + 900, workspace, trace)
             except Exception as error:
-                log.write((type(error).__name__ + '\n').encode()); status = 1
+                (evidence / 'pipeline-error.json').write_text(json.dumps({'exceptionClass': type(error).__name__,
+                    'message': journal.text(error), 'lastDiagnostic': journal.last_failure}) + '\n')
+                status = 1
             finally:
-                (evidence / 'envelope.json').write_text(json.dumps({'schema': 1, 'exitCode': status,
-                    'workflowSource': os.environ.get('GITHUB_SHA'), 'workflowRef': os.environ.get('GITHUB_REF'),
-                    'workflowRun': os.environ.get('GITHUB_RUN_ID'), 'artifactRun': APP_RUN,
-                    'suite': 'capture', 'capture': True, 'installerAttempted': False}) + '\n')
+                with journal.step('evidence-envelope'):
+                    if journal.loss:
+                        status = 1
+                    (evidence / 'envelope.json').write_text(json.dumps({'schema': 1, 'exitCode': status,
+                        'workflowSource': os.environ.get('GITHUB_SHA'), 'workflowRef': os.environ.get('GITHUB_REF'),
+                        'workflowRun': os.environ.get('GITHUB_RUN_ID'), 'workflowAttempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+                        'artifactRun': APP_RUN, 'artifactSource': APP_SOURCE, 'artifactID': APP_ARTIFACT,
+                        'suite': 'capture', 'capture': True, 'installerAttempted': False,
+                        'identityRootOperations': False, 'rootScope': 'reviewed-signed-app-only-TCC',
+                        'workDeadlineSeconds': 900, 'sealDeadlineSeconds': 960, 'diagnosticLoss': journal.loss,
+                        'authorizationPurposeProven': False, 'ciStatusIsProofVerdict': False}) + '\n')
                 log.flush()
             if age.is_file():
-                bootstrap = runner_temp / 'sliccy-screen-bootstrap.log'
-                if bootstrap.exists():
-                    if bootstrap.is_symlink() or not bootstrap.is_file() or bootstrap.stat().st_size > 1024 * 1024:
-                        raise ValueError('bootstrap log bound')
-                    shutil.copy2(bootstrap, evidence / 'bootstrap.log')
                 payload = root / 'evidence.tar'
-                total_bytes = 0
-                with tarfile.open(payload, 'w') as bundle:
-                    for path in sorted(evidence.rglob('*')):
-                        if path.is_symlink(): raise ValueError('evidence symlink')
-                        if path.is_dir(): continue
-                        if not path.is_file() or path.stat().st_nlink != 1: raise ValueError('evidence type')
-                        total_bytes += path.stat().st_size
-                        if total_bytes > 128 * 1024 * 1024: raise ValueError('evidence bound')
-                        bundle.add(path, arcname=str(path.relative_to(evidence)), recursive=False)
+                journal.call('evidence-package', package_evidence, evidence, payload, runner_temp / 'sliccy-screen-bootstrap.log')
                 temporary = root / 'sealed.age'
-                run_owned([str(age), '--encrypt', '--recipient', RECIPIENT, '--output', str(temporary), str(payload)],
-                          log, env, began + 960, maximum=40)
+                journal.call('evidence-seal', run_owned, [str(age), '--encrypt', '--recipient', RECIPIENT,
+                    '--output', str(temporary), str(payload)], log, env, began + 960, maximum=40)
                 if temporary.stat().st_size <= 0: raise ValueError('empty envelope')
                 temporary.replace(destination); sealed = True
         if sealed:

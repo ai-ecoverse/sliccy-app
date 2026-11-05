@@ -20,7 +20,7 @@ sys.path.insert(0, str(BASE / 'script/runner-proof'))
 import sealed_runner as subject
 import capture_tcc as tcc
 import capture_evidence as evidence_module
-SIGNED = Path('/Users/trieloff/.bb/thread-storage/thr_desfnajij8/signed/41619548340-capture-proof')
+SIGNED = Path('/Users/trieloff/.bb/thread-storage/thr_desfnajij8/signed/41926563094-capture-proof')
 
 
 class WrapperTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class WrapperTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             target = Path(root) / 'source'
             m = subject.extract_sources(BASE / 'script/runner-proof/inputs', target)
-            self.assertEqual(len(m['files']), 46)
+            self.assertEqual(len(m['files']), 72)
             self.assertEqual({p.name for p in (target / 'test/nativeproof').iterdir()}, set(m['files']))
             self.assertIn('go 1.26.5', (target / 'go.mod').read_text())
 
@@ -51,15 +51,23 @@ class WrapperTests(unittest.TestCase):
             root = Path(temp); evidence = root / 'evidence'; evidence.mkdir()
             env = {'PATH': subject.PATH, 'HOME': str(root / 'home'), 'TMPDIR': str(root / 'tmp') + '/', 'LANG': 'C', 'SLICC_NO_TELEMETRY': '1', 'SLICC_NO_UPDATE_CHECK': '1'}
             manifest = json.loads((SIGNED / 'capture-manifest.json').read_text())
-            trace = subject.setup.SetupTrace(evidence / 'trace', time.monotonic())
+            journal = subject.diagnostics.Journal(evidence / 'steps', root, BASE, time.monotonic())
+            trace = subject.diagnostics.Trace(subject.setup.SetupTrace(evidence / 'trace', time.monotonic()), journal)
             calls = []; order = []
             def run(args, log, child_env, deadline, **kwargs):
                 calls.append((args, dict(child_env), deadline, kwargs))
-                if 'download' in args:
-                    dest = Path(args[args.index('--dir') + 1])
-                    for name in ['Sliccy-0.1.0.zip', 'SHA256SUMS', 'signing.txt', 'capture-manifest.json']: shutil.copy2(SIGNED / name, dest / name)
+                if len(args) > 2 and args[1] == 'api':
+                    if args[-1].endswith('/zip'):
+                        log.write((SIGNED / 'artifact.zip').read_bytes())
+                    else:
+                        log.write(json.dumps({'id': subject.APP_ARTIFACT, 'name': 'Sliccy-Capture-Proof-0.1.0-arm64-' + subject.APP_SOURCE,
+                            'expired': False, 'digest': 'sha256:' + subject.APP_OUTER_SHA,
+                            'workflow_run': {'id': int(subject.APP_RUN), 'head_sha': subject.APP_SOURCE}}).encode())
                 if args[0] == '/usr/bin/ditto': (Path(args[-1]) / 'Sliccy.app').mkdir()
-                if 'test' in args: order.append('driver'); return exit_code
+                if 'test' in args:
+                    order.append('driver')
+                    (evidence / 'capture/capture-suite.json').write_text('case evidence preserved')
+                    return exit_code
                 return 0
             class Grants:
                 def __init__(self, *args): pass
@@ -81,8 +89,9 @@ class WrapperTests(unittest.TestCase):
             self.assertEqual(child_env['SLICC_RUNNER_PROOF_ROOT'], str(evidence / 'capture'))
             self.assertEqual(child_env['GOTOOLCHAIN'], 'local'); self.assertEqual(child_env['CGO_ENABLED'], '0')
             for args, child_env, _, _ in calls:
-                self.assertEqual('GH_TOKEN' in child_env, 'download' in args)
+                self.assertEqual('GH_TOKEN' in child_env, len(args) > 1 and args[1] == 'api')
                 self.assertNotIn('GITHUB_TOKEN', child_env)
+            self.assertEqual((evidence / 'capture/capture-suite.json').read_text(), 'case evidence preserved')
             self.assertEqual(result, 0 if exit_code == 0 else 1)
             self.assertEqual(json.loads((evidence / 'suite-outcomes.json').read_text())['capture'], 'DRIVER_EXIT_0' if exit_code == 0 else 'DRIVER_FAILED')
 
@@ -102,7 +111,7 @@ class WrapperTests(unittest.TestCase):
                 calls.append((args, deadline))
                 if '--encrypt' in args: raise RuntimeError('PRIVATE-ERROR')
                 return 0
-            with patch.dict(os.environ, {'RUNNER_TEMP': str(p), 'GITHUB_OUTPUT': str(output_path), 'GITHUB_SHA': 'a' * 40}), patch.object(subject, 'require_host'), patch.object(subject, 'validate_source_manifest', return_value={}), patch.object(subject, 'unpack_age', side_effect=unpack), patch.object(subject, 'suite', return_value=1), patch.object(subject, 'run_owned', side_effect=run), contextlib.redirect_stdout(io.StringIO()) as output:
+            with patch.dict(os.environ, {'RUNNER_TEMP': str(p), 'GITHUB_OUTPUT': str(output_path), 'GITHUB_SHA': 'a' * 40}), patch.object(subject, 'require_host'), patch.object(subject, 'validate_source_manifest', return_value={'files': {}}), patch.object(subject, 'unpack_age', side_effect=unpack), patch.object(subject, 'suite', return_value=1), patch.object(subject.diagnostics.Journal, 'owned', side_effect=run), contextlib.redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(subject.main(), 1)
             self.assertEqual(calls[-1][1] - calls[0][1], 60)
             self.assertFalse(output_path.exists()); self.assertFalse((p / 'sliccy-screen-evidence.age').exists())
@@ -119,7 +128,8 @@ class WrapperTests(unittest.TestCase):
 
     def test_capture_only_workflow_has_no_secret_or_other_dispatch(self):
         text = (BASE / '.github/workflows/runner-proof.yml').read_text()
-        self.assertIn('  hosted-pid:\n    if: false', text); self.assertIn('  universal:\n    if: false', text)
+        for job in ['hosted-pid', 'universal', 'owner-identity', 'prerequisite', 'setup-read-only']:
+            self.assertIn('  ' + job + ':\n    if: false', text)
         self.assertIn("github.ref == 'refs/heads/proof/runner-capture-v1'", text.split('  universal:')[0])
         self.assertNotIn('secrets.', text); self.assertNotIn('id-token:', text)
         self.assertIn('> "$RUNNER_TEMP/sliccy-screen-bootstrap.log" 2>&1', text)
