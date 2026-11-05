@@ -24,11 +24,11 @@
     "runner_case_evidence_fixture_darwin_test.go": "757944441f736b51fe3367be73bcc855fb8d06190dbf39d2d6e2a93225eea1d8",
     "runner_clock_darwin_test.go": "3a9fa2be818be194ed2d9fc28ee540d3a21c935814839deadaaa413b8fd4b041",
     "runner_code_receipt_darwin_test.go": "ea1cbfc98e3ef7df111f03d6e9350eaa11a8cb885c604eaf294c8cca78e34122",
-    "runner_controller_darwin_test.go": "b3332c3ec0d46378a9135f305e13b3b3f072108af0064ceab69d943d51d0d074",
+    "runner_controller_darwin_test.go": "ce03d60b03922045f1d450caac78c2f12cee66602fd118ecf52078e3d68bc56c",
     "runner_controller_observer_darwin_test.go": "e675ad29fb4d2ac5091720241ad1afd2d8446f1e1a3a25a09b27aa436ed510ce",
     "runner_controller_observer_fixture_darwin_test.go": "87c15aead7dd950ab6cf8ee8a08d01d142c519ddeb7d8af80a8815314fd34b6e",
-    "runner_diagnostics_darwin_test.go": "4194618a5a9f6b1644de0363bf0cdfaa316f49bbe733a821016ff5127fa5b395",
-    "runner_diagnostics_fixture_darwin_test.go": "20f384fdcc09ea4b40c22235676b64fc5eeb76c52334ffe4aae4512398ddec36",
+    "runner_diagnostics_darwin_test.go": "34f44a9be35d852280c7f640f952220f73db39edad6885fad840f648bb707b58",
+    "runner_diagnostics_fixture_darwin_test.go": "5d61a386e24d9752b0b6327b973ae5718e3438ada76a76aed78aa07542dd0ab8",
     "runner_discovery_fixture_darwin_test.go": "adaa38aacad172ac9accb9659e9462e5cfa61329cfd0398c7caadf15c588b15e",
     "runner_entry_darwin_test.go": "5f779e71585b3288a41d20ca5fabb66d2b7006cdc9ded1b0a0664a467ec40d73",
     "runner_file_snapshot_darwin_test.go": "8196cb02a6b262c252d696798f00991f2b43e9cc6198609ac02a00fc783913e2",
@@ -80,7 +80,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "e9e38d7eb22dfe7a61d6f1b6927449fb0c190be66e344f731ffbd692982e44ae",
+    "inputs/driver-source.tar.gz": "aca5f2c9d0e762e9da8b7fda76dc9d24b7dc5234d2dcbe8b2e99f53c582a7ccf",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
   },
   "fixtureSHA256": "618f9204dda8b8160796fd3a56dd3cfd4eb79a9aa365213131f6964eda069649",

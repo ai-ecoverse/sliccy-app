@@ -346,7 +346,7 @@
   {
     "name": "diagnostic-metadata-envelope",
     "file": "runner_controller_darwin_test.go",
-    "old": "d.Record(\"metadata.envelope\",fmt.Errorf(\"case/monotonic/terminal envelope refused row %d\",count))",
+    "old": "d.Record(\"metadata.envelope\",fmt.Errorf(\"metadata envelope row=%d caseMatch=%t monotonic=%t afterTerminal=%t\",count,row.Case==selected,row.Elapsed>=last,terminal))",
     "new": "_ = 0",
     "test": "TestRunnerMetadataFailurePathsKeepFirstUnderlyingError/envelope",
     "assertion": "ASSERTION:metadata-diagnostic-envelope"
@@ -446,5 +446,13 @@
     "new": "_ = records",
     "test": "TestRunnerActualSpawnRecordAndSettlementStorageCannotDisappear",
     "assertion": "ASSERTION:spawn-settlement-retained"
+  },
+  {
+    "name": "diagnostic-app-tail-last-line",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "text:=runnerSanitizeOutputTail(string(data),secrets)",
+    "new": "text:=runnerSanitizeDiagnostic(string(data),secrets)",
+    "test": "TestRunnerAppOutputTailAndSignalFactsAreRetained",
+    "assertion": "ASSERTION:app-output-tail"
   }
 ]
