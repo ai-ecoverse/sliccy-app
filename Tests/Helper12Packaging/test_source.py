@@ -51,6 +51,8 @@ class Helper12Tests(unittest.TestCase):
         (app/'Contents/MacOS').mkdir(parents=True);(app/'Contents/_CodeSignature').mkdir()
         (app/'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':'ai.sliccy.proof-helper','CFBundleVersion':'12','CFBundleShortVersionString':'0.1.0','CFBundleExecutable':'ScreenProofSurface'}))
         (app/'Contents/MacOS/ScreenProofSurface').write_bytes(b'fabricated');(app/'Contents/_CodeSignature/CodeResources').write_bytes(b'fabricated-seal')
+        (app/'Contents/CodeResources').write_bytes(b'fabricated-ticket')
+        (app/'Contents/CodeResources').chmod(0o600)
         (root/'entitlements.plist').write_bytes(plistlib.dumps({}))
         (root/'notarization.json').write_text(json.dumps({'status':'Accepted'}))
         (root/'signing.txt').write_text('Identifier=ai.sliccy.proof-helper\nTeamIdentifier=S8LB56P782\nCDHash='+'a'*40+'\nCodeDirectory v=20500 size=500 flags=0x10000(runtime) hashes=1+7\n')
@@ -62,12 +64,12 @@ class Helper12Tests(unittest.TestCase):
             root=Path(value);app=self.fixture(root)
             result=module.manifest(root,'b'*40,'1','1')
             self.assertEqual(result['build'],'12');self.assertEqual(result['appRoleRefusalExit'],3)
-            self.assertEqual(len(result['files']),3)
+            self.assertEqual(len(result['files']),4)
             info=app/'Contents/Info.plist';data=plistlib.loads(info.read_bytes());data['CFBundleVersion']='11';info.write_bytes(plistlib.dumps(data))
             with self.assertRaisesRegex(ValueError,'helper12-plist'):module.manifest(root,'b'*40,'1','1')
             data['CFBundleVersion']='12';info.write_bytes(plistlib.dumps(data))
             (app/'Contents/extra').symlink_to(info)
-            with self.assertRaisesRegex(ValueError,'helper12-file-type-or-name'):module.manifest(root,'b'*40,'1','1')
+            with self.assertRaisesRegex(ValueError,'helper12-non-regular'):module.manifest(root,'b'*40,'1','1')
 
     def test_manifest_refuses_wrong_role_team_entitlement_and_attempt(self):
         with tempfile.TemporaryDirectory() as value:
@@ -85,4 +87,6 @@ class Helper12Tests(unittest.TestCase):
         with patch.dict(os.environ,{},clear=True):
             with self.assertRaisesRegex(ValueError,'helper12-hosted-guard'):module.main()
 
-if __name__=='__main__':unittest.main()
+if __name__=='__main__':
+    suite=unittest.defaultTestLoader.discover(str(Path(__file__).parent))
+    raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

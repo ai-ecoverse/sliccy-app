@@ -1,0 +1,91 @@
+{
+  "artifact": 13286983486,
+  "failureAttribution": "Fourth path is inferred for standalone stapling; failed helper12 bundle unavailable, actual offending path unconfirmed.",
+  "innerSHA256": "964c490824e573139c2f615f4674eea448717a9fe7b94f39feff5ec65b6565ba",
+  "nlinkProvenance": "ZIP has no link-count field here; counts are from retained extraction, not original runner facts. New manifest checks actual runner lstat.",
+  "outerSHA256": "c065f7f8b10672cdea7124872377c14e78eaf7cdb3e3151ff3014ac35fc88781",
+  "rows": [
+    {
+      "archiveMode": "0o100600",
+      "archiveNlink": null,
+      "archivePath": "Sliccy.app/Contents/CodeResources",
+      "archiveSize": 1695,
+      "origin": "stapled-outer-app-ticket",
+      "relativePath": "Contents/CodeResources",
+      "retainedExtractionMode": "0o100600",
+      "retainedExtractionNlink": 1,
+      "sha256": "e4808572ade321ac8a702584c56d7e223594a73b1aa8e731952fd8c5fcf5b880",
+      "type": "regular"
+    },
+    {
+      "archiveMode": "0o40755",
+      "archiveNlink": null,
+      "archivePath": "Sliccy.app/Contents/Helpers/ScreenProofSurface.app/Contents/",
+      "archiveSize": 0,
+      "origin": "nested-helper11",
+      "relativePath": "Contents",
+      "retainedExtractionMode": "0o40755",
+      "retainedExtractionNlink": 5,
+      "type": "directory"
+    },
+    {
+      "archiveMode": "0o40755",
+      "archiveNlink": null,
+      "archivePath": "Sliccy.app/Contents/Helpers/ScreenProofSurface.app/Contents/_CodeSignature/",
+      "archiveSize": 0,
+      "origin": "nested-helper11",
+      "relativePath": "Contents/_CodeSignature",
+      "retainedExtractionMode": "0o40755",
+      "retainedExtractionNlink": 3,
+      "type": "directory"
+    },
+    {
+      "archiveMode": "0o100644",
+      "archiveNlink": null,
+      "archivePath": "Sliccy.app/Contents/Helpers/ScreenProofSurface.app/Contents/_CodeSignature/CodeResources",
+      "archiveSize": 2200,
+      "origin": "nested-helper11",
+      "relativePath": "Contents/_CodeSignature/CodeResources",
+      "retainedExtractionMode": "0o100644",
+      "retainedExtractionNlink": 1,
+      "sha256": "6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b",
+      "type": "regular"
+    },
+    {
+      "archiveMode": "0o40755",
+      "archiveNlink": null,
+      "archivePath": "Sliccy.app/Contents/Helpers/ScreenProofSurface.app/Contents/MacOS/",
+      "archiveSize": 0,
+      "origin": "nested-helper11",
+      "relativePath": "Contents/MacOS",
+      "retainedExtractionMode": "0o40755",
+      "retainedExtractionNlink": 3,
+      "type": "directory"
+    },
+    {
+      "archiveMode": "0o100755",
+      "archiveNlink": null,
+      "archivePath": "Sliccy.app/Contents/Helpers/ScreenProofSurface.app/Contents/MacOS/ScreenProofSurface",
+      "archiveSize": 223184,
+      "origin": "nested-helper11",
+      "relativePath": "Contents/MacOS/ScreenProofSurface",
+      "retainedExtractionMode": "0o100755",
+      "retainedExtractionNlink": 1,
+      "sha256": "baff7b8b21264018138c9f7e2e7f6b8052bdcaf6e10b8ffa06dde854ac2b20c9",
+      "type": "regular"
+    },
+    {
+      "archiveMode": "0o100644",
+      "archiveNlink": null,
+      "archivePath": "Sliccy.app/Contents/Helpers/ScreenProofSurface.app/Contents/Info.plist",
+      "archiveSize": 754,
+      "origin": "nested-helper11",
+      "relativePath": "Contents/Info.plist",
+      "retainedExtractionMode": "0o100644",
+      "retainedExtractionNlink": 1,
+      "sha256": "11a51ca14176be56ce266330b5c15f8341301a5a9dab8f891765ac11b112e794",
+      "type": "regular"
+    }
+  ],
+  "run": 41752885433
+}

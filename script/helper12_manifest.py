@@ -5,6 +5,7 @@ import os
 import plistlib
 import re
 import stat
+import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCES = {
@@ -16,9 +17,48 @@ SOURCES = {
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
+def path_fields(relative):
+    raw = os.fsencode(relative)
+    encoded = ''.join(chr(value) if chr(value) in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._-' else '%%%02X' % value for value in raw)
+    return {'path':encoded[:512], 'pathBytes':len(raw), 'pathSHA256':hashlib.sha256(raw).hexdigest(), 'pathTruncated':len(encoded)>512}
+
+def refuse(predicate, relative):
+    raise ValueError('helper12-' + predicate + ':' + json.dumps(path_fields(relative),sort_keys=True))
+
+def bundle_listing(app):
+    def visit(path):
+        relative = path.relative_to(app).as_posix()
+        row = path_fields(relative)
+        try:
+            value = path.lstat()
+            kind = 'directory' if stat.S_ISDIR(value.st_mode) else 'regular' if stat.S_ISREG(value.st_mode) else 'symlink' if stat.S_ISLNK(value.st_mode) else 'other'
+            row.update(type=kind,nlink=value.st_nlink,mode=oct(value.st_mode),size=value.st_size)
+        except OSError as error:
+            row.update(type='unavailable',nlink=None,mode=None,size=None,errno=error.errno)
+            yield row
+            return
+        yield row
+        if kind == 'directory':
+            try:
+                children = sorted(path.iterdir())
+            except OSError as error:
+                yield dict(path_fields(relative),type='listing-unavailable',nlink=None,mode=None,size=None,errno=error.errno)
+                return
+            for child in children:
+                yield from visit(child)
+    yield from visit(app)
+
 def manifest(directory, source, run, attempt):
+    try:
+        return checked_manifest(directory,source,run,attempt)
+    except Exception:
+        for row in bundle_listing(directory / 'ScreenProofSurface.app'):
+            print('helper12-bundle-entry ' + json.dumps(row,sort_keys=True),file=sys.stderr,flush=True)
+        raise
+
+def checked_manifest(directory, source, run, attempt):
     app = directory / 'ScreenProofSurface.app'
-    expected = {'Contents/Info.plist','Contents/MacOS/ScreenProofSurface','Contents/_CodeSignature/CodeResources'}
+    expected = {'Contents/Info.plist','Contents/MacOS/ScreenProofSurface','Contents/_CodeSignature/CodeResources','Contents/CodeResources'}
     files = {}
     directories = set()
     for path in app.rglob('*'):
@@ -27,11 +67,22 @@ def manifest(directory, source, run, attempt):
         if stat.S_ISDIR(value.st_mode):
             directories.add(relative)
             continue
-        if not stat.S_ISREG(value.st_mode) or value.st_nlink != 1 or relative not in expected:
-            raise ValueError('helper12-file-type-or-name')
+        if not stat.S_ISREG(value.st_mode):
+            refuse('non-regular',relative)
+        if value.st_nlink != 1:
+            refuse('nlink',relative)
+        if relative not in expected:
+            refuse('unexpected-path',relative)
+        if relative == 'Contents/CodeResources' and stat.S_IMODE(value.st_mode) != 0o600:
+            refuse('ticket-mode',relative)
         files[relative] = digest(path)
+    if 'Contents/CodeResources' not in files:
+        refuse('missing-ticket','Contents/CodeResources')
     if set(files) != expected or directories != {'Contents','Contents/MacOS','Contents/_CodeSignature'}:
-        raise ValueError('helper12-file-set')
+        missing = sorted(expected-set(files))
+        extra = sorted(directories-{'Contents','Contents/MacOS','Contents/_CodeSignature'})
+        absent = sorted({'Contents','Contents/MacOS','Contents/_CodeSignature'}-directories)
+        refuse('file-set',(missing+extra+absent)[0] if missing+extra+absent else '.')
     info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
     if (info.get('CFBundleIdentifier'),info.get('CFBundleVersion'),info.get('CFBundleShortVersionString'),info.get('CFBundleExecutable')) != ('ai.sliccy.proof-helper','12','0.1.0','ScreenProofSurface'):
         raise ValueError('helper12-plist')
