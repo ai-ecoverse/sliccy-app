@@ -14,7 +14,7 @@ CASES = ['selected-window', 'display-exclusion', 'authorization-exclusion', 'rec
 
 
 def signed_bundle(app, role, name):
-    build = '14' if role == 'ai.sliccy.mac' else '11'
+    build = '14' if role == 'ai.sliccy.mac' else '12'
     plist = (app / 'Contents/Info.plist').read_bytes()
     info = plistlib.loads(plist)
     if (info['CFBundleIdentifier'], info['CFBundleShortVersionString'], info['CFBundleVersion'], info['CFBundleExecutable']) != (role, '0.1.0', build, name):
@@ -42,7 +42,7 @@ def manifest(app):
         raise ValueError('unexpected fixture resources')
     value = signed_bundle(app, 'ai.sliccy.mac', 'Sliccy')
     helper = app / 'Contents/Helpers/ScreenProofSurface.app'
-    if {p.name for p in (helper / 'Contents').iterdir()} != {'MacOS', 'Info.plist', '_CodeSignature'} or {p.name for p in (helper / 'Contents/MacOS').iterdir()} != {'ScreenProofSurface'}:
+    if {p.name for p in (helper / 'Contents').iterdir()} != {'MacOS', 'Info.plist', '_CodeSignature', 'CodeResources'} or {p.name for p in (helper / 'Contents/MacOS').iterdir()} != {'ScreenProofSurface'}:
         raise ValueError('unexpected helper contents')
     surface_pin.verify(helper)
     surface = signed_bundle(helper, 'ai.sliccy.proof-helper', 'ScreenProofSurface')

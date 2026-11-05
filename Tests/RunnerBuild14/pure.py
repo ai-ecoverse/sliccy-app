@@ -14,7 +14,7 @@ def denied(*args, **kwargs):
 def main():
     before = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for base in ['Sources','Tests','script','docs','.github'] for p in (ROOT / base).rglob('*') if p.is_file() and '__pycache__' not in p.parts}
     suite = unittest.TestSuite()
-    for directory, pattern in [('Tests/RunnerBuild14','test_source.py'),('Tests/UniversalManifest','test_capture_manifest.py'),('Tests/UniversalManifest','test_surface_pin.py')]:
+    for directory, pattern in [('Tests/RunnerBuild14','test_source.py'),('Tests/UniversalManifest','test_capture_manifest.py'),('Tests/UniversalManifest','test_surface_pin.py'),('Tests/UniversalManifest','test_fetch_surface.py')]:
         suite.addTests(unittest.TestLoader().discover(str(ROOT / directory), pattern=pattern))
     output = io.StringIO()
     with patch.object(subprocess, 'run', denied), patch.object(subprocess, 'Popen', denied), patch.object(subprocess, 'check_output', denied), patch.object(subprocess, 'check_call', denied), patch.object(subprocess, 'call', denied):

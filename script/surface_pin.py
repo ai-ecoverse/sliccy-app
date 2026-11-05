@@ -6,15 +6,16 @@ import stat
 import subprocess
 import sys
 
-RUN = '41752885433'
-SOURCE = '34fdccf5158e6e4e82d49b006857c6018433a8f2'
-ARTIFACT = '13286983486'
-ARCHIVE_SHA256 = 'c065f7f8b10672cdea7124872377c14e78eaf7cdb3e3151ff3014ac35fc88781'
-ZIP_SHA256 = '964c490824e573139c2f615f4674eea448717a9fe7b94f39feff5ec65b6565ba'
-CDHASH = '3e61ce8a28e4b7659f2e711f7fb752ce4935f256'
+RUN = '41978928697'
+SOURCE = '4c873bab986e62f404255cc85e08d9dab52ead93'
+ARTIFACT = '13392888076'
+ARCHIVE_SHA256 = '66d29c01db53f347dd74ad57cabcc0941aa02376054785cdbff11a1e89e1c907'
+ZIP_SHA256 = '5e5e19d94c64b629b0f21a19c1015ab60ab0e5fa49a25595132c42d9bc57082f'
+CDHASH = '37517f1a6e6a0085f9188f3723ab6209fd131dfd'
 FILES = {
-    'Contents/Info.plist': '11a51ca14176be56ce266330b5c15f8341301a5a9dab8f891765ac11b112e794',
-    'Contents/MacOS/ScreenProofSurface': 'baff7b8b21264018138c9f7e2e7f6b8052bdcaf6e10b8ffa06dde854ac2b20c9',
+    'Contents/CodeResources': '26ac87e435876410294563f19a3a0872668910af8c6640c7a03b8c61fb3f5188',
+    'Contents/Info.plist': '14f7874c0fe98de803e48c3945067f11e66d7ef2054a94798b70f4a723c4aa29',
+    'Contents/MacOS/ScreenProofSurface': '85ef7c16e6542d94b26051ba1e04e6df12da7317923726943e4ff292c75a1e89',
     'Contents/_CodeSignature/CodeResources': '6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b'
 }
 REQUIREMENT = ('anchor apple generic and identifier "ai.sliccy.proof-helper" '

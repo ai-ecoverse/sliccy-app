@@ -52,7 +52,7 @@ class SourceTests(unittest.TestCase):
         self.assertEqual(contract['clock']['fields'], {'marker':'runner-clock-anchor'})
         self.assertEqual(set(contract['inventoryRefusal']['site']), {'initial','refresh','monitor','authorization-baseline'})
         self.assertIn('owner-attribution', contract['inventoryRefusal']['issue'])
-        self.assertEqual(contract['helperBuild'], 11)
+        self.assertEqual(contract['helperBuild'], 12)
         self.assertEqual(contract['build'], 14)
 
     def test_all_overlays_match_exact_source_once(self):

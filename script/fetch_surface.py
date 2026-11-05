@@ -24,7 +24,7 @@ def main():
     if archive.stat().st_size > 128 * 1024 * 1024 or hashlib.sha256(archive.read_bytes()).hexdigest() != surface_pin.ARCHIVE_SHA256:
         raise ValueError('surface artifact checksum')
     with zipfile.ZipFile(archive) as outer:
-        matches = [entry for entry in outer.infolist() if entry.filename == 'Sliccy-0.1.0.zip']
+        matches = [entry for entry in outer.infolist() if entry.filename == 'ScreenProofSurface-0.1.0.zip']
         if len(matches) != 1 or matches[0].file_size > 128 * 1024 * 1024:
             raise ValueError('surface artifact layout')
         data = outer.read(matches[0])
@@ -32,7 +32,7 @@ def main():
         raise ValueError('surface signed archive checksum')
     target = root / '.build/pinned-surface/ScreenProofSurface.app'
     target.mkdir(parents=True, exist_ok=False)
-    prefix = 'Sliccy.app/Contents/Helpers/ScreenProofSurface.app/'
+    prefix = 'ScreenProofSurface.app/'
     seen = set()
     with zipfile.ZipFile(io.BytesIO(data)) as bundle:
         for entry in bundle.infolist():

@@ -24,8 +24,9 @@ class CaptureManifestTests(unittest.TestCase):
         for bundle, role, name in [(app, 'ai.sliccy.mac', 'Sliccy'), (helper, 'ai.sliccy.proof-helper', 'ScreenProofSurface')]:
             for part in ['MacOS', '_CodeSignature']:
                 (bundle / 'Contents' / part).mkdir(parents=True)
-            (bundle / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': role, 'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '14' if role == 'ai.sliccy.mac' else '11', 'CFBundleExecutable': name}))
+            (bundle / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': role, 'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '14' if role == 'ai.sliccy.mac' else '12', 'CFBundleExecutable': name}))
             (bundle / 'Contents/MacOS' / name).write_bytes(b'not executable')
+        (helper / 'Contents/CodeResources').write_bytes(b'not a real ticket')
         (app / 'Contents/Resources').mkdir()
         (app / 'Contents/Resources/slicc').write_bytes(b'not executable')
         return app
@@ -57,6 +58,18 @@ class CaptureManifestTests(unittest.TestCase):
                 with self.assertRaises(ValueError): subject.manifest(app)
             with patch.object(subject, 'checked', return_value=(plistlib.dumps({'com.apple.security.get-task-allow': True}), b'')):
                 with self.assertRaises(ValueError): subject.manifest(app)
+
+    def test_helper11_or_missing_ticket_refuses(self):
+        for change in ['build11','missing-ticket']:
+            with self.subTest(change=change),tempfile.TemporaryDirectory() as root,patch.object(subject,'signature',side_effect=self.signature),patch.object(subject,'checked',side_effect=self.checked),patch.object(subject.subprocess,'run',return_value=subprocess.CompletedProcess([],3)):
+                app=self.fixture(root)
+                helper=app/'Contents/Helpers/ScreenProofSurface.app'
+                if change=='build11':
+                    path=helper/'Contents/Info.plist';info=plistlib.loads(path.read_bytes());info['CFBundleVersion']='11';path.write_bytes(plistlib.dumps(info))
+                else:
+                    (helper/'Contents/CodeResources').unlink()
+                with self.assertRaisesRegex(ValueError,'wrong fixture identity|unexpected helper contents'):
+                    subject.manifest(app)
 
     def test_only_documented_requirement_failure_is_role_refusal(self):
         for status in [0, 1, 2, -9, 4, 127]:
