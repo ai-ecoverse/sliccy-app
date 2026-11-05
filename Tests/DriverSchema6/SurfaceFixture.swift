@@ -1,7 +1,7 @@
 import Foundation
 import Darwin
 
-enum ScreenFailure: Error { case peerUntrusted }
+enum ScreenFailure: Error { case peerUntrusted, incompatible, resourceLimit, stalled }
 enum ScreenRunnerCase: String { case selectedWindow = "selected-window" }
 
 @main struct SurfaceFixture {
