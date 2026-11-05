@@ -790,5 +790,21 @@
     "new": "deadline:=now.Add(3*time.Second)",
     "test": "TestRunnerV8BaselineActualDeadlineRefusesLateCallback",
     "assertion": "ASSERTION:v8-baseline-actual-two-second-window"
+  },
+  {
+    "name": "v81-baseline-after-only-bsd",
+    "file": "runner_baseline_identity_darwin_test.go",
+    "old": "err!=nil||!out.After.Accepted||!runnerBSDEqual(out.After.Selected,&old.Identity)",
+    "new": "err!=nil||!out.After.Accepted",
+    "test": "TestRunnerV81BaselineAfterOnlyBSDMismatch",
+    "assertion": "ASSERTION:v81-after-only-bsd-refused"
+  },
+  {
+    "name": "v81-baseline-after-only-kernel",
+    "file": "runner_baseline_identity_darwin_test.go",
+    "old": "err!=nil||out.KernelAfter!=out.KernelBefore",
+    "new": "err!=nil",
+    "test": "TestRunnerV81BaselineAfterOnlyKernelMismatch",
+    "assertion": "ASSERTION:v81-after-only-kernel-refused"
   }
 ]
