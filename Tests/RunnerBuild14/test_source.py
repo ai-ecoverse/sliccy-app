@@ -58,7 +58,7 @@ class SourceTests(unittest.TestCase):
     def test_all_overlays_match_exact_source_once(self):
         spec = importlib.util.spec_from_file_location('build14_hosted', ROOT / 'Tests/RunnerBuild14/hosted.py')
         module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
-        self.assertEqual(len(module.harness.PLAN), 16)
+        self.assertEqual(len(module.harness.PLAN), 17)
         for name, path, old, new, selected in module.harness.PLAN:
             source = (ROOT / path).read_text()
             self.assertEqual(source.count(old), 1, name)
