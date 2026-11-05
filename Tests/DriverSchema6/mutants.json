@@ -155,7 +155,7 @@
     "name": "controller-owned-start",
     "file": "runner_controller_observer_darwin_test.go",
     "old": "seconds!=b.Seconds",
-    "new": "false",
+    "new": "seconds!=b.Seconds && b.Seconds==0",
     "test": "TestRunnerControllerOriginalOwnedRecordBindsStartRoleAndHash",
     "assertion": "ASSERTION:controller-original-startSeconds"
   },
@@ -166,5 +166,45 @@
     "new": "[]string{\"initial-live\",\"signal\",\"child-initial\"}",
     "test": "TestRunnerControllerReceiptCoverageRequiresEveryCLIStream",
     "assertion": "ASSERTION:controller-cli-coverage-child-signal"
+  },
+  {
+    "name": "metadata-first-cause",
+    "file": "runner_metadata_ledger_darwin_test.go",
+    "old": "len(l.Causes)>=5||l.Causes[kind].Stage!=\"\"",
+    "new": "false",
+    "test": "TestRunnerMetadataLedgerKeepsFirstCauseKindsAndRequiresChromePhases",
+    "assertion": "ASSERTION:first-cause-duplicate"
+  },
+  {
+    "name": "metadata-chrome-phase",
+    "file": "runner_metadata_ledger_darwin_test.go",
+    "old": "[]string{\"preflight\",\"initial-live\",\"live\",\"live-copy\",\"signal\"}",
+    "new": "[]string{\"preflight\",\"initial-live\",\"live\",\"live-copy\"}",
+    "test": "TestRunnerMetadataLedgerKeepsFirstCauseKindsAndRequiresChromePhases",
+    "assertion": "ASSERTION:chrome-phase-missing-phase"
+  },
+  {
+    "name": "kernel-errno-retention",
+    "file": "runner_security_native_darwin_test.go",
+    "old": "c.recordDetailed(\"csops-CDHASH\", 5, status, status == 0,&e)",
+    "new": "c.recordDetailed(\"csops-CDHASH\", 5, status, status == 0,nil)",
+    "test": "TestRunnerNativeKernelAdapterRetainsActualReturnsErrnoAndCallOrder",
+    "assertion": "ASSERTION:kernel-exact-errno"
+  },
+  {
+    "name": "residual-blind-skip",
+    "file": "runner_native_darwin_test.go",
+    "old": "if e!=nil||runnerCleanupCandidate(path,app){return found,fmt.Errorf(\"residual-identity",
+    "new": "if e!=nil{return found,fmt.Errorf(\"residual-identity",
+    "test": "TestRunnerResidualDiscoveryCannotInferAbsenceOrSignalFromPaths",
+    "assertion": "ASSERTION:residual-discovery-identity-unavailable"
+  },
+  {
+    "name": "residual-dirty-continuation",
+    "file": "runner_loop_darwin_test.go",
+    "old": "result.RootAssociatedError!=\"\" || ",
+    "new": "",
+    "test": "TestRunnerResidualDiscoveryCannotInferAbsenceOrSignalFromPaths",
+    "assertion": "ASSERTION:residual-unconfirmed-blocks-cases"
   }
 ]

@@ -26,6 +26,7 @@ manifest = json.loads((root / 'inputs.json').read_text())
 for name, digest in manifest['inputs'].items():
     assert sha((root / name).read_bytes()) == digest
 assert sha((root / 'ReceiptFixture.swift').read_bytes()) == manifest['fixtureSHA256']
+assert sha((root / 'test_harness.py').read_bytes()) == manifest['collectorTestSHA256']
 for name, digest in manifest['actualEncoderSources'].items():
     assert sha(Path(name).read_bytes()) == digest
 
@@ -68,6 +69,7 @@ def expand(path, destination, limit, members_limit):
 
 
 try:
+    assert command('collector-selftest', ['/usr/bin/python3', '-B', str(root / 'test_harness.py')], 10).returncode == 0
     with urllib.request.urlopen('https://go.dev/dl/go1.26.5.darwin-arm64.tar.gz', timeout=60) as response:
         data = response.read(64738543)
     assert len(data) == 64738542 and sha(data) == 'efb87ff28af9a188d0536ef5d42e63dd52ba8263cd7344a993cc48dd11dedb6a'
@@ -92,7 +94,7 @@ try:
     fixture_path = results.resolve() / 'foundation-encode.stdout'
     env['SLICCY_RECEIPT_FIXTURE'] = str(fixture_path)
     os.chdir(source)
-    selected = '^(TestRunnerBSDReceipt.*|TestRunnerReceiptBook.*|TestRunnerReceiptFoundationEncoderInteroperability|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission|TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries|TestRunnerExecutableSlicesRetainSameCPUCapabilitiesAndBounds|TestRunnerUnionRequiresEveryIndependentOwnerAndProtectsSecurityAgent|TestRunnerNativeCFConstructorsUseExactAttributesAndTypedInformation|TestRunnerAuthorizationPurposeDoesNotPromoteTemporalEvidenceOrBlockCleanCases|TestRunnerCleanupDoesNotClaimProtectedSystemWindowsAreOwned|TestRunnerAbsoluteLoopDeadlineStopsHeldReaderAndFailedCleanup|TestRunnerLoopDrainsBufferedRowsAfterReaderCompletion|TestRunnerIdentityBoundary.*|TestRunnerObservationPool.*|TestRunnerNativeTrace.*|TestRunnerController.*)$'
+    selected = '^(TestRunner.*|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission)$'
     binary = str(private / 'driver-components')
     compile_result = command('go-baseline-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 300)
     assert compile_result.returncode == 0
@@ -107,10 +109,11 @@ try:
         try:
             path.write_bytes(original.replace(needle, mutation['new'].encode(), 1))
             compile_mutant = command(mutation['name']+'-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
-            assert compile_mutant.returncode == 0
-            runtime_mutant = command(mutation['name']+'-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', '^'+mutation['test']+'$'], 45)
-            assert runtime_mutant.returncode == 1 and mutation['assertion'].encode() in runtime_mutant.stdout and b'panic:' not in runtime_mutant.stdout and b'--- SKIP:' not in runtime_mutant.stdout
-            mutation_results.append({'name': mutation['name'], 'compile': 0, 'runtime': 1, 'assertion': mutation['assertion']})
+            runtime_mutant = None
+            if compile_mutant.returncode == 0:
+                runtime_mutant = command(mutation['name']+'-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', '^'+mutation['test']+'$'], 45)
+            valid = compile_mutant.returncode == 0 and runtime_mutant is not None and runtime_mutant.returncode == 1 and mutation['assertion'].encode() in runtime_mutant.stdout and b'panic:' not in runtime_mutant.stdout and b'--- SKIP:' not in runtime_mutant.stdout
+            mutation_results.append({'name': mutation['name'], 'compile': compile_mutant.returncode, 'runtime': None if runtime_mutant is None else runtime_mutant.returncode, 'assertion': mutation['assertion'], 'validRed': valid})
         finally:
             path.write_bytes(original)
         restored_compile = command(mutation['name']+'-restored-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
@@ -127,6 +130,7 @@ try:
         assert result.returncode == 0 and result.stderr == b'' and len(result.stdout) <= 1048576
         (formatted / name).write_bytes(result.stdout)
     (results / 'formatted-source-map.json').write_text(json.dumps({p.name: sha(p.read_bytes()) for p in formatted.iterdir()}, indent=2))
+    assert all(item['validRed'] for item in mutation_results)
 finally:
     output = Path(os.environ['GITHUB_WORKSPACE']) / 'driver-schema6-results'
     (output / 'commands.json').write_text(json.dumps(records, indent=2))
