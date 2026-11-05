@@ -20,7 +20,7 @@ sys.path.insert(0, str(BASE / 'script/runner-proof'))
 import sealed_runner as subject
 import capture_tcc as tcc
 import capture_evidence as evidence_module
-SIGNED = Path('/Users/trieloff/.bb/thread-storage/thr_desfnajij8/signed/41981735530-capture-proof')
+SIGNED = Path('/Users/trieloff/.bb/thread-storage/thr_desfnajij8/signed/42018680351-capture-proof')
 
 
 class WrapperTests(unittest.TestCase):

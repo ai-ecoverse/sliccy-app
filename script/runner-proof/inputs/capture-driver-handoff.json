@@ -1,21 +1,21 @@
 {
   "schema": 1,
-  "status": "IMPLEMENTATION_FROZEN_FOR_FINAL_REVIEW",
+  "status": "FROZEN_FOR_BOTH_READS",
   "dispatchCleared": false,
-  "archive": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-1/driver-source.tar.gz",
-  "archiveSHA256": "222e06681ec7674ef3cd0d9f85b902b5df26c4ba54ae7ccccdc8db124af4ff97",
-  "sourceMap": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-1/source-files.json",
-  "sourceMapSHA256": "0cbe970db496a888f1759e8096067b385233ea5f7baf9828b6af3889798ebbfb",
+  "archive": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-2-exact-enum/driver-source.tar.gz",
+  "archiveSHA256": "d51d13c6e0b8b27cc5afbc740c00e9c13b9d9a11f806511148bb999a7c57b1da",
+  "sourceMap": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-2-exact-enum/source-files.json",
+  "sourceMapSHA256": "da69abaf49c222ce838e087a503847f83a24493160d913bf0625a25e4ffb99ee",
   "flatGoFiles": 86,
-  "sourceReadDirectory": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-1/files",
+  "sourceReadDirectory": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-2-exact-enum/files",
   "validation": {
-    "source": "ebb11083a893db801901b7ff7e83759916949a88",
-    "run": 41987812337,
+    "source": "e0cb1510c31678fbe9b719a4725376d7c1394eb1",
+    "run": 42022850390,
     "shards": [
       {
         "index": 0,
-        "artifact": 13396768179,
-        "archiveSHA256": "8e287695345634f1f2c6f3b957a8e2ba012e757816914201d47e2395e97b8d5a",
+        "artifact": 13412792419,
+        "archiveSHA256": "cb52966099a2ed32a08a2e782b24107acf1a747af1902067923f19ea3678b202",
         "mutantIds": [
           "bsd-raw-fraction-bound",
           "capture-duration-bound",
@@ -67,17 +67,21 @@
           "v8-refusal-owner-presence-drop",
           "v8-snapshot-refusal-drop",
           "v8-window-approval-drop",
-          "v81-baseline-after-only-kernel"
+          "v81-baseline-after-only-kernel",
+          "v82-owner-bsd-json-collision",
+          "v82-surface-false-status",
+          "v82-surface-operation-guard",
+          "v82-surface-stage-drop"
         ],
-        "mutants": 51,
-        "streams": 604,
-        "rawTests": 82,
-        "formattedTests": 82
+        "mutants": 55,
+        "streams": 640,
+        "rawTests": 86,
+        "formattedTests": 86
       },
       {
         "index": 1,
-        "artifact": 13396968071,
-        "archiveSHA256": "e2b7725b1cb1d0a652746cdf1f75d96c4621f8fa84f7af81fcaddde7ea6e8e5a",
+        "artifact": 13411789766,
+        "archiveSHA256": "5139a3a4bce63bb18e78c84a823ec38695e3858a3c68757935751261ab2d12d8",
         "mutantIds": [
           "bsd-raw-parent-bound",
           "capture-duration-prestart",
@@ -128,28 +132,34 @@
           "v8-refusal-identifier-newline",
           "v8-refusal-provenance-drop",
           "v8-snapshot-window-drop",
-          "v81-baseline-after-only-bsd"
+          "v81-baseline-after-only-bsd",
+          "v82-inventory-composite-enum",
+          "v82-surface-composite-enum",
+          "v82-surface-fieldset-guard",
+          "v82-surface-predicate-guard",
+          "v82-surface-status-drop"
         ],
-        "mutants": 50,
-        "streams": 596,
-        "rawTests": 82,
-        "formattedTests": 82
+        "mutants": 55,
+        "streams": 640,
+        "rawTests": 86,
+        "formattedTests": 86
       }
     ],
-    "disjointExhaustiveMutants": 101,
+    "disjointExhaustiveMutants": 110,
     "allNamedRuntimeRedAndRestoredPass": true,
     "allFormattedInputsEqual": true,
     "rawInputs": 86,
-    "totalStreamHashes": 1200,
-    "onlyTestFixtureChangedFromV8": true,
+    "totalStreamHashes": 1280,
+    "diagnosticFiveGoFilesPlusThreeBuild15PinFilesChangedFromV81": true,
+    "acceptedBuild15ProducerAndArtifactPinsPending": false,
+    "build15StaticRun": 42020701172,
     "nativeLocal": false,
-    "dispatchCleared": false,
-    "scope": "Synthetic fabricated Foundation/CF encoder, fake Security/BSD/kernel/window/process callbacks, owned files and loopback only; no live query/subject/root/TCC/capture"
+    "dispatchCleared": false
   },
-  "rawMutantInputHash": "ba804654f69a5add8e85a9940842756b58a4c500cb628a44a8f4961e89d5e212",
+  "rawMutantInputHash": "5d92c702343ac487771e6fb2d7b567dcba71f4d9f6ebe03a3d6b1fa9206d18f4",
   "formatting": "Exact pinned Go1.26.5 gofmt output separately compiled and full-suite tested; raw mutant inputs and final formatted hashes remain distinct",
   "previousDrivers": "all preserved unchanged",
-  "supersedes": "V8.1 test-only coverage delta over clean reviewedV8; implementation, artifact pins, budgets and all decision/cleanup/signal rules byte-identical. Adds after-only BSD and kernel mismatch regressions plus two runtime rollback faults.",
+  "supersedes": "V8.2 diagnostics-only BSD before/after JSON encoding correction, fixed typed surface-refusal decoding, and exact authenticated build15/helper12 pins. All PASS, availability, selection, cleanup, signal and budget rules unchanged.",
   "entry": [
     "go",
     "test",
@@ -187,17 +197,17 @@
     "GITHUB_TOKEN"
   ],
   "appBinding": {
-    "source": "0d98f937d1ba576665ffba64c66ec6a51c65e285",
-    "run": 41981735530,
-    "artifact": 13393659909,
-    "build": 14,
+    "source": "0cd76ac0f064f52aaa5a24bb17490e8cf9ccb4a4",
+    "run": 42018680351,
+    "artifact": 13409549848,
+    "build": 15,
     "helperBuild": 12,
-    "zipSHA256": "a4fe65982e1ce1858b1e08dc21fa25ee523bcf08a203bf6d5e26a242495f0529",
-    "manifestSHA256": "20286e1d09a4a080992ddbfc1a7bd84512e8332703d2e244c41d8756e2b80a5e",
+    "zipSHA256": "1286e835984c09c942f3f4687ad975106398a0447164312462e473c9041f2643",
+    "manifestSHA256": "ce8c707f5a514ec689b2fa4d7b912bdbbd197d3926ee1bff3fb8fadcb39dd6e9",
     "schema": 6,
     "schemaSHA256": "2d47a525425c3e5cbb23acec0f413b111b3f03f5219c81c9befe3f41837f4ffc",
-    "outerSHA256": "60027d9058f32754ff65f1001a7d300f79e44a1e704b9e6f033eeaeef4e39bf2",
-    "build14ContractSHA256": "0aebf7134d2ec4e02e45a9a82e6d8acb4657f9d0890805d255b5af57592af669"
+    "outerSHA256": "63ac50560441a7fe2809d2477d43e5e8c9b67e06b3ee2362928998a18743527c",
+    "build15ContractSHA256": "71b6314f3be1d30dd90dc50900c909ff06850f994fa80d83d97f3d72ba2ce2c4"
   },
   "schemas": {
     "app": 6,
@@ -213,9 +223,11 @@
       "per-case frame-NNN.jpeg",
       "per-case independent diagnostic refusal/cadence snapshots and owner facts",
       "per-case fixed page GET delivery event times",
-      "per-case causal clock interval and cheap-baseline checks"
+      "per-case causal clock interval and cheap-baseline checks",
+      "independent owner JSON before and after BSD observations",
+      "fixed diagnostic-only surface-refusal rows in existing milestones"
     ],
-    "build14ContractSHA256": "0aebf7134d2ec4e02e45a9a82e6d8acb4657f9d0890805d255b5af57592af669"
+    "build15ContractSHA256": "71b6314f3be1d30dd90dc50900c909ff06850f994fa80d83d97f3d72ba2ce2c4"
   },
   "cases": [
     "selected-window",
@@ -308,7 +320,8 @@
     "Static30s and baseline2s budgets refuse late successful synchronous native calls; cancellation cannot preempt a blocked Security call. Independent observation hard bounds and case150s remain fail-closed.",
     "Diagnostics snapshots are sampled, may be delayed or partial under shared4-worker/256-job limits, and cannot retrospectively name an unobserved owner.",
     "Helper150s lifetime is enforced by its existing main-loop timer and is not a physical teardown bound; signed app setup120/final150 are not guarantees under blocking synchronous SDK calls.",
-    "App has no Unix SIGTERM cleanup path; unchanged driver3s failure escalation may kill before owned-root removal; unconfirmed cleanup blocks later cases. App follow-up issue4 remains."
+    "App has no Unix SIGTERM cleanup path; unchanged driver3s failure escalation may kill before owned-root removal; unconfirmed cleanup blocks later cases. App follow-up issue4 remains.",
+    "Whole-chain wrapper column remains pending final wrapper pin/read; this packet grants no dispatch."
   ],
   "sealing": "All actual subprocess/native/window/process/JPEG/case evidence private and age sealed by wrapper; no public raw output and no proof verdict from CI status.",
   "dispatch": "Both final driver/wrapper reads and explicit coordinator authorization required; no dispatch clearance from this packet.",
@@ -321,7 +334,9 @@
     "firstVersusLater": "order strictly increasing across retained paths; first=true is first observation of that specific path, not necessarily order1",
     "authority": "diagnostic records have no acceptance or signal authority",
     "exitSynchronization": "Only reader goroutine reads cmd.ProcessState immediately AFTER cmd.Wait. Exit/signal facts delivered in finished-result channel. Controller consumes settled record only; unsettled remains observed:false/code:-1.",
-    "refusalSnapshots": "Every2s bounded78 sampled snapshots, first inventory-refusal and final surface-unavailable separately reserved; CG rows retained before owner queries. Explicit requested/start/window/end times, complete/partial/errors. Diagnostic-only owner signing/Apple/platform/BSD facts are independent queries, never role/selection/cleanup/signal authority; titles stripped."
+    "refusalSnapshots": "Every2s bounded78 sampled snapshots, first inventory-refusal and final surface-unavailable separately reserved; CG rows retained before owner queries. Explicit requested/start/window/end times, complete/partial/errors. Diagnostic-only owner signing/Apple/platform/BSD facts are independent queries, never role/selection/cleanup/signal authority; titles stripped.",
+    "surfaceRefusal": "Exact-token membership for inventory/surface enums and provenance, global runnerOneOf unchanged. Strict schema6 header plus exactly predicate/operation/nullable signedInt32 status, fixed enum values; app claim diagnostic only, no new acceptance or authority.",
+    "ownerBSD": "Separate before and after JSON keys, nullable observations; actual runnerSaveJSON regression preserves both distinct records."
   },
   "childSettlement": {
     "spawn": "original emitted PID/parent/UID/start/role/hash retained; immediate independent identity scheduling for helper/CLI/requester and next closed launcher label for Chrome, partial source claim remains labelled until independently bound",

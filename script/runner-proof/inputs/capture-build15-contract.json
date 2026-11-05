@@ -1,7 +1,7 @@
 {
   "status": "DRAFT_FOR_SOURCE_AND_HOSTED_TEST_REVIEW_NOT_FOR_DISPATCH",
-  "baseSource": "91c1b3ef7aae7a4f2581a2ca6631a740d5556755",
-  "build": 14,
+  "baseSource": "0d98f937d1ba576665ffba64c66ec6a51c65e285",
+  "build": 15,
   "helperBuild": 12,
   "schema": 6,
   "authority": "Diagnostics have no acceptance, selection, cleanup or signal authority. Original inventory predicates/order and thrown issues remain unchanged.",
@@ -179,5 +179,41 @@
   },
   "baselineChange": "App runner-baseline remains 5 seconds after the 10-second capture limit is armed. The withdrawn 45-second proposal is not implemented. V8 moves full static Chrome9/25 before capture and uses a shared bounded2-second dynamic/kernel/BSD/executable-stat baseline; its source requires both reads.",
   "limits": "Task watchdog cannot interrupt synchronous Security calls; final app150-second check is post-cleanup, not an independently measured teardown maximum. Driver hard case bound remains external. Issue4 orderly abort is separate. No new allowlist role or acceptance change.",
-  "pins": "Build14 signing/artifact pins pending both source reads and coordinator signing authorization; build13 artifacts are not build14."
+  "pins": "Build15 app signing and artifact pins are pending both source reads and coordinator signing authorization. Helper12 is the exact independently verified artifact13392888076 from run41978928697/source4c873bab. Current driver/wrapper build14 app pins are not valid for build15 and must be replaced and cross-checked against the actual signed artifact before any dispatch.",
+  "surfaceRefusal": {
+    "stage": "surface-refusal",
+    "schema": 6,
+    "producer": "ScreenRunnerSurfaceDiagnostics.swift",
+    "fields": {
+      "predicate": [
+        "host",
+        "identifier",
+        "team",
+        "hash",
+        "role",
+        "path",
+        "operation"
+      ],
+      "operation": [
+        "host",
+        "executable-read",
+        "executable-hash",
+        "policy",
+        "static-code",
+        "requirement",
+        "static-validity",
+        "signing-information",
+        "catalogue",
+        "launch"
+      ],
+      "status": "null or signed Int32; actual native static-validity status only when available"
+    },
+    "journal": "actual unchanged ScreenRunnerJournal; normal schema/case/eventElapsedMs envelope",
+    "multiplicity": "at most one per surface launch attempt; actual surface caller creates one attempt per case",
+    "order": "after preflight+clock anchor; before or during helper construction; record occurs before generic first-cause/terminal; no fabricated successful spawn",
+    "semantics": "diagnostic-only; first observation retained, no verdict/identity/selection/signal authority; combined native requirement failure labelled role, not guessed identifier/team; policy identifier/team only for actual caller-policy failure; path for read/static-create/path comparison failure; hash for executable SHA mismatch; operation fallback for otherwise unclassified constructor failure",
+    "privacy": "fixed enum strings and nullable status only; no path/title/content/exception strings",
+    "boundsUnchanged": true
+  },
+  "changeScope": "Helper12 executable SHA corrected in app source, fixed surface-refusal diagnostics before existing generic failure; no native query count/order/return/status or identity predicate change. Build number15 and cross-chain consistency gate; all limits unchanged."
 }

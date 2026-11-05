@@ -31,7 +31,7 @@ class Pipeline:
         self.evidence = self.root / 'evidence'; self.evidence.mkdir()
         self.store = self.root / 'store'; self.store.mkdir()
         self.app = self.store / 'Sliccy.app'
-        self.bundle(self.app, 'ai.sliccy.mac', 'Sliccy', '14')
+        self.bundle(self.app, 'ai.sliccy.mac', 'Sliccy', '15')
         self.helper = self.app / 'Contents/Helpers/ScreenProofSurface.app'
         self.bundle(self.helper, 'ai.sliccy.proof-helper', 'ScreenProofSurface', '12')
         (self.helper / 'Contents/CodeResources').write_bytes(b'fixed helper ticket')
