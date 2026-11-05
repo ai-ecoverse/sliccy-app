@@ -419,7 +419,7 @@
     "name": "diagnostic-app-tail",
     "file": "runner_diagnostics_darwin_test.go",
     "old": "return text,b.total",
-    "new": "return \"\",b.total",
+    "new": "_ = text;return \"\",b.total",
     "test": "TestRunnerAppOutputTailAndSignalFactsAreRetained",
     "assertion": "ASSERTION:app-output-tail"
   },
