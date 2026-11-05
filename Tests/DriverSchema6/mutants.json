@@ -574,5 +574,29 @@
     "new": "exit:runnerProcessExit{Code:exit.Code}}",
     "test": "TestRunnerExitFactsPublishOnlyAfterFinishedResult",
     "assertion": "ASSERTION:settled-exit-channel"
+  },
+  {
+    "name": "darwin-sigcont-linux-literal",
+    "file": "runner_code_receipt_darwin_test.go",
+    "old": "signal != int64(syscall.SIGCONT)",
+    "new": "signal != 18",
+    "test": "TestRunnerFoundationSignalRecordsUseDarwinConstants",
+    "assertion": "ASSERTION:darwin-signal-encoder-parser-SIGCONT"
+  },
+  {
+    "name": "root-error-as-absence",
+    "file": "runner_root_observation_darwin_test.go",
+    "old": "if os.IsNotExist(err){",
+    "new": "if err!=nil{",
+    "test": "TestRunnerRootObservationDistinguishesPresentAbsentAndStatError",
+    "assertion": "ASSERTION:root-stat-error-not-absence"
+  },
+  {
+    "name": "root-inode-record-drop",
+    "file": "runner_root_observation_darwin_test.go",
+    "old": "r.Inode=&ino",
+    "new": "_ = ino",
+    "test": "TestRunnerRootObservationDistinguishesPresentAbsentAndStatError",
+    "assertion": "ASSERTION:root-present-record"
   }
 ]
