@@ -24,6 +24,7 @@ harness.PLAN = [
     ('identifier-charset', DIAGNOSTICS, '&& allowed &&', '&& (allowed || true) &&', 'identifierCodecAndNullableFactsNeverEmitContent'),
     ('identifier-provenance', DIAGNOSTICS, 'owner?.verified == true && owner?.identifier == signingIdentifier', '(owner?.verified == true || true) && (owner?.identifier == signingIdentifier || true)', 'actualEncoderRetainsBoundedPairedFactsAndIdentifierProvenance'),
     ('refusal-pair-limit', DIAGNOSTICS, '"cg": cg.prefix(2)', '"cg": cg.prefix(1)', 'actualEncoderRetainsBoundedPairedFactsAndIdentifierProvenance'),
+    ('refusal-raw-dimensions', DIAGNOSTICS, '"width": number(value.size.width), "height": number(value.size.height)', '"width": number(value.width), "height": number(value.height)', 'actualEncoderRetainsBoundedPairedFactsAndIdentifierProvenance'),
     ('clock-field', ALLOWANCE, '["marker": marker]', '["marker": "wrong"]', 'realJournalEncodesRefusalAndEarlyClockWithinExistingBounds'),
     ('watchdog-allowance', ALLOWANCE, 'watchdogSeconds: Int64 = 120', 'watchdogSeconds: Int64 = 40', 'setupAllowancesPreserveMeasuredRemainingBudget'),
     ('final-allowance', ALLOWANCE, 'finalSeconds: Int64 = 150', 'finalSeconds: Int64 = 45', 'setupAllowancesPreserveMeasuredRemainingBudget'),

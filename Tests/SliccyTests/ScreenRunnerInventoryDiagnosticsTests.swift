@@ -46,7 +46,9 @@ struct ScreenRunnerInventoryDiagnosticsTests {
         }
         let row = try #require(sink.rows.first)
         #expect(row.branch == .sckOwner && row.comparison == .present && row.windowID == 41)
-        #expect(row.cg == cg && row.sck[0].pid == nil && row.sck[0].bundle == nil)
+        #expect(row.sck.first != nil)
+        guard let firstSCK = row.sck.first else { return }
+        #expect(row.cg == cg && firstSCK.pid == nil && firstSCK.bundle == nil)
         let fields = row.fields, sck = try #require((fields["sck"] as? [[String: Any]])?.first)
         #expect(sck["ownerPresent"] as? Bool == false && sck["pid"] is NSNull)
         let result = try B.sckRecord(id: 41, pid: 99, bundle: "com.apple.finder", rect: rect, layer: 1000, diagnosticTitle: "SECRET", cg: cg, diagnostics: diagnostics.begin(.refresh))
@@ -101,8 +103,9 @@ struct ScreenRunnerInventoryDiagnosticsTests {
                 appleAnchored: mode % 2 == 0, verified: mode % 2 == 0, sysctlBound: mode % 2 == 0,
                 realUID: mode % 2 == 0 ? 0 : nil, savedUID: mode % 2 == 0 ? 0 : nil)
             let observed = mode == 0 ? nil : identifier
+            let observedRect = mode == 4 ? CGRect(x: 1, y: 2, width: -3, height: 4) : mode == 5 ? CGRect(x: Double.infinity, y: 0, width: 0, height: -1) : rect
             let sck: [D.SCKFact] = (1...3).map { .init(id: UInt32($0), pid: mode == 0 ? nil : 42,
-                bundle: mode == 0 ? nil : mode == 5 ? "com.apple/PRIVATE-CONTENT" : identifier, rect: rect, layer: 1000) }
+                bundle: mode == 0 ? nil : mode == 5 ? "com.apple/PRIVATE-CONTENT" : identifier, rect: observedRect, layer: 1000) }
             diagnostics.begin(.initial).reject(.ownerAttribution, .bundlePair, pid: 42, windowID: mode == 0 ? nil : 1,
                 signingIdentifier: observed, cg: cg, sck: sck, owner: owner, checks: [(.bundle, false)])
             var bytes = [UInt8](repeating: 0, count: 4096)
@@ -114,6 +117,11 @@ struct ScreenRunnerInventoryDiagnosticsTests {
             #expect(row["cgCount"] as? Int == 3 && row["sckCount"] as? Int == 3)
             #expect((row["cg"] as? [[String: Any]])?.count == 2 && (row["sck"] as? [[String: Any]])?.count == 2)
             #expect(row["signingIdentifierSource"] as? String == (mode == 0 ? "unavailable" : mode >= 2 && mode % 2 == 0 ? "verified" : "tentative"))
+            let sckFields = try #require((row["sck"] as? [[String: Any]])?.first)
+            let rectangle = try #require(sckFields["rect"] as? [String: Any])
+            #expect(rectangle["width"] as? Double == (mode == 4 ? -3 : mode == 5 ? 0 : 3))
+            #expect(rectangle["height"] as? Double == (mode == 5 ? -1 : 4))
+            #expect((rectangle["x"] is NSNull) == (mode == 5))
             #expect((row["windowID"] is NSNull) == (mode == 0))
             if let owner {
                 let fields = try #require(row["owner"] as? [String: Any])
