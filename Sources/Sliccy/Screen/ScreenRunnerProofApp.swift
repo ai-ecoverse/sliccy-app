@@ -10,10 +10,14 @@ final class ScreenRunnerProofApp: NSObject, NSApplicationDelegate {
         guard (try? ScreenRunnerHost.require()) != nil, geteuid() != 0 else { exit(2) }
         signal(SIGPIPE, SIG_IGN); umask(0o077)
         let delegate = ScreenRunnerProofApp(), app = NSApplication.shared
-        app.delegate = delegate; app.setActivationPolicy(.accessory)
+        app.delegate = delegate
+        ScreenRunnerDisplaySampler.record(.beforeActivationPolicy)
+        app.setActivationPolicy(.accessory)
+        ScreenRunnerDisplaySampler.record(.afterActivationPolicy)
         withExtendedLifetime(delegate) { app.run() }
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
+        ScreenRunnerDisplaySampler.record(.didFinishLaunching)
         do {
             let session = try ScreenRunnerSession(); self.session = session
             Task { await session.run() }
@@ -88,6 +92,9 @@ final class ScreenRunnerSession {
             try ScreenPeerVerifier.verifySelf()
             let screen = CGPreflightScreenCaptureAccess(), listen = CGPreflightListenEventAccess(), post = CGPreflightPostEventAccess()
             journal.emit("runner-preflight", ["screenCapture": screen, "listenEvent": listen, "postEvent": post, "hosted": true, "osMajor": 27, "architecture": "arm64"])
+            let displays = ScreenRunnerDisplayDiagnostics.shared
+            displays.install(output: { [journal] delivery in displays.deliver(delivery, to: journal) }, loss: { [journal] in journal.rejectEvidence() })
+            ScreenRunnerDisplaySampler.record(.preflight)
             try check()
             guard screen, selected != .hotkeyStop || (listen && post), NSScreen.main != nil else { reason = "permission-unavailable"; exitCode = 2; throw ScreenFailure.permission }
             causes.advance(.preparing)
@@ -109,6 +116,7 @@ final class ScreenRunnerSession {
             owned.append(("allowed", surface)); primaries.append(surface)
             try reportOwned(surface.recordedIdentity)
             journal.emit("surface-process", ["label": "allowed", "pid": surface.pid, "bundleIdentifier": "ai.sliccy.proof-helper"])
+            ScreenRunnerDisplaySampler.record(.helperSpawned)
             var browsers: [ScreenRunnerOwnedProcess] = []
             if selected.needsBrowser {
                 for window in ScreenRunnerBrowserWindow.allCases {
@@ -160,9 +168,11 @@ final class ScreenRunnerSession {
                 causes.record(.stop, reason: .screen(reason), origin: origin, at: at)
             }, stop: { reason in transport.stop(reason) })
             self.relay = relay
+            ScreenRunnerDisplaySampler.record(.beforeIndicator)
             indicator = try ScreenIndicator(recipient: "Synthetic runner peer", scope: "Owned synthetic surface", relay: relay)
             guard let indicator else { throw ScreenFailure.indicator }
             try indicator.proofPlace()
+            ScreenRunnerDisplaySampler.record(.indicatorPlaced)
             causes.advance(.inventory)
             var inventory: ScreenRunnerInventory?
             var inventoryIssue: ScreenRunnerInventoryIssue = .unknown
@@ -192,6 +202,10 @@ final class ScreenRunnerSession {
             guard inventory.fingerprint == refreshed.fingerprint else { throw ScreenFailure.sourceChanged }
             journal.emit("surfaces-confirmed")
             let source = try ScreenRunnerCaptureSource.make(inventory: refreshed, selected: selected) { refusal in
+                if let structural = refusal.structural {
+                    journal.emit("protected-structural-refused", structural.fields)
+                    return
+                }
                 var fields: [String: Any] = ["label": refusal.label.rawValue, "type": refusal.type, "pid": refusal.pid, "predicateEvidence": refusal.predicateEvidence]
                 if let id = refusal.windowID { fields["windowID"] = id }
                 journal.emit("protected-selection-refused", fields)
@@ -302,6 +316,7 @@ final class ScreenRunnerSession {
         if !cleaned || journal.began.duration(to: .now) > .seconds(ScreenRunnerSetupAllowance.finalSeconds) || journal.failed { outcome = "failed"; reason = "cleanup-failed"; exitCode = 1 }
         if journal.failed { outcome = "failed-to-demonstrate"; reason = "diagnostic-loss"; exitCode = 2 }
         if outcome != "complete" { causes.record(.failure, reason: journal.failed ? .screen(.resourceLimit) : .screen(.stalled), origin: journal.failed ? .diagnostic : .fixture) }
+        ScreenRunnerDisplayDiagnostics.shared.finish()
         receipts.finish()
         if journal.failed { outcome = "failed-to-demonstrate"; reason = "diagnostic-loss"; exitCode = 2 }
         causes.advance(.finished)

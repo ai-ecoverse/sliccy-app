@@ -167,7 +167,9 @@ final class ScreenRunnerInventory {
             let matching = windows.filter { $0.value.owningApplication?.processID == pid }
             guard let first = matching.first, let label = ScreenProofProtectedProbe.Label(rawValue: first.label),
                   let application = first.value.owningApplication else { throw ScreenFailure.protection }
-            targets.append(.init(label: label, application: application, windows: matching.map(\.value)))
+            targets.append(.init(label: label, application: application, windows: matching.map(\.value),
+                inventoryIdentity: validated.fingerprint.owners.first { $0.pid == pid },
+                windowServerWitness: validated.windowServerEmptyBundle.flatMap { $0.owner.pid == pid ? $0 : nil }))
         }
         try ScreenProofProtectedProbe.check(display: display, targets: targets, protected: protected, refused: refused)
         if selected.needsBrowser {

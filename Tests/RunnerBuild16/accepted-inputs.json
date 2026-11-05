@@ -1,0 +1,18 @@
+{
+  "source": "0cd76ac0f064f52aaa5a24bb17490e8cf9ccb4a4",
+  "unchangedFiles": {
+    "Sources/Sliccy/Screen/ScreenFilterBuilder.swift": "0d002683992a2ff244b51b176c873969939e0b3c9b8c1c4d837460ccd5f0e1a4",
+    "Sources/Sliccy/Screen/ScreenRunnerSystemOwner.swift": "48859f944f2fe0d20f0ac8a3fe4cf7f779dc9ac6a7f9e6f4281013c78d1ecb3d",
+    "Sources/Sliccy/Screen/ScreenRunnerBSD.swift": "3dd7056568881133d64ee16f37ba1dcff6b8f8741e07b0399f1432f756088906",
+    "Sources/Sliccy/Screen/ScreenRunnerSliceBinding.swift": "cf2c5d88f7b9b96006d4833b90fe86b5bea15e32e2ea6d3443e69d1356a188d7",
+    "Sources/Sliccy/Screen/ScreenRunnerOwnedProcess.swift": "a30de26c8581a159581784c5a6e35d289db96ea000e65e118bad36f4d230ba9e",
+    "Sources/Sliccy/Screen/ScreenRunnerCaptureLimit.swift": "b9614d2a4ed499ea3ca217b35fbc0570c3eca98c7b9fb22e71ca14cd5fc8800a",
+    "Sources/Sliccy/Screen/ScreenRunnerSetupAllowance.swift": "051f023599cef16cb5ac5b5c14f91eb96115cf19c69ca8e81dd5850abf3649e5",
+    "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6",
+    "Sources/Sliccy/Screen/ScreenRunnerCleanup.swift": "59f6cced691fb316c3dae3cb612377fcdea9db75a98918034aa43584876d24e5",
+    "Sources/Sliccy/Screen/ScreenRunnerSurfaceDiagnostics.swift": "4a619c0d8f13721a6e11d0b154a3fc8413c5a79d4c4f8baa60a4f8d83464cf57",
+    "Sources/Sliccy/Screen/ScreenRunnerProcessIdentity.swift": "f309595bf61dc3c4d4ad11ad9ef73ff9f5beaa2076dfb98f7e2f48972a48d66d",
+    "Tests/NativeCaptureSurface/surface-app.swift": "f9ba2d6a1f1e8d31f1b4e90ff78afbf609ee7ad788660a2ea1ca51d051e882d8"
+  },
+  "stopRelayBody": "_ reason: ScreenFailure, origin: Origin = .other) {\n        let start = ContinuousClock.now\n        gate.invalidate()\n        let invalidated = ContinuousClock.now\n        stop(reason)\n        cause(reason, origin, start)\n        entered(origin, start)\n        observed(start, invalidated)\n    }"
+}

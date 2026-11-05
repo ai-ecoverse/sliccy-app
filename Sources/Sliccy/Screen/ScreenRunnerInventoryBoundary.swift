@@ -33,13 +33,34 @@ enum ScreenRunnerInventoryBoundary {
         let id: UInt32, pid: pid_t, bundle: String, rect: CGRect, layer: Int, kind: Kind
         let inCG: Bool, inSCK: Bool
     }
+    struct WindowServerEmptyBundleWitness: Equatable, Sendable {
+        struct Pair: Equatable, Sendable {
+            let cg: CGRecord
+            let sck: SCKRecord
+        }
+        let owner: Identity
+        let pairs: [Pair]
+        fileprivate init(owner: Identity, pairs: [Pair]) { self.owner = owner; self.pairs = pairs }
+        func matches(identity: Identity, pid: pid_t, bundle: String, windows: [SCKRecord]) -> Bool {
+            guard identity == owner, pid == owner.pid, bundle.isEmpty,
+                  !windows.isEmpty, windows.count <= 64,
+                  Set(windows.map(\.id)).count == windows.count else { return false }
+            let actual = windows.sorted { $0.id < $1.id }
+            return actual.count == pairs.count && zip(actual, pairs).allSatisfy { value, pair in
+                value.id == pair.sck.id && value.pid == pair.sck.pid && value.bundle.isEmpty &&
+                value.rect == pair.sck.rect && value.layer == pair.sck.layer
+            }
+        }
+    }
     struct Fingerprint: Equatable, Sendable {
         let display: UInt32, rect: CGRect, windows: [Window], owners: [Identity]
+        var windowServerEmptyBundle: WindowServerEmptyBundleWitness? = nil
     }
     struct Validated: Sendable {
         let fingerprint: Fingerprint
         let allowed: UInt32
         let authorizationNew: Set<UInt32>
+        var windowServerEmptyBundle: WindowServerEmptyBundleWitness? { fingerprint.windowServerEmptyBundle }
         func requireSelection(_ ids: [UInt32]) throws {
             guard ids == [allowed], fingerprint.windows.contains(where: { $0.id == allowed && $0.kind.selectable && $0.inCG && $0.inSCK }) else {
                 throw ScreenFailure.protection
@@ -75,6 +96,7 @@ enum ScreenRunnerInventoryBoundary {
         let pids = Set(cg.map(\.pid)).union(sck.map(\.pid))
         guard pids.allSatisfy({ $0 > 0 }), pids.count <= 128 else { throw refuse(.ownerAttribution, .ownerPIDs, pid: pids.filter { $0 <= 0 }.sorted().first, checks: [(.pid, pids.allSatisfy { $0 > 0 }), (.count, pids.count <= 128)]) }
         var owners: [Identity] = [], windows: [Window] = []
+        var windowServerEmptyBundle: WindowServerEmptyBundleWitness?
         for pid in pids.sorted() {
             let owner: Identity
             do { owner = try verify(pid) }
@@ -100,19 +122,33 @@ enum ScreenRunnerInventoryBoundary {
             owners.append(owner)
             let c = cg.filter { $0.pid == pid }, s = sck.filter { $0.pid == pid }
             if kind != .system, Set(c.map(\.id)) != Set(s.map(\.id)) { throw refuse(.completeness, .completeness, pid: pid, id: Set(c.map(\.id)).symmetricDifference(Set(s.map(\.id))).sorted().first, owner: owner) }
+            let emptyWindowServer = s.contains { $0.bundle.isEmpty }
+            if emptyWindowServer {
+                guard kind == .system, owner.identifier == "com.apple.WindowServer", owner.appleAnchored,
+                      owner.verified, owner.sysctlBound, owner.parent == 1, owner.uid == 88,
+                      owner.realUID == 0, owner.savedUID == 0, windowServerEmptyBundle == nil,
+                      s.count <= 64, s.allSatisfy({ right in right.bundle.isEmpty && c.contains(where: { $0.id == right.id }) }) else {
+                    throw refuse(.ownerAttribution, .bundlePair, pid: pid, owner: owner, checks: [(.bundle, false)])
+                }
+            }
+            var emptyPairs: [WindowServerEmptyBundleWitness.Pair] = []
             for id in Set(c.map(\.id)).union(s.map(\.id)).sorted() {
                 let left = c.first { $0.id == id }, right = s.first { $0.id == id }
                 if let left, let right {
                     guard left.rect == right.rect, left.layer == right.layer else { throw refuse(.ownerAttribution, .geometryPair, pid: pid, id: id, owner: owner, checks: [(.rect, left.rect == right.rect), (.layer, left.layer == right.layer)]) }
                 }
                 guard !cg.contains(where: { $0.id == id && $0.pid != pid }), !sck.contains(where: { $0.id == id && $0.pid != pid }) else { throw refuse(.ownerAttribution, .pidPair, pid: pid, id: id, owner: owner, checks: [(.cgPID, !cg.contains { $0.id == id && $0.pid != pid }), (.sckPID, !sck.contains { $0.id == id && $0.pid != pid })]) }
-                if let right, right.bundle != owner.identifier { throw refuse(.ownerAttribution, .bundlePair, pid: pid, id: id, owner: owner, checks: [(.bundle, false)]) }
+                if let right, right.bundle != owner.identifier && !(emptyWindowServer && right.bundle.isEmpty) { throw refuse(.ownerAttribution, .bundlePair, pid: pid, id: id, owner: owner, checks: [(.bundle, false)]) }
                 let frame = left?.rect ?? right!.rect, layer = left?.layer ?? right!.layer
                 guard frame.origin.x.isFinite, frame.origin.y.isFinite, frame.width.isFinite, frame.height.isFinite,
                       frame.width > 0, frame.height > 0 else { throw refuse(.windowIdentity, .geometry, pid: pid, id: id, owner: owner, checks: [(.finite, frame.origin.x.isFinite && frame.origin.y.isFinite && frame.width.isFinite && frame.height.isFinite), (.positiveSize, frame.width > 0 && frame.height > 0)]) }
                 guard !windows.contains(where: { $0.pid == pid && $0.rect == frame }) else { throw refuse(.windowIdentity, .duplicateGeometry, pid: pid, id: id, owner: owner) }
+                if emptyWindowServer, let left, let right {
+                    emptyPairs.append(.init(cg: left, sck: .init(id: right.id, pid: right.pid, bundle: right.bundle, rect: right.rect, layer: right.layer)))
+                }
                 windows.append(.init(id: id, pid: pid, bundle: owner.identifier, rect: frame, layer: layer, kind: kind, inCG: left != nil, inSCK: right != nil))
             }
+            if emptyWindowServer { windowServerEmptyBundle = .init(owner: owner, pairs: emptyPairs) }
         }
         let allowed = windows.filter { $0.kind == .allowed }
         guard allowed.count == 1, let selected = allowed.first, selected.layer == 0,
@@ -129,7 +165,7 @@ enum ScreenRunnerInventoryBoundary {
             newPrompts = Set(windows.filter { $0.kind == .authorization }.map(\.id)).subtracting(before)
             guard newPrompts.count == 1 else { throw refuse(.authorizationAmbiguous, .authorizationWindow) }
         }
-        let result = Validated(fingerprint: .init(display: display, rect: rect, windows: windows.sorted { $0.id < $1.id }, owners: owners), allowed: selected.id, authorizationNew: newPrompts)
+        let result = Validated(fingerprint: .init(display: display, rect: rect, windows: windows.sorted { $0.id < $1.id }, owners: owners, windowServerEmptyBundle: windowServerEmptyBundle), allowed: selected.id, authorizationNew: newPrompts)
         try result.requireSelection([selected.id])
         return result
     }

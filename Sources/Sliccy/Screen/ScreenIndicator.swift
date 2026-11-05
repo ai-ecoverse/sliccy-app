@@ -19,6 +19,12 @@ final class ScreenStopRelay: @unchecked Sendable {
     init(gate: ScreenOutputGate, entered: @escaping @Sendable (Origin, ContinuousClock.Instant) -> Void = { _, _ in }, observed: @escaping @Sendable (ContinuousClock.Instant, ContinuousClock.Instant) -> Void = { _, _ in },
          cause: @escaping @Sendable (ScreenFailure, Origin, ContinuousClock.Instant) -> Void = { _, _, _ in },
          stop: @escaping @Sendable (ScreenFailure) -> Void) { self.gate = gate; self.stop = stop; self.observed = observed; self.entered = entered; self.cause = cause }
+#if SLICCY_CAPTURE_RUNNER_PROOF
+    func proofDisplayChange(observe: @Sendable () -> Void) {
+        invoke(.sourceChanged, origin: .displayChange)
+        observe()
+    }
+#endif
     func invoke(_ reason: ScreenFailure, origin: Origin = .other) {
         let start = ContinuousClock.now
         gate.invalidate()
@@ -107,7 +113,16 @@ final class ScreenIndicator: NSObject, NSWindowDelegate {
         for (name, origin) in changes {
             observers.append(center.addObserver(forName: name, object: nil, queue: nil) { [relay] _ in relay.invoke(.sourceChanged, origin: origin) })
         }
-        observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: nil) { [relay] _ in relay.invoke(.sourceChanged, origin: .displayChange) })
+        observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: nil) { [relay] _ in
+#if SLICCY_CAPTURE_RUNNER_PROOF
+            relay.proofDisplayChange { ScreenRunnerDisplaySampler.notification() }
+#else
+            relay.invoke(.sourceChanged, origin: .displayChange)
+#endif
+        })
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        ScreenRunnerDisplaySampler.record(.indicatorOrdered)
+#endif
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
