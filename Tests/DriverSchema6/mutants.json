@@ -206,5 +206,37 @@
     "new": "",
     "test": "TestRunnerResidualDiscoveryCannotInferAbsenceOrSignalFromPaths",
     "assertion": "ASSERTION:residual-unconfirmed-blocks-cases"
+  },
+  {
+    "name": "partial-root-retention",
+    "file": "runner_controller_observer_darwin_test.go",
+    "old": "roots[fact.Root]=true",
+    "new": "_ = fact.Root",
+    "test": "TestRunnerControllerPartialIdentityBatchRetainsOnlyAcceptedRoots",
+    "assertion": "ASSERTION:controller-partial-ownership-retention"
+  },
+  {
+    "name": "partial-refusal-authority",
+    "file": "runner_controller_observer_darwin_test.go",
+    "old": "!settled||observation.Error!=nil",
+    "new": "!settled",
+    "test": "TestRunnerControllerPartialIdentityBatchRetainsOnlyAcceptedRoots",
+    "assertion": "ASSERTION:controller-partial-ownership-retention"
+  },
+  {
+    "name": "bsd-raw-parent-bound",
+    "file": "runner_bsd_receipt_darwin_test.go",
+    "old": "r.Value.Parent >= 0",
+    "new": "true",
+    "test": "TestRunnerBSDRawBoundaryRejectsInvalidPIDParentAndMicroseconds",
+    "assertion": "ASSERTION:bsd-raw-bound-negative-parent"
+  },
+  {
+    "name": "bsd-raw-fraction-bound",
+    "file": "runner_bsd_receipt_darwin_test.go",
+    "old": "r.Value.Microseconds < 1000000",
+    "new": "true",
+    "test": "TestRunnerBSDRawBoundaryRejectsInvalidPIDParentAndMicroseconds",
+    "assertion": "ASSERTION:bsd-raw-bound-microseconds"
   }
 ]

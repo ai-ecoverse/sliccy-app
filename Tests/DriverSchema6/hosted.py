@@ -112,7 +112,7 @@ try:
             runtime_mutant = None
             if compile_mutant.returncode == 0:
                 runtime_mutant = command(mutation['name']+'-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', '^'+mutation['test']+'$'], 45)
-            valid = compile_mutant.returncode == 0 and runtime_mutant is not None and runtime_mutant.returncode == 1 and mutation['assertion'].encode() in runtime_mutant.stdout and b'panic:' not in runtime_mutant.stdout and b'--- SKIP:' not in runtime_mutant.stdout
+            valid = compile_mutant.returncode == 0 and runtime_mutant is not None and runtime_mutant.returncode == 1 and mutation['assertion'].encode() in runtime_mutant.stdout and not any(token in runtime_mutant.stdout + runtime_mutant.stderr for token in [b'panic:', b'fatal error:', b'runtime error:']) and b'--- SKIP:' not in runtime_mutant.stdout
             mutation_results.append({'name': mutation['name'], 'compile': compile_mutant.returncode, 'runtime': None if runtime_mutant is None else runtime_mutant.returncode, 'assertion': mutation['assertion'], 'validRed': valid})
         finally:
             path.write_bytes(original)

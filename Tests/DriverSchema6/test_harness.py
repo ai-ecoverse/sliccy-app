@@ -14,7 +14,7 @@ class CollectorTests(unittest.TestCase):
         body = next(item for item in tree.body if isinstance(item, ast.Try)).body
         loop = next(item for item in body if isinstance(item, ast.For) and isinstance(item.target, ast.Name) and item.target.id == 'mutation')
         code = compile(ast.fix_missing_locations(ast.Module(body=[loop], type_ignores=[])), 'actual-collector', 'exec')
-        for mode in ['compile', 'escaping', 'missing-assertion', 'signal', 'survived', 'valid']:
+        for mode in ['compile', 'escaping', 'escaping-stderr', 'missing-assertion', 'signal', 'survived', 'valid']:
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 workspace = Path(directory)
                 source = workspace / 'source'
@@ -29,7 +29,7 @@ class CollectorTests(unittest.TestCase):
 
                 def command(label, args, maximum):
                     calls.append(label)
-                    status, stdout = 0, b''
+                    status, stdout, stderr = 0, b'', b''
                     if label == 'first-compile' and mode == 'compile':
                         status = 1
                     elif label.endswith('-runtime') and '-restored-' not in label:
@@ -37,13 +37,15 @@ class CollectorTests(unittest.TestCase):
                         if label.startswith('first-'):
                             if mode == 'escaping':
                                 stdout += b' panic:'
+                            elif mode == 'escaping-stderr':
+                                stderr = b'panic: fabricated fixture'
                             elif mode == 'missing-assertion':
                                 stdout = b'unrelated error'
                             elif mode == 'signal':
                                 status = -9
                             elif mode == 'survived':
                                 status = 0
-                    return SimpleNamespace(returncode=status, stdout=stdout, stderr=b'')
+                    return SimpleNamespace(returncode=status, stdout=stdout, stderr=stderr)
 
                 sha = lambda raw: hashlib.sha256(raw).hexdigest()
                 namespace = {'Path': Path, 'json': json, 'os': SimpleNamespace(environ={'GITHUB_WORKSPACE': str(workspace)}), 'target': source, 'go': 'never-executed-go', 'binary': 'never-executed-binary', 'selected': '^TestFake$', 'command': command, 'mutation_results': [], 'sha': sha, 'manifest': {'files': {'fixture.go': sha(original)}}}
