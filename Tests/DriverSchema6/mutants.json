@@ -454,5 +454,125 @@
     "new": "text:=runnerSanitizeDiagnostic(string(data),secrets)",
     "test": "TestRunnerAppOutputTailAndSignalFactsAreRetained",
     "assertion": "ASSERTION:app-output-tail"
+  },
+  {
+    "name": "diagnostic-sensitive-0-false",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"a=ice-pwd:\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/a=ice-pwd:single",
+    "assertion": "ASSERTION:sensitive-field-a=ice-pwd:-false"
+  },
+  {
+    "name": "diagnostic-sensitive-0-true",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"a=ice-pwd:\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/a=ice-pwd:multiline",
+    "assertion": "ASSERTION:sensitive-field-a=ice-pwd:-true"
+  },
+  {
+    "name": "diagnostic-sensitive-1-false",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"a=ice-ufrag:\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/a=ice-ufrag:single",
+    "assertion": "ASSERTION:sensitive-field-a=ice-ufrag:-false"
+  },
+  {
+    "name": "diagnostic-sensitive-1-true",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"a=ice-ufrag:\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/a=ice-ufrag:multiline",
+    "assertion": "ASSERTION:sensitive-field-a=ice-ufrag:-true"
+  },
+  {
+    "name": "diagnostic-sensitive-2-false",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"candidate:\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/candidate:single",
+    "assertion": "ASSERTION:sensitive-field-candidate:-false"
+  },
+  {
+    "name": "diagnostic-sensitive-2-true",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"candidate:\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/candidate:multiline",
+    "assertion": "ASSERTION:sensitive-field-candidate:-true"
+  },
+  {
+    "name": "diagnostic-sensitive-3-false",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"foundation:\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/foundation:single",
+    "assertion": "ASSERTION:sensitive-field-foundation:-false"
+  },
+  {
+    "name": "diagnostic-sensitive-3-true",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"foundation:\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/foundation:multiline",
+    "assertion": "ASSERTION:sensitive-field-foundation:-true"
+  },
+  {
+    "name": "diagnostic-sensitive-4-false",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"ice_pwd=\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/ice_pwd=single",
+    "assertion": "ASSERTION:sensitive-field-ice_pwd=-false"
+  },
+  {
+    "name": "diagnostic-sensitive-4-true",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"ice_pwd=\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/ice_pwd=multiline",
+    "assertion": "ASSERTION:sensitive-field-ice_pwd=-true"
+  },
+  {
+    "name": "diagnostic-sensitive-5-false",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"ice_ufrag=\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/ice_ufrag=single",
+    "assertion": "ASSERTION:sensitive-field-ice_ufrag=-false"
+  },
+  {
+    "name": "diagnostic-sensitive-5-true",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerStripSensitiveFields(value)",
+    "new": "if !strings.Contains(value,\"ice_ufrag=\") {value=runnerStripSensitiveFields(value)}",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations/ice_ufrag=multiline",
+    "assertion": "ASSERTION:sensitive-field-ice_ufrag=-true"
+  },
+  {
+    "name": "diagnostic-unknown-value",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "value=runnerAllowDiagnosticWords(value)",
+    "new": "_ = 0",
+    "test": "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations",
+    "assertion": "ASSERTION:diagnostic-unknown-value-redacted"
+  },
+  {
+    "name": "diagnostic-unsettled-exit",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "if !settled {return runnerProcessExit{Code:-1}}",
+    "new": "if false {return runnerProcessExit{Code:-1}}",
+    "test": "TestRunnerExitFactsPublishOnlyAfterFinishedResult",
+    "assertion": "ASSERTION:unsettled-exit-unobserved"
+  },
+  {
+    "name": "diagnostic-exit-channel",
+    "file": "runner_controller_darwin_test.go",
+    "old": "exit:exit}",
+    "new": "exit:runnerProcessExit{Code:exit.Code}}",
+    "test": "TestRunnerExitFactsPublishOnlyAfterFinishedResult",
+    "assertion": "ASSERTION:settled-exit-channel"
   }
 ]
