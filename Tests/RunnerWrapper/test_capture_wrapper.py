@@ -28,7 +28,7 @@ class WrapperTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             target = Path(root) / 'source'
             m = subject.extract_sources(BASE / 'script/runner-proof/inputs', target)
-            self.assertEqual(len(m['files']), 72)
+            self.assertEqual(len(m['files']), 77)
             self.assertEqual({p.name for p in (target / 'test/nativeproof').iterdir()}, set(m['files']))
             self.assertIn('go 1.26.5', (target / 'go.mod').read_text())
 
