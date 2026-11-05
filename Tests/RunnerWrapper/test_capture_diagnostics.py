@@ -31,9 +31,10 @@ class Pipeline:
         self.evidence = self.root / 'evidence'; self.evidence.mkdir()
         self.store = self.root / 'store'; self.store.mkdir()
         self.app = self.store / 'Sliccy.app'
-        self.bundle(self.app, 'ai.sliccy.mac', 'Sliccy', '13')
+        self.bundle(self.app, 'ai.sliccy.mac', 'Sliccy', '14')
         self.helper = self.app / 'Contents/Helpers/ScreenProofSurface.app'
-        self.bundle(self.helper, 'ai.sliccy.proof-helper', 'ScreenProofSurface', '11')
+        self.bundle(self.helper, 'ai.sliccy.proof-helper', 'ScreenProofSurface', '12')
+        (self.helper / 'Contents/CodeResources').write_bytes(b'fixed helper ticket')
         (self.app / 'Contents/Resources').mkdir()
         (self.app / 'Contents/Resources/slicc').write_bytes(b'fixed released fixture')
         self.helper_files = {str(p.relative_to(self.helper)): wrapper.sha(p) for p in self.helper.rglob('*') if p.is_file()}
@@ -45,7 +46,7 @@ class Pipeline:
         self.trace = diagnostic.Trace(wrapper.setup.SetupTrace(self.evidence / 'stages.ndjson', time.monotonic()), self.journal)
         self.gh = self.store / 'gh'; self.gh.write_bytes(b'fake gh'); self.gh.chmod(0o700)
         self.go = self.root / 'go/bin/go'; self.go.parent.mkdir(parents=True); self.go.write_bytes(b'fake go')
-        self.deadline = time.monotonic() + 900
+        self.deadline = time.monotonic() + 1500
 
     @staticmethod
     def bundle(app, role, name, build):

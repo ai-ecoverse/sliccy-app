@@ -20,7 +20,7 @@ sys.path.insert(0, str(BASE / 'script/runner-proof'))
 import sealed_runner as subject
 import capture_tcc as tcc
 import capture_evidence as evidence_module
-SIGNED = Path('/Users/trieloff/.bb/thread-storage/thr_desfnajij8/signed/41926563094-capture-proof')
+SIGNED = Path('/Users/trieloff/.bb/thread-storage/thr_desfnajij8/signed/41981735530-capture-proof')
 
 
 class WrapperTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class WrapperTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             target = Path(root) / 'source'
             m = subject.extract_sources(BASE / 'script/runner-proof/inputs', target)
-            self.assertEqual(len(m['files']), 80)
+            self.assertEqual(len(m['files']), 86)
             self.assertEqual({p.name for p in (target / 'test/nativeproof').iterdir()}, set(m['files']))
             self.assertIn('go 1.26.5', (target / 'go.mod').read_text())
 
@@ -76,18 +76,21 @@ class WrapperTests(unittest.TestCase):
             def static(args, **kwargs):
                 self.assertNotIn('GH_TOKEN', kwargs['env'])
                 return subprocess.CompletedProcess(args, 0, b'27.0\n', b'')
-            deadline = time.monotonic() + 900
+            deadline = time.monotonic() + 1500
             with patch.dict(os.environ, {'GH_TOKEN': 'SECRET-SENTINEL', 'GITHUB_SHA': 'a' * 40}), patch.object(subject, 'run_owned', side_effect=run), patch.object(subject, 'require_host'), patch.object(subject.setup, 'discover_gh', return_value='/trusted/gh'), patch.object(subject.setup, 'unpack_go', return_value=root / 'go/bin/go'), patch.object(subject.setup, 'check_go'), patch.object(subject.capture_manifest, 'manifest', return_value=manifest), patch.object(subject.capture_tcc, 'ScopedGrants', Grants), patch.object(subject.capture_evidence, 'crash_baseline', return_value={}), patch.object(subject.capture_evidence, 'collect_crashes'), patch.object(subject.subprocess, 'run', side_effect=static):
                 with (evidence / 'log').open('wb') as log: result = subject.suite(root, evidence, log, env, deadline, BASE, trace)
             self.assertEqual(order, ['install', 'driver', 'remove'])
             driver = [c for c in calls if 'test' in c[0]]; self.assertEqual(len(driver), 1)
             args, child_env, actual_deadline, opts = driver[0]
-            self.assertEqual(args[1:], ['test', '-mod=readonly', './test/nativeproof', '-run', '^TestSignedRunnerCapture$', '-count=1', '-timeout=470s'])
-            self.assertEqual(opts['maximum'], 480); self.assertEqual(actual_deadline, deadline)
+            self.assertEqual(args[1:], ['test', '-mod=readonly', './test/nativeproof', '-run', '^TestSignedRunnerCapture$', '-count=1', '-timeout=980s'])
+            self.assertEqual(opts['maximum'], 990); self.assertEqual(actual_deadline, deadline)
             self.assertEqual(child_env['SLICCY_RUNNER_OS_VERSION'], '27.0')
             self.assertEqual(child_env['RUNNER_ENVIRONMENT'], 'github-hosted')
             self.assertEqual(child_env['SLICC_RUNNER_PROOF_ROOT'], str(evidence / 'capture'))
             self.assertEqual(child_env['GOTOOLCHAIN'], 'local'); self.assertEqual(child_env['CGO_ENABLED'], '0')
+            invocation=json.loads((evidence/'invocation.json').read_text())
+            self.assertEqual({key:invocation[key] for key in ['driverTimeoutSeconds','goTestTimeoutSeconds','goCommandSeconds','caseSeconds','captureSeconds']},
+                             {'driverTimeoutSeconds':960,'goTestTimeoutSeconds':980,'goCommandSeconds':990,'caseSeconds':150,'captureSeconds':10})
             for args, child_env, _, _ in calls:
                 self.assertEqual('GH_TOKEN' in child_env, len(args) > 1 and args[1] == 'api')
                 self.assertNotIn('GITHUB_TOKEN', child_env)
@@ -126,6 +129,30 @@ class WrapperTests(unittest.TestCase):
             with self.assertRaises(subprocess.TimeoutExpired): subject.run_owned(['fixed'], None, {}, 99)
             popen.assert_not_called()
 
+    def test_actual_outer_deadlines_and_sealed_envelope(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);calls=[];observed={}
+            def unpack(_,path):path.write_bytes(b'never executed')
+            def run(args,log,env,deadline,**kwargs):
+                calls.append((args,deadline,kwargs))
+                if '--encrypt' in args:Path(args[args.index('--output')+1]).write_bytes(b'ciphertext fixture')
+                return 0
+            def suite(private,evidence,log,env,deadline,workspace,trace):
+                observed['workDeadline']=deadline
+                return 1
+            def package(evidence,*args):observed['envelope']=json.loads((evidence/'envelope.json').read_text())
+            with patch.dict(os.environ,{'RUNNER_TEMP':str(root),'GITHUB_OUTPUT':str(root/'output'),'GITHUB_SHA':'a'*40}),patch.object(subject.time,'monotonic',return_value=1000),patch.object(subject,'require_host'),patch.object(subject,'validate_source_manifest',return_value={'files':{}}),patch.object(subject,'unpack_age',side_effect=unpack),patch.object(subject,'suite',side_effect=suite),patch.object(subject,'package_evidence',side_effect=package),patch.object(subject.diagnostics.Journal,'owned',side_effect=run),contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(subject.main(),1)
+            self.assertEqual(observed['workDeadline'],2500)
+            self.assertEqual(calls[0][1],2500)
+            self.assertEqual(calls[-1][1],2560)
+            self.assertEqual(observed['envelope']['workDeadlineSeconds'],1500)
+            self.assertEqual(observed['envelope']['sealDeadlineSeconds'],1560)
+            self.assertEqual(observed['envelope']['exitCode'],1)
+            self.assertFalse(observed['envelope']['ciStatusIsProofVerdict'])
+            self.assertTrue((root/'sliccy-screen-evidence.age').is_file())
+            self.assertFalse(list(root.glob('sliccy-capture-private-*')))
+
     def test_capture_only_workflow_has_no_secret_or_other_dispatch(self):
         text = (BASE / '.github/workflows/runner-proof.yml').read_text()
         for job in ['hosted-pid', 'universal', 'owner-identity', 'prerequisite', 'setup-read-only']:
@@ -133,6 +160,8 @@ class WrapperTests(unittest.TestCase):
         self.assertIn("github.ref == 'refs/heads/proof/runner-capture-v1'", text.split('  universal:')[0])
         self.assertNotIn('secrets.', text); self.assertNotIn('id-token:', text)
         self.assertIn('> "$RUNNER_TEMP/sliccy-screen-bootstrap.log" 2>&1', text)
+        block=text.split('  diagnostic:')[1].split('  universal:')[0]
+        self.assertIn('timeout-minutes: 30',block)
 
 
 class TCCTests(unittest.TestCase):

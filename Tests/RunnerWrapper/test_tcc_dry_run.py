@@ -300,7 +300,7 @@ class EnvelopeTests(unittest.TestCase):
         self.assertIn("github.event_name == 'workflow_dispatch'", block)
         self.assertIn("github.ref == 'refs/heads/proof/runner-capture-v1'", block)
         self.assertIn('sealed_runner.py', block)
-        self.assertIn('timeout-minutes: 20', block)
+        self.assertIn('timeout-minutes: 30', block)
         self.assertIn('name: screen-diagnostic-sealed', block)
         self.assertNotIn('secrets.', text); self.assertNotIn('id-token:', text)
         self.assertNotIn('sealed_tcc_dry_run.py', block)

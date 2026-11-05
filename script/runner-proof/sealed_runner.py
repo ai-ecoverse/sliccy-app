@@ -25,18 +25,19 @@ import capture_diagnostics as diagnostics
 
 RECIPIENT = 'age1n5hhvvjf65g96xjksnk2j7aqld83ae2mt3vfdymuxqsh0ex5qqxsarh2nk'
 AGE_SHA = 'e2020b073c44f692685a24d6abc378817eb81ffaaf49fd0531ef8565f767f2f5'
-APP_RUN = '41926563094'
-APP_ARTIFACT = 13368474555
-APP_OUTER_SHA = '5ff67a7821a8c7920e55b99467b10e64482fbd39ee3f775bbfa6ae1ac9891baf'
-APP_SOURCE = '91c1b3ef7aae7a4f2581a2ca6631a740d5556755'
-APP_ZIP_SHA = 'bf4a64eb024bc2bff812944bd5cd3c3a2991246fe206b38ccfa7d2a168aaaf6a'
-APP_MANIFEST_SHA = '815e3778b711bb0bff94d5bb5dbcc741acd1f4f6f202c0d5e5a76ce22e572842'
+APP_RUN = '41981735530'
+APP_ARTIFACT = 13393659909
+APP_OUTER_SHA = '60027d9058f32754ff65f1001a7d300f79e44a1e704b9e6f033eeaeef4e39bf2'
+APP_SOURCE = '0d98f937d1ba576665ffba64c66ec6a51c65e285'
+APP_ZIP_SHA = 'a4fe65982e1ce1858b1e08dc21fa25ee523bcf08a203bf6d5e26a242495f0529'
+APP_MANIFEST_SHA = '20286e1d09a4a080992ddbfc1a7bd84512e8332703d2e244c41d8756e2b80a5e'
 INPUTS = {
+    'capture-build14-contract.json': '0aebf7134d2ec4e02e45a9a82e6d8acb4657f9d0890805d255b5af57592af669',
     'capture-app-schema6.txt': '2d47a525425c3e5cbb23acec0f413b111b3f03f5219c81c9befe3f41837f4ffc',
     'capture-schema6-emitter-addendum.json': '5bac184af0533eae474726a09ec74a3aab2698817cc98277ae3931a6b255fde1',
-    'capture-driver-handoff.json': '399d7358ef0b3a9b96a95ad0e3159cade287a4b0460c10859320a24e94f15bf8',
-    'capture-driver.tar.gz': '4ddb17dffcec81eb18e6e3060cb9d83078fdfc624d22adb1c008f40e1e1ed902',
-    'capture-driver-files.json': 'a2edb3d155b2b453555b4fb1a598483b6d9c152a8a34eed718a8fc8b9a52b29d',
+    'capture-driver-handoff.json': 'f3c187671c658f82483ce1517d3ec685b4ce0ccdc84278b28a829735ef2a62e1',
+    'capture-driver.tar.gz': 'd40f05f8207ee4898237535d1749ca1c3b2abee220d2ebf815bfe7f8a915dddc',
+    'capture-driver-files.json': '6b9c02f6116132ca8aa57e4f1f18ee3f1b68838193e65930b954adda3f4d0e7a',
     'slicc-v1.59.0.tar.gz': '8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9',
 }
 PREFIX = 'ai-ecoverse-slicc-cli-cea8ec1'
@@ -82,13 +83,15 @@ def extract_sources(inputs, destination):
         'schema': 1, 'sourceTag': 'v1.59.0', 'sourceArchiveSHA256': INPUTS['slicc-v1.59.0.tar.gz'],
         'sourceArchiveRoot': PREFIX, 'CGO_ENABLED': '0', 'GOTOOLCHAIN': 'local',
         'entryTests': ['TestSignedRunnerCapture'],
-        'entryCommand': ['go', 'test', '-mod=readonly', './test/nativeproof', '-run', '^TestSignedRunnerCapture$', '-count=1', '-timeout=470s'],
+        'entryCommand': ['go', 'test', '-mod=readonly', './test/nativeproof', '-run', '^TestSignedRunnerCapture$', '-count=1', '-timeout=980s'],
         'fixtureSource': APP_SOURCE, 'signedRun': int(APP_RUN), 'artifactID': APP_ARTIFACT,
-        'appBuild': '13', 'driverTimeoutSeconds': 450, 'goTestTimeoutSeconds': 470,
-        'caseTotalSeconds': 45, 'caseExecutionSeconds': 40, 'caseCaptureSeconds': 10}:
+        'appBuild': '14', 'driverTimeoutSeconds': 960, 'goTestTimeoutSeconds': 980,
+        'caseTotalSeconds': 150, 'caseExecutionSeconds': 120, 'caseCaptureSeconds': 10,
+        'helperBuild': '12', 'goCommandTimeoutSeconds': 990,
+        'chromeStaticIdentitySeconds': 30, 'baselineIdentityAndWindowsTotalSeconds': 2}:
         raise ValueError('driver contract')
     expected = metadata['files']
-    if len(expected) != 80 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
+    if len(expected) != 86 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
         raise ValueError('driver file set')
     package = destination / 'test/nativeproof'
     package.mkdir(mode=0o700)
@@ -318,8 +321,8 @@ def suite(root, evidence, log, env, deadline, workspace, trace):
             try:
                 with trace.step('native-driver'):
                     code = run_owned([str(go), 'test', '-mod=readonly', './test/nativeproof', '-run',
-                                      '^TestSignedRunnerCapture$', '-count=1', '-timeout=470s'],
-                                     case_log, run_env, deadline, maximum=480, cwd=sources, check=False)
+                                      '^TestSignedRunnerCapture$', '-count=1', '-timeout=980s'],
+                                     case_log, run_env, deadline, maximum=990, cwd=sources, check=False)
                     if code != 0:
                         raise setup.SetupFailure('command-failed')
                 outcome = 'DRIVER_EXIT_0'
@@ -335,10 +338,10 @@ def suite(root, evidence, log, env, deadline, workspace, trace):
                 capture_evidence.collect_crashes(crash_baseline, evidence)
     outcomes = {'capture': outcome}
     (evidence / 'invocation.json').write_text(json.dumps({'entryTest': 'TestSignedRunnerCapture', 'result': outcome,
-        'CGO_ENABLED': '0', 'driverTimeoutSeconds': 450, 'goTestTimeoutSeconds': 470,
+        'CGO_ENABLED': '0', 'driverTimeoutSeconds': 960, 'goTestTimeoutSeconds': 980,
         'observerGrantAdded': False, 'identityRootOperations': False,
         'authorizationPurposeProven': False, 'nonzeroExitPreservesAllCases': True,
-        'goCommandSeconds': 480, 'caseSeconds': 45, 'captureSeconds': 10}) + '\n')
+        'goCommandSeconds': 990, 'caseSeconds': 150, 'captureSeconds': 10}) + '\n')
 
     with trace.step('artifact-recheck'):
         try:
@@ -408,10 +411,10 @@ def main():
                 with trace.step('age-download'):
                     run_owned(['/usr/bin/curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
                                '--tlsv1.2', '--max-time', '30', 'https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-darwin-arm64.tar.gz',
-                               '--output', str(archive)], log, env, began + 900, maximum=35)
+                               '--output', str(archive)], log, env, began + 1500, maximum=35)
                 with trace.step('age-check'):
                     unpack_age(archive, age)
-                status = suite(root, evidence, log, env, began + 900, workspace, trace)
+                status = suite(root, evidence, log, env, began + 1500, workspace, trace)
             except Exception as error:
                 (evidence / 'pipeline-error.json').write_text(json.dumps({'exceptionClass': type(error).__name__,
                     'message': journal.text(error), 'lastDiagnostic': journal.last_failure}) + '\n')
@@ -426,7 +429,7 @@ def main():
                         'artifactRun': APP_RUN, 'artifactSource': APP_SOURCE, 'artifactID': APP_ARTIFACT,
                         'suite': 'capture', 'capture': True, 'installerAttempted': False,
                         'identityRootOperations': False, 'rootScope': 'reviewed-signed-app-only-TCC',
-                        'workDeadlineSeconds': 900, 'sealDeadlineSeconds': 960, 'diagnosticLoss': journal.loss,
+                        'workDeadlineSeconds': 1500, 'sealDeadlineSeconds': 1560, 'diagnosticLoss': journal.loss,
                         'authorizationPurposeProven': False, 'ciStatusIsProofVerdict': False}) + '\n')
                 log.flush()
             if age.is_file():
@@ -434,7 +437,7 @@ def main():
                 journal.call('evidence-package', package_evidence, evidence, payload, runner_temp / 'sliccy-screen-bootstrap.log')
                 temporary = root / 'sealed.age'
                 journal.call('evidence-seal', run_owned, [str(age), '--encrypt', '--recipient', RECIPIENT,
-                    '--output', str(temporary), str(payload)], log, env, began + 960, maximum=40)
+                    '--output', str(temporary), str(payload)], log, env, began + 1560, maximum=40)
                 if temporary.stat().st_size <= 0: raise ValueError('empty envelope')
                 temporary.replace(destination); sealed = True
         if sealed:
