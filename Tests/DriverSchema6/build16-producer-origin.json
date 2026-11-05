@@ -1,0 +1,12 @@
+{
+  "status": "DRAFT_NOT_ACCEPTED",
+  "sourceDirectory": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/build16-worktree",
+  "files": {
+    "ScreenRunnerStructuralRefusal.swift": "d64d43d5b99da7317bc7a3b0ce32ac126e26d83ca073158dc89cde5c8cb8bbfa",
+    "ScreenRunnerDisplayDiagnostics.swift": "eba543b91ce1e2eabbc46d563d528f6012b06ad7c493fef33dbf981c26828dfa",
+    "ScreenRunnerInventoryBoundary.swift": "18dc6a91ec9ae642074c637686d381959b243b5fdc79fafeb4cfc8e726dc2e75",
+    "ScreenRunnerInventoryDiagnostics.swift": "eaba60e4477811a928afb3d0e6c6dfad040441c3e424e68734f54474456590fb",
+    "ScreenRunnerContract.swift": "1f19ff54320d197beff3c0ff28e7bc5074b0a228b831896416529c75e3885272",
+    "ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6"
+  }
+}

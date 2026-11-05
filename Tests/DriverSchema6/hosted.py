@@ -10,6 +10,7 @@ import tempfile
 import time
 import urllib.request
 from partition import select_mutations
+from runtime_result import exact_test_pattern, runtime_result, suite_result
 
 root = Path('Tests/DriverSchema6')
 results = Path('driver-schema6-results').resolve()
@@ -25,16 +26,20 @@ for name in ['home', 'tmp']:
 sha = lambda data: hashlib.sha256(data).hexdigest()
 manifest = json.loads((root / 'inputs.json').read_text())
 shard_index = int(os.environ['DRIVER_COMPONENT_SHARD_INDEX'])
-assert os.environ['DRIVER_COMPONENT_SHARD_COUNT'] == '2' and str(shard_index) == os.environ['DRIVER_COMPONENT_SHARD_INDEX']
+assert os.environ['DRIVER_COMPONENT_SHARD_COUNT'] == '4' and str(shard_index) == os.environ['DRIVER_COMPONENT_SHARD_INDEX']
+baseline_tests = json.loads((root / 'shards.json').read_text())['baselineTests']
 all_mutations = json.loads((root / 'mutants.json').read_text())
-selected_mutations, selected_ids, universe_ids = select_mutations(all_mutations, shard_index, 2)
-(results / 'shard-binding.json').write_text(json.dumps({'sourceSHA':os.environ['GITHUB_SHA'],'shardIndex':shard_index,'shardCount':2,'mutantIds':selected_ids,'allMutantIds':universe_ids,'partitionRule':'sorted-name-index-mod2','driverArchiveSHA256':sha((root / 'inputs/driver-source.tar.gz').read_bytes()),'partitionSHA256':sha((root / 'partition.py').read_bytes())},indent=2))
+selected_mutations, selected_ids, universe_ids = select_mutations(all_mutations, shard_index, 4)
+(results / 'shard-binding.json').write_text(json.dumps({'sourceSHA':os.environ['GITHUB_SHA'],'shardIndex':shard_index,'shardCount':4,'mutantIds':selected_ids,'allMutantIds':universe_ids,'partitionRule':'explicit-balanced-four-shards-heavy-separated','shardLedgerSHA256':sha((root / 'shards.json').read_bytes()),'driverArchiveSHA256':sha((root / 'inputs/driver-source.tar.gz').read_bytes()),'partitionSHA256':sha((root / 'partition.py').read_bytes())},indent=2))
 
 for name, digest in manifest['inputs'].items():
     assert sha((root / name).read_bytes()) == digest
 assert sha((root / 'ReceiptFixture.swift').read_bytes()) == manifest['fixtureSHA256']
 assert sha((root / 'test_harness.py').read_bytes()) == manifest['collectorTestSHA256']
 assert sha((root / 'ClockFixture.swift').read_bytes()) == manifest['clockFixtureSHA256']
+for name,digest in manifest['build16FixtureSources'].items(): assert sha((root / name).read_bytes()) == digest
+for name,digest in manifest['normalizationFixtureSources'].items(): assert sha((root / name).read_bytes()) == digest
+for name,digest in manifest['scheduleSources'].items(): assert sha((root / name).read_bytes()) == digest
 for name,digest in manifest['refusalFixtureSources'].items(): assert sha((root / name).read_bytes()) == digest
 for name, digest in manifest['actualEncoderSources'].items():
     assert sha(Path(name).read_bytes()) == digest
@@ -120,16 +125,27 @@ try:
     surface_encoded = command('surface-foundation-encode', [surface_fixture], 10)
     assert surface_encoded.returncode == 0 and 0 < len(surface_encoded.stdout) <= 32768 and surface_encoded.stderr == b''
     env['SLICCY_SURFACE_REFUSAL_FIXTURE'] = str(results.resolve() / 'surface-foundation-encode.stdout')
+    build16_fixture = str(private / 'build16-fixture')
+    build16_sources = [str(root / name) for name in ['ScreenRunnerJournal.swift', 'ScreenRunnerContract.swift', 'ScreenRunnerInventoryDiagnostics.swift', 'ScreenRunnerInventoryBoundary.swift', 'ScreenRunnerStructuralRefusal.swift', 'ScreenRunnerDisplayDiagnostics.swift', 'Build16Fixture.swift']]
+    build16_compile = command('build16-foundation-compile', ['/usr/bin/xcrun', 'swiftc', '-D', 'SLICCY_CAPTURE_RUNNER_PROOF', *build16_sources, '-o', build16_fixture], 120)
+    assert build16_compile.returncode == 0
+    build16_encoded = command('build16-foundation-encode', [build16_fixture], 10)
+    assert build16_encoded.returncode == 0 and 0 < len(build16_encoded.stdout) <= 1048576 and build16_encoded.stderr == b''
+    env['SLICCY_BUILD16_FIXTURE'] = str(results.resolve() / 'build16-foundation-encode.stdout')
+    env['SLICCY_VOLUME_PACKER'] = str((root / 'VolumePacker.py').resolve())
     os.chdir(source)
     selected = '^(TestRunner.*|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission)$'
     binary = str(private / 'driver-components')
     compile_result = command('go-baseline-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 300)
     assert compile_result.returncode == 0
     baseline = command('go-baseline-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', selected], 45)
-    assert baseline.returncode == 0 and b'--- SKIP:' not in baseline.stdout
+    assert suite_result(baseline, baseline_tests)
     mutation_results = []
+    restoration_gates = []
     for mutation in selected_mutations:
         path = target / mutation['file']
+        originals_before = {p.name: p.read_bytes() for p in target.iterdir()}
+        assert {name: sha(raw) for name, raw in originals_before.items()} == manifest['files']
         original = path.read_bytes()
         needle = mutation['old'].encode()
         assert original.count(needle) == 1
@@ -138,16 +154,31 @@ try:
             compile_mutant = command(mutation['name']+'-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
             runtime_mutant = None
             if compile_mutant.returncode == 0:
-                runtime_mutant = command(mutation['name']+'-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', '^'+mutation['test']+'$'], 45)
-            valid = compile_mutant.returncode == 0 and runtime_mutant is not None and runtime_mutant.returncode == 1 and mutation['assertion'].encode() in runtime_mutant.stdout and not any(token in runtime_mutant.stdout + runtime_mutant.stderr for token in [b'panic:', b'fatal error:', b'runtime error:']) and b'--- SKIP:' not in runtime_mutant.stdout
+                runtime_mutant = command(mutation['name']+'-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', exact_test_pattern(mutation['test'])], 45)
+            valid = compile_mutant.returncode == 0 and runtime_result(runtime_mutant, mutation['test'], mutation['assertion'])
             mutation_results.append({'name': mutation['name'], 'compile': compile_mutant.returncode, 'runtime': None if runtime_mutant is None else runtime_mutant.returncode, 'assertion': mutation['assertion'], 'validRed': valid})
         finally:
-            path.write_bytes(original)
+            for name, raw in originals_before.items():
+                (target / name).write_bytes(raw)
+        restored_hashes = {p.name: sha(p.read_bytes()) for p in target.iterdir()}
+        assert restored_hashes == manifest['files']
+        restoration_gates.append({'mutation': mutation['name'], 'beforeOwnTest': restored_hashes})
+        (results / 'restoration-gates.json').write_text(json.dumps(restoration_gates, indent=2))
+        (results / 'mutation-results.json').write_text(json.dumps(mutation_results, indent=2))
         restored_compile = command(mutation['name']+'-restored-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
         assert restored_compile.returncode == 0
-        restored = command(mutation['name']+'-restored-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', selected], 45)
-        assert restored.returncode == 0 and b'--- SKIP:' not in restored.stdout
-        assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == manifest['files']
+        restored = command(mutation['name']+'-restored-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', exact_test_pattern(mutation['test'])], 45)
+        assert runtime_result(restored, mutation['test'])
+        restored_hashes = {p.name: sha(p.read_bytes()) for p in target.iterdir()}
+        assert restored_hashes == manifest['files']
+        restoration_gates[-1]['afterOwnTest'] = restored_hashes
+        (results / 'restoration-gates.json').write_text(json.dumps(restoration_gates, indent=2))
+    assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == manifest['files']
+    restored_full_compile = command('full-restored-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
+    assert restored_full_compile.returncode == 0
+    restored_full = command('full-restored-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', selected], 45)
+    assert suite_result(restored_full, baseline_tests)
+    assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == manifest['files']
     (results / 'mutation-results.json').write_text(json.dumps(mutation_results, indent=2))
     (results / 'after-source-map.json').write_text(json.dumps(manifest['files'], indent=2))
     formatted = results / 'formatted'
@@ -166,7 +197,7 @@ try:
         final_compile = command('formatted-final-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
         assert final_compile.returncode == 0
         final_runtime = command('formatted-final-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', selected], 45)
-        assert final_runtime.returncode == 0 and b'--- SKIP:' not in final_runtime.stdout
+        assert suite_result(final_runtime, baseline_tests)
         (results / 'formatted-tested-source-map.json').write_text(json.dumps(formatted_hashes, indent=2))
     finally:
         for name, raw in originals.items():

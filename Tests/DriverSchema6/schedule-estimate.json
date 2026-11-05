@@ -1,0 +1,112 @@
+{
+  "status": "SOURCE_ESTIMATE_NOT_MEASURED_V83_FIT",
+  "priorRun": 42022850390,
+  "priorSource": "e0cb1510c31678fbe9b719a4725376d7c1394eb1",
+  "provenance": [
+    {
+      "path": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-2-exact-enum/validation/shard-0/commands.json",
+      "sha256": "60a8581fde9738d6273b5efaac8b76e47b32923bec4eb72f63106f47f5b08de9"
+    },
+    {
+      "path": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-2-exact-enum/validation/shard-1/commands.json",
+      "sha256": "2b3af4c1cff24466abf477e70c44910c965ef02b1ba06cfcd4aa6b774fe63588"
+    }
+  ],
+  "assumptions": [
+    "Observed per-overlay compile and restore compile durations from accepted V8.2, multiplied by 1.25; new compile pairs charged 7 seconds each.",
+    "Every full suite charged 28 seconds against the unchanged 30-second test timeout. New nominal and max tests each estimated at 10 seconds; this is unmeasured and must be reported if exceeded.",
+    "Heavy overlays each execute their actual heavy test twice (RED, restored GREEN); each has a separate shard.",
+    "Exact-test restored runtime estimated from prior negative runtime, with 0.05-second minimum, twice and multiplied by 1.25. New light tests charged 0.5 seconds per execution.",
+    "600-second work and 15-minute job limits unchanged. No runtime failure, timeout, missing test or assertion may count RED. No automatic retry."
+  ],
+  "shards": [
+    {
+      "shard": 0,
+      "mutants": 34,
+      "newMutants": 7,
+      "heavy": [
+        "v83-nominal-volume-gate-bypassed"
+      ],
+      "seconds": {
+        "toolchainDownloadExtractAndFilesystem": 35,
+        "fiveFoundationEncoders": 35,
+        "coldBaselineCompile": 45,
+        "threeFullSuites": 84,
+        "fullRestoredAndFormattedCompile": 12,
+        "formatter": 5,
+        "otherHarnessAndHashing": 20,
+        "oldOverlayCompilePairsObservedTimes1_25": 109.902,
+        "newOverlayCompilePairsEstimate": 49,
+        "oldExactTestRedGreenEstimate": 8.428,
+        "newExactTestRedGreenEstimate": 26
+      },
+      "estimatedSeconds": 429.33,
+      "marginTo600Seconds": 170.67
+    },
+    {
+      "shard": 1,
+      "mutants": 34,
+      "newMutants": 7,
+      "heavy": [
+        "v83-overflow-loss-blocker-removed"
+      ],
+      "seconds": {
+        "toolchainDownloadExtractAndFilesystem": 35,
+        "fiveFoundationEncoders": 35,
+        "coldBaselineCompile": 45,
+        "threeFullSuites": 84,
+        "fullRestoredAndFormattedCompile": 12,
+        "formatter": 5,
+        "otherHarnessAndHashing": 20,
+        "oldOverlayCompilePairsObservedTimes1_25": 149.596,
+        "newOverlayCompilePairsEstimate": 49,
+        "oldExactTestRedGreenEstimate": 10.835,
+        "newExactTestRedGreenEstimate": 26
+      },
+      "estimatedSeconds": 471.431,
+      "marginTo600Seconds": 128.569
+    },
+    {
+      "shard": 2,
+      "mutants": 33,
+      "newMutants": 5,
+      "heavy": [],
+      "seconds": {
+        "toolchainDownloadExtractAndFilesystem": 35,
+        "fiveFoundationEncoders": 35,
+        "coldBaselineCompile": 45,
+        "threeFullSuites": 84,
+        "fullRestoredAndFormattedCompile": 12,
+        "formatter": 5,
+        "otherHarnessAndHashing": 20,
+        "oldOverlayCompilePairsObservedTimes1_25": 115.769,
+        "newOverlayCompilePairsEstimate": 35,
+        "oldExactTestRedGreenEstimate": 3.551,
+        "newExactTestRedGreenEstimate": 5
+      },
+      "estimatedSeconds": 395.32,
+      "marginTo600Seconds": 204.68
+    },
+    {
+      "shard": 3,
+      "mutants": 33,
+      "newMutants": 5,
+      "heavy": [],
+      "seconds": {
+        "toolchainDownloadExtractAndFilesystem": 35,
+        "fiveFoundationEncoders": 35,
+        "coldBaselineCompile": 45,
+        "threeFullSuites": 84,
+        "fullRestoredAndFormattedCompile": 12,
+        "formatter": 5,
+        "otherHarnessAndHashing": 20,
+        "oldOverlayCompilePairsObservedTimes1_25": 158.697,
+        "newOverlayCompilePairsEstimate": 35,
+        "oldExactTestRedGreenEstimate": 3.656,
+        "newExactTestRedGreenEstimate": 5
+      },
+      "estimatedSeconds": 438.353,
+      "marginTo600Seconds": 161.647
+    }
+  ]
+}

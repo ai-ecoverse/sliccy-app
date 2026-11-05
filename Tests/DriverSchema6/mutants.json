@@ -878,5 +878,197 @@
     "new": "runnerOneOf(text,entry.allowed)",
     "test": "TestRunnerV82InventoryExactDiagnosticEnums",
     "assertion": "ASSERTION:v82-inventory-exact-enum"
+  },
+  {
+    "name": "v83-snapshot-class-rollback512",
+    "file": "runner_native_trace_darwin_test.go",
+    "old": "capacity:runnerSnapshotTraceRows}",
+    "new": "capacity:runnerOrdinaryTraceRows}",
+    "test": "TestRunnerV83TraceClassesAndActualCounts",
+    "assertion": "ASSERTION:v83-snapshot-trace-capacity"
+  },
+  {
+    "name": "v83-ordinary-class-widened",
+    "file": "runner_native_trace_darwin_test.go",
+    "old": "capacity:runnerOrdinaryTraceRows}",
+    "new": "capacity:runnerSnapshotTraceRows}",
+    "test": "TestRunnerV83TraceClassesAndActualCounts",
+    "assertion": "ASSERTION:v83-ordinary-bound-unchanged"
+  },
+  {
+    "name": "v83-phase-float-rounded",
+    "file": "runner_normalized_codec_darwin_test.go",
+    "old": "math.Float64bits(row.ElapsedMS)",
+    "new": "math.Float64bits(math.Round(row.ElapsedMS*1000)/1000)",
+    "test": "TestRunnerV83InlineOwnerPhaseRoundTrip",
+    "assertion": "ASSERTION:v83-phase-exact-float-null"
+  },
+  {
+    "name": "v83-operation-ref-accepted",
+    "file": "runner_normalized_codec_darwin_test.go",
+    "old": "if e!=nil||int(op)>len(operations){return row,fmt.Errorf(\"normalization unknown operation reference\")}",
+    "new": "if e!=nil||int(op)>len(operations){op=1}",
+    "test": "TestRunnerV83StrictOperationTableFooter",
+    "assertion": "ASSERTION:v83-strict-operation-ref"
+  },
+  {
+    "name": "v83-footer-integrity-skipped",
+    "file": "runner_normalized_reader_darwin_test.go",
+    "old": "if !valid{return out,fmt.Errorf(\"normalization footer integrity\")}",
+    "new": "if false && !valid{return out,fmt.Errorf(\"normalization footer integrity\")}",
+    "test": "TestRunnerV83StrictOperationTableFooter",
+    "assertion": "ASSERTION:v83-strict-footer-digest"
+  },
+  {
+    "name": "v83-nominal-volume-gate-bypassed",
+    "file": "runner_normalized_fixture_darwin_test.go",
+    "old": "return normalized<=32<<20&&tarBytes<=120<<20&&(128<<20)-tarBytes>=8<<20&&files<=1024",
+    "new": "return true",
+    "test": "TestRunnerV83ActualFullNominalVolumeGate",
+    "assertion": "ASSERTION:v83-nominal-gate-not-bypassed"
+  },
+  {
+    "name": "v83-overflow-loss-blocker-removed",
+    "file": "runner_loop_darwin_test.go",
+    "old": "return result.NormalizationFailed ||",
+    "new": "return false && result.NormalizationFailed ||",
+    "test": "TestRunnerV83MaxFixtureOverflowAndLossBlockers",
+    "assertion": "ASSERTION:v83-overflow-blocks-later-case"
+  },
+  {
+    "name": "v83-raw-array-retirement-removed",
+    "file": "runner_native_trace_darwin_test.go",
+    "old": "t.rows=nil;t.pending=nil;t.retired=true",
+    "new": "_ = t.rows;t.pending=nil;t.retired=true",
+    "test": "TestRunnerV83SingleCopyOwnershipAndRetirement",
+    "assertion": "ASSERTION:v83-raw-array-retired-after-sink"
+  },
+  {
+    "name": "v83-C-field-union-dropped",
+    "file": "runner_structural_refusal_darwin_test.go",
+    "old": "if runnerExactFields(f,strings.Fields(keys))!=nil",
+    "new": "if len(keys)==0 && runnerExactFields(f,strings.Fields(keys))!=nil",
+    "test": "TestRunnerV83StructuralActualEncoderStrictUnion",
+    "assertion": "ASSERTION:v83-C-invalid-windowID"
+  },
+  {
+    "name": "v83-C-predicate-true-accepted",
+    "file": "runner_structural_refusal_darwin_test.go",
+    "old": "if e!=nil||predicate{",
+    "new": "if e!=nil||predicate&&false{",
+    "test": "TestRunnerV83StructuralActualEncoderStrictUnion",
+    "assertion": "ASSERTION:v83-C-invalid-predicateEvidence"
+  },
+  {
+    "name": "v83-C-owner-role-dropped",
+    "file": "runner_structural_refusal_darwin_test.go",
+    "old": "fact.Label!=\"window-server\"||fact.Bundle!=\"com.apple.WindowServer\"",
+    "new": "false",
+    "test": "TestRunnerV83StructuralOwnerAndCGCorrelation",
+    "assertion": "ASSERTION:v83-C-correlation-role"
+  },
+  {
+    "name": "v83-C-incarnation-dropped",
+    "file": "runner_structural_refusal_darwin_test.go",
+    "old": "r.Seconds!=b.Seconds||r.Microseconds!=b.Microseconds",
+    "new": "false",
+    "test": "TestRunnerV83StructuralOwnerAndCGCorrelation",
+    "assertion": "ASSERTION:v83-C-correlation-incarnation"
+  },
+  {
+    "name": "v83-C-independent-CG-dropped",
+    "file": "runner_structural_refusal_darwin_test.go",
+    "old": "if a.PID!=pid||a.Rect!=w.Rect||a.Layer!=w.Layer||!a.OnScreen{",
+    "new": "if false && (a.PID!=pid||a.Rect!=w.Rect||a.Layer!=w.Layer||!a.OnScreen){",
+    "test": "TestRunnerV83StructuralOwnerAndCGCorrelation",
+    "assertion": "ASSERTION:v83-C-correlation-cg-pid"
+  },
+  {
+    "name": "v83-C-mixed-category-accepted",
+    "file": "runner_structural_refusal_darwin_test.go",
+    "old": "for _,r:=range ordinary {if r.PID==pid{return nil,fmt.Errorf(\"mixed predicate and structural categories\")}}",
+    "new": "filtered:=ordinary[:0];for _,r:=range ordinary {if r.PID!=pid{filtered=append(filtered,r)}};ordinary=filtered",
+    "test": "TestRunnerV83StructuralCategoriesAreDisjointAndComplete",
+    "assertion": "ASSERTION:v83-C-category-mixed"
+  },
+  {
+    "name": "v83-C-incomplete-accepted",
+    "file": "runner_structural_refusal_darwin_test.go",
+    "old": "if !display||len(seen)!=len(expected){",
+    "new": "if false && (!display||len(seen)!=len(expected)){",
+    "test": "TestRunnerV83StructuralCategoriesAreDisjointAndComplete",
+    "assertion": "ASSERTION:v83-C-category-missing-display"
+  },
+  {
+    "name": "v83-C-stronger-claim-promoted",
+    "file": "runner_structural_refusal_darwin_test.go",
+    "old": "out.AllOwnerProtectedPredicatesDemonstrated=false",
+    "new": "out.AllOwnerProtectedPredicatesDemonstrated=true",
+    "test": "TestRunnerV83StructuralCoverageKeepsStrongerClaimUndemonstrated",
+    "assertion": "ASSERTION:v83-C-no-predicate-promotion"
+  },
+  {
+    "name": "v83-display-origin-fields-dropped",
+    "file": "runner_display_schema_darwin_test.go",
+    "old": "if runnerExactFields(f,strings.Fields(base+\" originBeforeJournalMs maximumDisplays maximumNotifications maximumMilestones\"))!=nil",
+    "new": "if false && runnerExactFields(f,strings.Fields(base+\" originBeforeJournalMs maximumDisplays maximumNotifications maximumMilestones\"))!=nil",
+    "test": "TestRunnerV83DisplayStrictOriginAndScreenFields",
+    "assertion": "ASSERTION:v83-display-exact-display-diagnostic-origin"
+  },
+  {
+    "name": "v83-display-screen-fields-dropped",
+    "file": "runner_display_schema_darwin_test.go",
+    "old": "if runnerExactNullableFields(f,strings.Fields(base+\" ordinal index displayID frame visibleFrame cgBounds scale color colorModel colorComponents colorNameBytes mode\"),\"displayID cgBounds scale colorModel colorComponents colorNameBytes mode\")!=nil",
+    "new": "if false && runnerExactNullableFields(f,strings.Fields(base+\" ordinal index displayID frame visibleFrame cgBounds scale color colorModel colorComponents colorNameBytes mode\"),\"displayID cgBounds scale colorModel colorComponents colorNameBytes mode\")!=nil",
+    "test": "TestRunnerV83DisplayStrictOriginAndScreenFields",
+    "assertion": "ASSERTION:v83-display-exact-display-observation-screen"
+  },
+  {
+    "name": "v83-display-trigger-enum-dropped",
+    "file": "runner_display_schema_darwin_test.go",
+    "old": "!runnerDiagnosticEnum(v.Trigger,runnerDisplayMilestones+\" notification\")",
+    "new": "false && !runnerDiagnosticEnum(v.Trigger,runnerDisplayMilestones+\" notification\")",
+    "test": "TestRunnerV83DisplayStrictOriginAndScreenFields",
+    "assertion": "ASSERTION:v83-display-exact-trigger"
+  },
+  {
+    "name": "v83-display-parent-dropped",
+    "file": "runner_display_schema_darwin_test.go",
+    "old": "if !exists||parent.Status!=\"complete\"",
+    "new": "if !exists{return nil};if parent.Status!=\"complete\"",
+    "test": "TestRunnerV83DisplayLedgerRefusesMissingParentCountAndClose",
+    "assertion": "ASSERTION:v83-display-parent-required"
+  },
+  {
+    "name": "v83-display-screen-count-dropped",
+    "file": "runner_display_schema_darwin_test.go",
+    "old": "!exists||l.Screens[i]!=value.Retained",
+    "new": "!exists||false",
+    "test": "TestRunnerV83DisplayLedgerRefusesMissingParentCountAndClose",
+    "assertion": "ASSERTION:v83-display-screen-count-required"
+  },
+  {
+    "name": "v83-display-close-dropped",
+    "file": "runner_display_schema_darwin_test.go",
+    "old": "if !l.Origin||!l.Closed||l.Overflow",
+    "new": "if !l.Origin||false||l.Overflow",
+    "test": "TestRunnerV83DisplayLedgerRefusesMissingParentCountAndClose",
+    "assertion": "ASSERTION:v83-display-close-required"
+  },
+  {
+    "name": "v83-display-unfinished-promoted",
+    "file": "runner_display_schema_darwin_test.go",
+    "old": "v.Status==\"unfinished\"||v.Status==\"too-many-displays\"",
+    "new": "false||v.Status==\"too-many-displays\"",
+    "test": "TestRunnerV83DisplayLedgerRefusesMissingParentCountAndClose",
+    "assertion": "ASSERTION:v83-display-unfinished-refused"
+  },
+  {
+    "name": "v83-display-terminal-gate-dropped",
+    "file": "runner_metadata_ledger_darwin_test.go",
+    "old": "if row.Stage==\"terminal\" {if outcome",
+    "new": "if false && row.Stage==\"terminal\" {if outcome",
+    "test": "TestRunnerV83DisplayDiagnosticsNeverSupplyIdentityOrSuccess",
+    "assertion": "ASSERTION:v83-display-terminal-needs-ledger"
   }
 ]
