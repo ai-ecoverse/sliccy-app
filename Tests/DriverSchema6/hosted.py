@@ -11,6 +11,7 @@ import time
 import urllib.request
 from partition import select_mutations
 from runtime_result import exact_test_pattern, runtime_result, suite_result
+from suite_schedule import checked_suite_groups, mutation_test_seconds, run_full_suite
 
 root = Path('Tests/DriverSchema6')
 results = Path('driver-schema6-results').resolve()
@@ -26,11 +27,16 @@ for name in ['home', 'tmp']:
 sha = lambda data: hashlib.sha256(data).hexdigest()
 manifest = json.loads((root / 'inputs.json').read_text())
 shard_index = int(os.environ['DRIVER_COMPONENT_SHARD_INDEX'])
-assert os.environ['DRIVER_COMPONENT_SHARD_COUNT'] == '4' and str(shard_index) == os.environ['DRIVER_COMPONENT_SHARD_INDEX']
-baseline_tests = json.loads((root / 'shards.json').read_text())['baselineTests']
+assert os.environ['DRIVER_COMPONENT_SHARD_COUNT'] == '6' and str(shard_index) == os.environ['DRIVER_COMPONENT_SHARD_INDEX']
+suite_ledger = json.loads((root / 'shards.json').read_text())
+checked_suite_groups(suite_ledger)
+suite_invocations = []
+def record_suite_invocation(row):
+    suite_invocations.append(row)
+    (results / 'suite-invocations.json').write_text(json.dumps(suite_invocations, indent=2))
 all_mutations = json.loads((root / 'mutants.json').read_text())
-selected_mutations, selected_ids, universe_ids = select_mutations(all_mutations, shard_index, 4)
-(results / 'shard-binding.json').write_text(json.dumps({'sourceSHA':os.environ['GITHUB_SHA'],'shardIndex':shard_index,'shardCount':4,'mutantIds':selected_ids,'allMutantIds':universe_ids,'partitionRule':'explicit-balanced-four-shards-heavy-separated','shardLedgerSHA256':sha((root / 'shards.json').read_bytes()),'driverArchiveSHA256':sha((root / 'inputs/driver-source.tar.gz').read_bytes()),'partitionSHA256':sha((root / 'partition.py').read_bytes())},indent=2))
+selected_mutations, selected_ids, universe_ids = select_mutations(all_mutations, shard_index, 6)
+(results / 'shard-binding.json').write_text(json.dumps({'sourceSHA':os.environ['GITHUB_SHA'],'shardIndex':shard_index,'shardCount':6,'mutantIds':selected_ids,'allMutantIds':universe_ids,'partitionRule':'explicit-balanced-six-shards-heavy-separated','shardLedgerSHA256':sha((root / 'shards.json').read_bytes()),'driverArchiveSHA256':sha((root / 'inputs/driver-source.tar.gz').read_bytes()),'partitionSHA256':sha((root / 'partition.py').read_bytes())},indent=2))
 
 for name, digest in manifest['inputs'].items():
     assert sha((root / name).read_bytes()) == digest
@@ -138,14 +144,14 @@ try:
     binary = str(private / 'driver-components')
     compile_result = command('go-baseline-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 300)
     assert compile_result.returncode == 0
-    baseline = command('go-baseline-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', selected], 45)
-    assert suite_result(baseline, baseline_tests)
+    run_full_suite('go-baseline', binary, command, suite_ledger, record_suite_invocation)
     mutation_results = []
     restoration_gates = []
     for mutation in selected_mutations:
         path = target / mutation['file']
         originals_before = {p.name: p.read_bytes() for p in target.iterdir()}
         assert {name: sha(raw) for name, raw in originals_before.items()} == manifest['files']
+        test_seconds = mutation_test_seconds(mutation['test'])
         original = path.read_bytes()
         needle = mutation['old'].encode()
         assert original.count(needle) == 1
@@ -154,7 +160,7 @@ try:
             compile_mutant = command(mutation['name']+'-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
             runtime_mutant = None
             if compile_mutant.returncode == 0:
-                runtime_mutant = command(mutation['name']+'-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', exact_test_pattern(mutation['test'])], 45)
+                runtime_mutant = command(mutation['name']+'-runtime', [binary, '-test.count=1', '-test.timeout='+str(test_seconds)+'s', '-test.v', '-test.run', exact_test_pattern(mutation['test'])], test_seconds+15)
             valid = compile_mutant.returncode == 0 and runtime_result(runtime_mutant, mutation['test'], mutation['assertion'])
             mutation_results.append({'name': mutation['name'], 'compile': compile_mutant.returncode, 'runtime': None if runtime_mutant is None else runtime_mutant.returncode, 'assertion': mutation['assertion'], 'validRed': valid})
         finally:
@@ -167,7 +173,7 @@ try:
         (results / 'mutation-results.json').write_text(json.dumps(mutation_results, indent=2))
         restored_compile = command(mutation['name']+'-restored-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
         assert restored_compile.returncode == 0
-        restored = command(mutation['name']+'-restored-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', exact_test_pattern(mutation['test'])], 45)
+        restored = command(mutation['name']+'-restored-runtime', [binary, '-test.count=1', '-test.timeout='+str(test_seconds)+'s', '-test.v', '-test.run', exact_test_pattern(mutation['test'])], test_seconds+15)
         assert runtime_result(restored, mutation['test'])
         restored_hashes = {p.name: sha(p.read_bytes()) for p in target.iterdir()}
         assert restored_hashes == manifest['files']
@@ -176,8 +182,7 @@ try:
     assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == manifest['files']
     restored_full_compile = command('full-restored-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
     assert restored_full_compile.returncode == 0
-    restored_full = command('full-restored-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', selected], 45)
-    assert suite_result(restored_full, baseline_tests)
+    run_full_suite('full-restored', binary, command, suite_ledger, record_suite_invocation)
     assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == manifest['files']
     (results / 'mutation-results.json').write_text(json.dumps(mutation_results, indent=2))
     (results / 'after-source-map.json').write_text(json.dumps(manifest['files'], indent=2))
@@ -196,8 +201,7 @@ try:
         assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == formatted_hashes
         final_compile = command('formatted-final-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
         assert final_compile.returncode == 0
-        final_runtime = command('formatted-final-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', selected], 45)
-        assert suite_result(final_runtime, baseline_tests)
+        run_full_suite('formatted-final', binary, command, suite_ledger, record_suite_invocation)
         (results / 'formatted-tested-source-map.json').write_text(json.dumps(formatted_hashes, indent=2))
     finally:
         for name, raw in originals.items():

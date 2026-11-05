@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5]
     runs-on: xcode-27
     timeout-minutes: 15
     steps:
@@ -20,7 +20,7 @@ jobs:
       - name: Compile synthetic encoder and selected pure Go component tests
         env:
           DRIVER_COMPONENT_SHARD_INDEX: ${{ matrix.shard }}
-          DRIVER_COMPONENT_SHARD_COUNT: '4'
+          DRIVER_COMPONENT_SHARD_COUNT: '6'
         run: python3 -B Tests/DriverSchema6/hosted.py > "$RUNNER_TEMP/driver-component-bootstrap.log" 2>&1
       - name: Retain fabricated component evidence only
         if: always()

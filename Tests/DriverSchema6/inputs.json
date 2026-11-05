@@ -1,5 +1,5 @@
 {
-  "stage": "V83_BUILD16_PREEXECUTION_SOURCE_REVIEW",
+  "stage": "V83_WORKFLOW2B_CORRECTED_PREEXECUTION",
   "files": {
     "code_status_darwin_test.go": "96339768f8a2a658bb1374f941cb6a6ea783d2239696718f24e76f1b7b36b41c",
     "fakehub_test.go": "b9d5ce98a94949544e8ec20317678494213e9a16a1170a2ca807260fbcc2b711",
@@ -52,7 +52,7 @@
     "runner_native_trace_fixture_darwin_test.go": "2302805bd2411cfbcdbac3ffd7442b796c9a78b403f74c26f84db3f8375c9e3b",
     "runner_normalized_case_darwin_test.go": "fe224332590efe35d2da947e419468141c251035e1f18b783b7ea39112e6217b",
     "runner_normalized_codec_darwin_test.go": "780bf7cdc6a2508a2231eb914df1fe103cfdf267156456c5bc1e8277d7ccf4b3",
-    "runner_normalized_fixture_darwin_test.go": "c8ac2c6de3679cbfde85a4f961412a288438c1989ece1f4ab0fd640595674670",
+    "runner_normalized_fixture_darwin_test.go": "f1d6a1b553c1b7ecd36ea75871f0e1df29236fad8e4e34cf0a8e67d08372d97d",
     "runner_normalized_reader_darwin_test.go": "00f367cf223dcf270f64a72703ede8570106732e085af0767a5fc4c30ec4e70b",
     "runner_normalized_writer_darwin_test.go": "01bd61040876e9613846d4d61372207ed517435e95d233f4d91b95b42223b80a",
     "runner_observation_pool_darwin_test.go": "3050e870dcdd9af4bb7106b3f2355146eeafb7714335a2e65db86818d0cf8ba3",
@@ -81,7 +81,7 @@
     "runner_timing_darwin_test.go": "ed1d1372b81a12a279dbe44b7a319db8b890657210b13b8ae73b72fda34ae180",
     "runner_union_darwin_test.go": "562cd33a4b2aa89802a82d13d8f0ee6abaf3f4a967e78efb36268c09d7925e4a",
     "runner_union_fixture_darwin_test.go": "2fdac0af150db7709ccbd55733885eaba13ce65f575d6ec577f88ae87b71e169",
-    "runner_v8_fixture_darwin_test.go": "611cee62f493c8566b9ce050f9f8fba7a729b893896317207c4bc1e4b76c20de",
+    "runner_v8_fixture_darwin_test.go": "cc4426d64d2c3cc35d88bda735e247853328ae830b0f55a6bd117b6eeaa2f7dd",
     "runner_windows_darwin_test.go": "70e66d44da17bf99beed038f0d13596fdd957d9197cfbaba20bd0df7a5a1b878",
     "runner_wire_decode_darwin_test.go": "68efb087cdcc02575d3665b2754a030c95bcd549830a7abbe0faf46d0bd61d2d",
     "safety_handoff_darwin_test.go": "680ff5cae19825aa39288dfa7df162d4ffbf29d83be1e6c2e10ee49ecf260be0",
@@ -97,7 +97,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "db3d9154e5b067c7a41df54f82e9ba018dff9514183bb9eddd822555849ca75f",
+    "inputs/driver-source.tar.gz": "2c72999dc77060fb6e4e1d91f73a2f8f47959c37054cc16658cadcf913176766",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
   },
   "fixtureSHA256": "30454bdbe417a34a07d3ae68702e2c9e816e7b58397c928165cc07473780b21b",
@@ -106,8 +106,8 @@
     "Sources/Sliccy/Screen/ScreenRunnerReceiptLedger.swift": "2c39093785f4e6c05fc211be25756a83f61ac2a8bdf90e97675b49d588668b4b",
     "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6"
   },
-  "scope": "Synthetic only; build16 producer draft and approved inline normalization; current build15 artifact pins are provisional and not dispatchable. Build16 signing/static and final artifact pin validation remain separate.",
-  "collectorTestSHA256": "6d81b32511bb11f4fb0d06cb0e50952aded91fc2457c55d4e3af2a525baa77fb",
+  "scope": "Synthetic only. Accepted build16 producer; corrected fixture/split schedule after preserved failedworkflow2. Build15 driver pins provisional until finalpinworkflow5; no capture.",
+  "collectorTestSHA256": "6120a58a0ed77b320b2bead1f19d0aa9033a6d7bca04d57ec04399d25b987539",
   "clockFixtureSHA256": "4bf2c94f9f530fcbc020356f132c0d6a412b5866a7647975b4af966979afb089",
   "refusalFixtureSources": {
     "RefusalDiagnostics.swift": "eaba60e4477811a928afb3d0e6c6dfad040441c3e424e68734f54474456590fb",
@@ -142,15 +142,17 @@
   "normalizationFixtureSources": {
     "VolumePacker.py": "a2785beade7cc31f9fa6fc14ca6b4d5200b5ddf35e911a05df69e69baf402cd2",
     "inputs/accepted-sealed-runner.py": "27e11c5a63ae7a0cfee62a00ef9c0b13cc83df320a02beb6fcf3b0f4a6aea6c4",
-    "v83-contract.json": "b746a8c84c0c17a44a32b0673ffd93eb05cbe620c9bde8e1d07cc23d69d68e6a"
+    "v83-contract.json": "aee77235d4010592acae81efe9556b455d20011eb689b91891ac9cfb2539e4a2"
   },
   "scheduleSources": {
-    "hosted.py": "8ac36159492bcfcd62311083456af09e324fb57bd6c53e823d4b6feb4c0d6065",
-    "partition.py": "754f689fb05515955843d38df81fd214e24ee27dca953abd61420e4c135b12ff",
+    "hosted.py": "41405730bd71236ef3e6cbae20bb8d25e5c50ac2bd4ef5c0c317296f82bf435f",
+    "partition.py": "6da2d2eee44ce13e0609cc04f51130aa5d903b6db1958f9483370582d1312974",
     "runtime_result.py": "ad9f88f2871ec253748a9f0dcc447eb33bf23e9cdd1929dce26d1a69a94e49be",
-    "shards.json": "739d853b86bac7a094c3b094b2ec6d3962262b97eea269aa42d08e053bc945ff",
-    "schedule-estimate.json": "e3f859ca5cbe7370d39e138869aae55d45bfcf199e27011f784492bd8d50bfdd",
+    "shards.json": "97a1392367cba3f895f87c6b0bec9a38500190f91cb279082d587a81d4854f83",
+    "schedule-estimate.json": "f563b74288c7a3aedf19cd088d2c2c8c9e09e6cc0443dfbab4037d48f375dbd4",
     "mutants.json": "a2b49ed00fb82ca7b549b71a14bf64e3b77e9c64dbcb6040bb4e0557b02db6a4",
-    "test_harness.py": "6d81b32511bb11f4fb0d06cb0e50952aded91fc2457c55d4e3af2a525baa77fb"
+    "test_harness.py": "6120a58a0ed77b320b2bead1f19d0aa9033a6d7bca04d57ec04399d25b987539",
+    "suite_schedule.py": "7c2d97b026d5af9d722b94cd9e80572133e3edf19e81c031aa359d3f38846a89",
+    "workflow2b-cost-analysis.txt": "1baf67f33515d9617c8daeb8526047969818ddc9f132526fcd820ee6cabbfc3b"
   }
 }

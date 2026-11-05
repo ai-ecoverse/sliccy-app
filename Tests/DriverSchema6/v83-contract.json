@@ -1,5 +1,5 @@
 {
-  "status": "PREEXECUTION_REVIEW_NOT_DISPATCHABLE",
+  "status": "CORRECTED_WORKFLOW2B_PREEXECUTION_BOTH_READS_REQUIRED",
   "designSHA256": "d321c84c83cd2d7ddf37d2caf662d216f51003c76eaadb7464d3e3e11e601fe6",
   "windowServerDesignSHA256": "8e629dbbf03e27c3aebcbc31283b0e2d03284af38d4b99d5b6fbbc63ea8cd979",
   "appContractSHA256": "3c73a4b6e9d729151e37826a0b81d35aafcd7cd3f0ec19c9086fba3c5ccfbe62",
@@ -120,7 +120,7 @@
     "tarMaxBytes": 125829120,
     "envelopeBytes": 134217728,
     "minimumMarginBytes": 8388608,
-    "status": "UNPROVEN_ACTUAL_HOSTED_GATE",
+    "status": "PARTIAL_COMPLETED_42066496638_MEASUREMENTS_ONLY; full corrected runtime/mutation/restoration acceptance pending",
     "actualPacker": "exact accepted aadb79ef package_evidence body, isolated AST fixture; no wrapper runtime mutation",
     "actualEncodedProducerInputs": [
       "receipt",
@@ -129,7 +129,22 @@
       "surface refusal",
       "build16 C/display max rows"
     ],
-    "actualEncodedProducerRetention": "Actual five Foundation output files copied into the charged other bucket; exact hashes checked in Go and retained in test output."
+    "actualEncodedProducerRetention": "Actual five Foundation output files copied into the charged other bucket; exact hashes checked in Go and retained in test output.",
+    "priorMeasured": {
+      "run": 42066496638,
+      "normalizedBytes": 25943893,
+      "tarBytes": 110284800,
+      "marginBytes": 23932928,
+      "files": 272,
+      "phases": 392184,
+      "owners": 3432,
+      "bsdReceipts": 6864,
+      "seconds": [
+        20.34,
+        27.36
+      ],
+      "completeCombinedValidation": false
+    }
   },
   "maxFixture": {
     "owners": 128,
@@ -140,14 +155,16 @@
     "expected": "first snapshot succeeds; continued maxima refuse unchanged storage/reservation/record bounds and keep incomplete evidence/later-case blocker"
   },
   "schedule": {
-    "shards": 4,
+    "shards": 6,
     "mutants": [
-      34,
-      34,
-      33,
-      33
+      17,
+      23,
+      24,
+      24,
+      24,
+      23
     ],
-    "fullRawTests": 100,
+    "fullRawTests": 101,
     "eachOverlay": [
       "compile 0",
       "exact fully anchored negative test executes and fails runtime 1 on exact named assertion, no panic/signal/skip",
@@ -158,27 +175,168 @@
       "compare all source hashes again"
     ],
     "endOfShard": [
-      "one full restored 100-test suite",
-      "full formatted 100-test suite",
-      "restore original bytes and compare every hash"
+      "one full restored 101-test suite split into disjoint exhaustive 99+1+1 invocations",
+      "full formatted 101-test suite using the identical checked invocation partition",
+      "restore original bytes and compare all 94 source hashes"
     ],
     "omittedRedundancy": "Full restored suite after each overlay is replaced only by its own exact green test because all sources must first equal the complete baseline map. All-file hash failure is fatal, never RED.",
     "workSeconds": 600,
     "jobMinutes": 15,
-    "testTimeoutSeconds": 30,
-    "noRetry": true
+    "noRetry": true,
+    "fullRestoredTests": 101,
+    "fullFormattedTests": 101,
+    "suiteInvocations": [
+      {
+        "id": "non-heavy",
+        "tests": [
+          "TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission",
+          "TestRunnerAbsoluteLoopDeadlineStopsHeldReaderAndFailedCleanup",
+          "TestRunnerActualSpawnRecordAndSettlementStorageCannotDisappear",
+          "TestRunnerAppOutputTailAndSignalFactsAreRetained",
+          "TestRunnerArgumentsRetainOnlyFixedArgvAndOwnedTemporaryRoot",
+          "TestRunnerAuthorizationPurposeDoesNotPromoteTemporalEvidenceOrBlockCleanCases",
+          "TestRunnerBSDRawBoundaryRejectsInvalidPIDParentAndMicroseconds",
+          "TestRunnerBSDReceiptDecisionUsesRawObservations",
+          "TestRunnerBSDReceiptStrictParserRecomputesFlags",
+          "TestRunnerCaptureDurationIncludesPreStreamStartAndRejectsOverLimit",
+          "TestRunnerCaptureSchemaRejectsUnknownAndMalformedOwnershipMetadata",
+          "TestRunnerCleanupDoesNotClaimProtectedSystemWindowsAreOwned",
+          "TestRunnerCleanupDoesNotReadUnrelatedProcessArguments",
+          "TestRunnerCleanupWaitsDoNotRestartTheCaseDeadline",
+          "TestRunnerClockUsesCausalLowerBoundRatherThanLateRowDelivery",
+          "TestRunnerControllerFixturePresenceUsesPIDBoundsAndNoTitleAuthority",
+          "TestRunnerControllerObserverReturnsWithHeldNativeCallAndNoInferredCleanup",
+          "TestRunnerControllerOriginalOwnedRecordBindsStartRoleAndHash",
+          "TestRunnerControllerPartialIdentityBatchRetainsOnlyAcceptedRoots",
+          "TestRunnerControllerReceiptCoverageRequiresEveryCLIStream",
+          "TestRunnerControllerWindowRecheckIgnoresDiagnosticTitleButNoIdentityField",
+          "TestRunnerDarwinStopSignalsAreNotContinueReceipts",
+          "TestRunnerDiagnosticFirstOrderBoundsAndSanitization",
+          "TestRunnerEntryRejectsLocalBeforeAnyWindowOrAppOperation",
+          "TestRunnerExecutableSlicesRetainSameCPUCapabilitiesAndBounds",
+          "TestRunnerExitFactsPublishOnlyAfterFinishedResult",
+          "TestRunnerFoundationSignalRecordsUseDarwinConstants",
+          "TestRunnerIdentityBoundaryRefusesLostOwnershipAndIncompleteBinding",
+          "TestRunnerIdentityBoundaryRoutesFixedRolesAndBracketsParent",
+          "TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries",
+          "TestRunnerIndependentRecordBoundsApplyBeforePayloadRead",
+          "TestRunnerLivePionFixtureClearsWhileDecoderIsBlocked",
+          "TestRunnerLivePionUnsettledWorkerBlocksLaterCases",
+          "TestRunnerLoopDrainsBufferedRowsAfterReaderCompletion",
+          "TestRunnerMarkerControllerCannotSubstituteSentFramesOrLocalClear",
+          "TestRunnerMetadataFailurePathsKeepFirstUnderlyingError",
+          "TestRunnerMetadataLedgerKeepsFirstCauseKindsAndRequiresChromePhases",
+          "TestRunnerMetadataLossAbortsBeforeWaitAndRetainsFinalRows",
+          "TestRunnerNativeCFConstructorsUseExactAttributesAndTypedInformation",
+          "TestRunnerNativeKernelAdapterRetainsActualReturnsErrnoAndCallOrder",
+          "TestRunnerNativeTraceKeepsEnteredCallWithoutInventingCompletion",
+          "TestRunnerNativeTraceOverflowCannotResumeAfterDrain",
+          "TestRunnerNormalizedIndexFinalizationDeadline",
+          "TestRunnerObservationPoolBoundsConcurrencyAndReportsEveryResult",
+          "TestRunnerObservationPoolDoesNotInferSettlementFromDeadline",
+          "TestRunnerOwnerBoundsDoNotDependOnTitleVisibilityOrText",
+          "TestRunnerPatternRecognizesSyntheticJPEGInteriors",
+          "TestRunnerPixelExclusionCannotIgnoreColoredProtectedRegions",
+          "TestRunnerPrelaunchPageSettlementIsRecordedAndBlocksWithoutAppPID",
+          "TestRunnerProtocolFailureRetainsUnderlyingPageAndLinkDiagnostics",
+          "TestRunnerReceiptBookRequiresCompleteEvidenceAndKeepsCounts",
+          "TestRunnerReceiptFoundationEncoderInteroperability",
+          "TestRunnerReceiverClearsBeforeInflightArrivalAndDuringDecode",
+          "TestRunnerReceiverRejectsMalformedGrantAndDisabledState",
+          "TestRunnerReciprocalWireResetCanPrecedeAppRevokeObservation",
+          "TestRunnerRecordRejectsDimensionsAndNativeFieldsBeforeBodyAllocation",
+          "TestRunnerRefusalsRequireEveryOwnerAndEveryActualWindow",
+          "TestRunnerResidualDiscoveryCannotInferAbsenceOrSignalFromPaths",
+          "TestRunnerRootObservationDistinguishesPresentAbsentAndStatError",
+          "TestRunnerSensitiveHexLeadingFieldsAreRemovedBeforeTransformations",
+          "TestRunnerSignallingRejectsKeepActualUnderlyingError",
+          "TestRunnerSpawnSettlementRecordsExactIdentityWithoutSignalAuthority",
+          "TestRunnerStaticPagesBypassHeldJoinWithoutLeakingCapability",
+          "TestRunnerStaticPagesRejectUnfixedRequestsAndBoundAdmission",
+          "TestRunnerUnavailableEvidenceCannotBecomePassFromContradictoryComplete",
+          "TestRunnerUnionRequiresEveryIndependentOwnerAndProtectsSecurityAgent",
+          "TestRunnerV81BaselineAfterOnlyBSDMismatch",
+          "TestRunnerV81BaselineAfterOnlyKernelMismatch",
+          "TestRunnerV82ActualSurfaceRefusalEncoderStrictFields",
+          "TestRunnerV82DiagnosticOwnerActualEncoderRoundTrip",
+          "TestRunnerV82InventoryExactDiagnosticEnums",
+          "TestRunnerV82SurfaceExactDiagnosticEnums",
+          "TestRunnerV83DisplayActualEncoderMaximumJournalVolume",
+          "TestRunnerV83DisplayDiagnosticsNeverSupplyIdentityOrSuccess",
+          "TestRunnerV83DisplayLedgerRefusesMissingParentCountAndClose",
+          "TestRunnerV83DisplayStrictOriginAndScreenFields",
+          "TestRunnerV83InlineOwnerPhaseRoundTrip",
+          "TestRunnerV83SingleCopyOwnershipAndRetirement",
+          "TestRunnerV83StrictOperationTableFooter",
+          "TestRunnerV83StructuralActualEncoderStrictUnion",
+          "TestRunnerV83StructuralCategoriesAreDisjointAndComplete",
+          "TestRunnerV83StructuralCoverageKeepsStrongerClaimUndemonstrated",
+          "TestRunnerV83StructuralOwnerAndCGCorrelation",
+          "TestRunnerV83TraceClassesAndActualCounts",
+          "TestRunnerV8ActualClockMarkerWrite",
+          "TestRunnerV8ActualRefusalEncoderAndNoAuthority",
+          "TestRunnerV8BaselineActualDeadlineRefusesLateCallback",
+          "TestRunnerV8BaselineCheapBoundaryAndBudget",
+          "TestRunnerV8BaselineNativeRoutingAvoidsStaticValidation",
+          "TestRunnerV8DiagnosticOwnerRetainsFailuresWithoutAuthority",
+          "TestRunnerV8DiagnosticWindowRouteKeepsApprovalAndDropsTitles",
+          "TestRunnerV8EarlyClockAndBaselineIntersection",
+          "TestRunnerV8EarlyClockFoundationEncoder",
+          "TestRunnerV8IdentityBudgetsAndHardClip",
+          "TestRunnerV8RefusalAttemptLedgerAllowsGapsButNotDuplicates",
+          "TestRunnerV8RefusalStrictTypesAndEnums",
+          "TestRunnerV8SnapshotPreservesWindowsBeforeHeldOwner",
+          "TestRunnerWindowObserverRequiresExplicitGate",
+          "TestRunnerWireFramesMustMatchSourceAndNativeAdmissionLedger"
+        ],
+        "testSeconds": 30
+      },
+      {
+        "id": "nominal",
+        "tests": [
+          "TestRunnerV83ActualFullNominalVolumeGate"
+        ],
+        "testSeconds": 60
+      },
+      {
+        "id": "overflow",
+        "tests": [
+          "TestRunnerV83MaxFixtureOverflowAndLossBlockers"
+        ],
+        "testSeconds": 30
+      }
+    ],
+    "nonHeavyTestTimeoutSeconds": 30,
+    "nominalTestTimeoutSeconds": 60,
+    "overflowTestTimeoutSeconds": 30,
+    "commandTimeoutGraceSeconds": 15,
+    "timeoutScope": "Each Go process limit remains explicit; outer command timeout is process limit+15, clipped to unchanged600s total work. Nominal only gets60s based on completed27.36s>20s. Overflow completed3.46s stays30s. No runtime driver/capture limit changes.",
+    "scheduleEstimateSHA256": "f563b74288c7a3aedf19cd088d2c2c8c9e09e6cc0443dfbab4037d48f375dbd4",
+    "assignmentSHA256": "97a1392367cba3f895f87c6b0bec9a38500190f91cb279082d587a81d4854f83",
+    "coverageGate": "Every top-level test exactly once per full suite. Unknown, missing, duplicate, skipped, panic, signal and limit exits fail. All same exact own-test restoration gates remain."
   },
   "hostedBudget": {
-    "used": 0,
-    "approvedTotal": 5,
-    "firstWorkflow": "build16 synthetic",
-    "secondWorkflow": "driver V8.3 four shards",
-    "remaining": [
-      "build16 signing",
-      "hosted static verification",
-      "final artifact-pin shards"
-    ],
-    "coordinatorApprovalBeforeFirst": true
+    "approvedTotal": 6,
+    "workflows": {
+      "1": "42059282405 app synthetic PASS",
+      "2": "42066496638 driver baseline failure; all135 mutations NOT_RUN",
+      "2b": "corrected driver6shards; BOTH READS REQUIRED BEFORE PUSH",
+      "3": "42069097054 build16 signing completed",
+      "4": "42071731231 hosted static independently authenticated PASS_STATIC_ONLY",
+      "5": "final-artifact-pin driver pending"
+    },
+    "seventhRequiresCoordinator": true,
+    "noCaptureAuthorization": true
   },
-  "pins": "Driver still contains accepted build15 artifact pins explicitly provisional; build16 artifact does not exist. Helper12/CLI unchanged. No wrapper/capture acceptance until signed build16 static verification and exact final pin tests/reads."
+  "pins": "Build16 signed artifact13435980723 and hosted static receipt now exist. This corrected synthetic workflow2b intentionally keeps exact accepted build15 driver pins provisional. Only separately authorized final-pin workflow5 substitutes verified build16 bytes; helper12/CLI unchanged.",
+  "correctionScope": {
+    "fixtures": [
+      "held-owner test uses snapshot trace; ordinary-class reservation refusal explicitly retained in same test",
+      "fabricated nominal/max fixture resolves immutable source symbol list once per test, still generates every original callback/phase/owner/receipt; no real identity caching"
+    ],
+    "productionDriver": "byte-identical d2d706b",
+    "mutantSpecifications": "all135 byte-identical d2d706b",
+    "schedule": "six cost-balanced shards; full suites99+1+1; exact coverage and all94 restoration unchanged",
+    "oldScheduleAddendum": "3f56c79155029e1f4e9996afb70c1fbb1d29e7596696a2852121fa797b82b5ec applies only to originald2d failed run; new checked schedule supersedes it for2b"
+  }
 }

@@ -1,8 +1,24 @@
 {
-  "status": "SOURCE_ESTIMATE_NOT_MEASURED_V83_FIT",
-  "priorRun": 42022850390,
-  "priorSource": "e0cb1510c31678fbe9b719a4725376d7c1394eb1",
+  "status": "MEASUREMENT_BASED_ESTIMATE_NOT_NEW_RUNTIME_PROOF",
+  "measurementRun": 42066496638,
+  "priorOverlayMeasurementRun": 42022850390,
   "provenance": [
+    {
+      "path": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/driver-v83-synthetic-d2d706b/run-42066496638/shard-0/files/commands.json",
+      "sha256": "86d02beb876b7b1169642a0b76dc2dccf02aa2d45ecc603412cab4992b1f205b"
+    },
+    {
+      "path": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/driver-v83-synthetic-d2d706b/run-42066496638/shard-1/files/commands.json",
+      "sha256": "d7dedf3f950aeb6c231f3db40d29f386dd9995ca5f9c63dc3f1769ef6f0b6535"
+    },
+    {
+      "path": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/driver-v83-synthetic-d2d706b/run-42066496638/shard-2/files/commands.json",
+      "sha256": "fd6d64a2bcdae3d949140b3765a06fa243a5e81cd38b1e6e50ef1ebdcd6f7fc6"
+    },
+    {
+      "path": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/driver-v83-synthetic-d2d706b/run-42066496638/shard-3/files/commands.json",
+      "sha256": "af096b693a2bd2f8a55af2a19cbdc7db904a2ede990678e6b0fc8851c8e95941"
+    },
     {
       "path": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-2-exact-enum/validation/shard-0/commands.json",
       "sha256": "60a8581fde9738d6273b5efaac8b76e47b32923bec4eb72f63106f47f5b08de9"
@@ -12,102 +28,943 @@
       "sha256": "2b3af4c1cff24466abf477e70c44910c965ef02b1ba06cfcd4aa6b774fe63588"
     }
   ],
+  "observedCompletedHeavySeconds": {
+    "nominal": [
+      20.34,
+      27.36
+    ],
+    "overflow": [
+      3.46
+    ]
+  },
+  "censoredHeavy": "Shards2/3 nominal active at shared30s timeout; shard1 overflow interrupted by shared30s; do not treat censored observations as completed durations.",
+  "invocationLimits": {
+    "non-heavy": 30,
+    "nominal": 60,
+    "overflow": 30,
+    "reason": "Nominal completed27.36s>20s threshold authorized60s; no measured gain credited for source-only fixture metadata optimization. Overflow completed3.46s, keeps30s. Nonheavy30s unchanged. Full raw/restored/formatted coverage99+1+1 independently checked."
+  },
+  "workSeconds": 600,
+  "jobMinutes": 15,
+  "shardCount": 6,
   "assumptions": [
-    "Observed per-overlay compile and restore compile durations from accepted V8.2, multiplied by 1.25; new compile pairs charged 7 seconds each.",
-    "Every full suite charged 29 seconds against the unchanged 30-second test timeout. New nominal and max tests each estimated at 10 seconds; this is unmeasured and must be reported if exceeded.",
-    "Heavy overlays each execute their actual heavy test twice (RED, restored GREEN); each has a separate shard.",
-    "Exact-test restored runtime estimated from prior negative runtime, with 0.05-second minimum, twice and multiplied by 1.25. New light tests charged 0.5 seconds per execution.",
-    "600-second work and 15-minute job limits unchanged. No runtime failure, timeout, missing test or assertion may count RED. No automatic retry.",
-    "Post-index deadline regression uses injected time, real small file writes, and no sleep; new light overlay is placed on shard2 and charged7seconds compile plus1second red/restored runtime. Full suites each charged one extra second for this added test; unmeasured until hosted."
+    "Every full partition charged completed nominal27.36*1.5 + overflow3.46*1.5 + nonheavy6 +3seconds invocation overhead; repeated3times.",
+    "Prior exact overlay compile measurements scaled1.5. Prior negative and FULL restored runtimes scaled1.5 conservatively substitute for new own-test restoration. New compile pairs use maximum prior restored compile twice scaled1.5.",
+    "Heavy overlay runs actual heavy test twice charged measured high completed runtime scaled1.5; heavy overlays spread over2shards. New light tests charged1.5seconds per RED/restored pair.",
+    "Six fixed greedily balanced source-defined shards use measured costs. No capacity/identity/volume scenario reduction, no guarantee of future hosted performance. Report any limit hit and stop."
   ],
+  "overlayCosts": {
+    "null-integer": {
+      "compilePairSeconds": 8.306,
+      "redRestoredRuntimeSeconds": 4.465,
+      "total": 12.771,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "same-type": {
+      "compilePairSeconds": 8.023,
+      "redRestoredRuntimeSeconds": 3.822,
+      "total": 11.844,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "unique-count": {
+      "compilePairSeconds": 6.96,
+      "redRestoredRuntimeSeconds": 3.795,
+      "total": 10.755,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "platform": {
+      "compilePairSeconds": 5.743,
+      "redRestoredRuntimeSeconds": 3.769,
+      "total": 9.512,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "selected-flags": {
+      "compilePairSeconds": 6.627,
+      "redRestoredRuntimeSeconds": 3.986,
+      "total": 10.612,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "chrome-guest-flags": {
+      "compilePairSeconds": 6.147,
+      "redRestoredRuntimeSeconds": 3.788,
+      "total": 9.935,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "slice-overlap": {
+      "compilePairSeconds": 5.002,
+      "redRestoredRuntimeSeconds": 3.693,
+      "total": 8.695,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "cf-subtype": {
+      "compilePairSeconds": 6.526,
+      "redRestoredRuntimeSeconds": 3.854,
+      "total": 10.38,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "cf-info-flags": {
+      "compilePairSeconds": 7.218,
+      "redRestoredRuntimeSeconds": 3.894,
+      "total": 11.113,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "cf-selected-flags": {
+      "compilePairSeconds": 6.307,
+      "redRestoredRuntimeSeconds": 3.827,
+      "total": 10.134,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "cf-float-type": {
+      "compilePairSeconds": 5.99,
+      "redRestoredRuntimeSeconds": 3.62,
+      "total": 9.61,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "purpose-default": {
+      "compilePairSeconds": 6.736,
+      "redRestoredRuntimeSeconds": 3.846,
+      "total": 10.582,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "protected-cleanup": {
+      "compilePairSeconds": 5.785,
+      "redRestoredRuntimeSeconds": 3.855,
+      "total": 9.639,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "identity-parent-after": {
+      "compilePairSeconds": 7.188,
+      "redRestoredRuntimeSeconds": 3.875,
+      "total": 11.063,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "identity-credential": {
+      "compilePairSeconds": 6.035,
+      "redRestoredRuntimeSeconds": 3.786,
+      "total": 9.821,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "trace-native-return": {
+      "compilePairSeconds": 7.626,
+      "redRestoredRuntimeSeconds": 3.813,
+      "total": 11.44,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "pool-inflight-settlement": {
+      "compilePairSeconds": 6.619,
+      "redRestoredRuntimeSeconds": 3.824,
+      "total": 10.443,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "controller-native-unsettled": {
+      "compilePairSeconds": 5.805,
+      "redRestoredRuntimeSeconds": 3.721,
+      "total": 9.525,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "controller-window-pid": {
+      "compilePairSeconds": 4.922,
+      "redRestoredRuntimeSeconds": 4.4,
+      "total": 9.322,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "controller-owned-start": {
+      "compilePairSeconds": 5.817,
+      "redRestoredRuntimeSeconds": 3.799,
+      "total": 9.616,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "controller-cli-stream": {
+      "compilePairSeconds": 6.392,
+      "redRestoredRuntimeSeconds": 4.391,
+      "total": 10.783,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "metadata-first-cause": {
+      "compilePairSeconds": 4.514,
+      "redRestoredRuntimeSeconds": 4.314,
+      "total": 8.828,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "metadata-chrome-phase": {
+      "compilePairSeconds": 5.983,
+      "redRestoredRuntimeSeconds": 4.447,
+      "total": 10.429,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "kernel-errno-retention": {
+      "compilePairSeconds": 5.252,
+      "redRestoredRuntimeSeconds": 3.742,
+      "total": 8.994,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "residual-blind-skip": {
+      "compilePairSeconds": 5.325,
+      "redRestoredRuntimeSeconds": 3.685,
+      "total": 9.011,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "residual-dirty-continuation": {
+      "compilePairSeconds": 7.783,
+      "redRestoredRuntimeSeconds": 3.865,
+      "total": 11.648,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "partial-root-retention": {
+      "compilePairSeconds": 7.101,
+      "redRestoredRuntimeSeconds": 3.831,
+      "total": 10.931,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "partial-refusal-authority": {
+      "compilePairSeconds": 4.715,
+      "redRestoredRuntimeSeconds": 4.296,
+      "total": 9.011,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "bsd-raw-parent-bound": {
+      "compilePairSeconds": 7.071,
+      "redRestoredRuntimeSeconds": 3.801,
+      "total": 10.871,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "bsd-raw-fraction-bound": {
+      "compilePairSeconds": 6.046,
+      "redRestoredRuntimeSeconds": 4.28,
+      "total": 10.326,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "pion-settlement-caller": {
+      "compilePairSeconds": 6.64,
+      "redRestoredRuntimeSeconds": 3.911,
+      "total": 10.551,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "pion-later-case-blocker": {
+      "compilePairSeconds": 4.485,
+      "redRestoredRuntimeSeconds": 3.708,
+      "total": 8.193,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "unavailable-pass-guard": {
+      "compilePairSeconds": 6.329,
+      "redRestoredRuntimeSeconds": 4.255,
+      "total": 10.583,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "unavailable-latch-set": {
+      "compilePairSeconds": 5.709,
+      "redRestoredRuntimeSeconds": 3.7,
+      "total": 9.409,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "prelaunch-protocol-blocker": {
+      "compilePairSeconds": 4.179,
+      "redRestoredRuntimeSeconds": 4.277,
+      "total": 8.456,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "prelaunch-protocol-skip": {
+      "compilePairSeconds": 7.597,
+      "redRestoredRuntimeSeconds": 4.009,
+      "total": 11.606,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "capture-duration-bound": {
+      "compilePairSeconds": 5.72,
+      "redRestoredRuntimeSeconds": 3.626,
+      "total": 9.346,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "capture-duration-prestart": {
+      "compilePairSeconds": 9.087,
+      "redRestoredRuntimeSeconds": 4.646,
+      "total": 13.733,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-answer": {
+      "compilePairSeconds": 3.932,
+      "redRestoredRuntimeSeconds": 3.613,
+      "total": 7.545,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-candidate-marshal": {
+      "compilePairSeconds": 4.01,
+      "redRestoredRuntimeSeconds": 3.641,
+      "total": 7.651,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-candidate-decode": {
+      "compilePairSeconds": 7.181,
+      "redRestoredRuntimeSeconds": 3.883,
+      "total": 11.064,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-candidate-add": {
+      "compilePairSeconds": 3.573,
+      "redRestoredRuntimeSeconds": 3.625,
+      "total": 7.197,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-metadata-decoder": {
+      "compilePairSeconds": 3.786,
+      "redRestoredRuntimeSeconds": 4.909,
+      "total": 8.695,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-metadata-envelope": {
+      "compilePairSeconds": 6.864,
+      "redRestoredRuntimeSeconds": 3.814,
+      "total": 10.678,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-metadata-queue": {
+      "compilePairSeconds": 3.91,
+      "redRestoredRuntimeSeconds": 3.601,
+      "total": 7.511,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-metadata-pipe": {
+      "compilePairSeconds": 4.063,
+      "redRestoredRuntimeSeconds": 3.643,
+      "total": 7.706,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-metadata-terminal": {
+      "compilePairSeconds": 6.073,
+      "redRestoredRuntimeSeconds": 3.842,
+      "total": 9.915,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-metadata-problem": {
+      "compilePairSeconds": 6.817,
+      "redRestoredRuntimeSeconds": 3.862,
+      "total": 10.68,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-metadata-wait": {
+      "compilePairSeconds": 3.914,
+      "redRestoredRuntimeSeconds": 3.623,
+      "total": 7.537,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-protocol-worker": {
+      "compilePairSeconds": 7.134,
+      "redRestoredRuntimeSeconds": 4.4,
+      "total": 11.534,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-protocol-page": {
+      "compilePairSeconds": 4.017,
+      "redRestoredRuntimeSeconds": 3.629,
+      "total": 7.646,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-protocol-link": {
+      "compilePairSeconds": 5.784,
+      "redRestoredRuntimeSeconds": 4.496,
+      "total": 10.28,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-app-tail": {
+      "compilePairSeconds": 3.768,
+      "redRestoredRuntimeSeconds": 3.636,
+      "total": 7.404,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-app-signal": {
+      "compilePairSeconds": 6.143,
+      "redRestoredRuntimeSeconds": 3.75,
+      "total": 9.893,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-spawn-record": {
+      "compilePairSeconds": 3.837,
+      "redRestoredRuntimeSeconds": 3.626,
+      "total": 7.462,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-spawn-settlement": {
+      "compilePairSeconds": 6.53,
+      "redRestoredRuntimeSeconds": 4.414,
+      "total": 10.944,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-app-tail-last-line": {
+      "compilePairSeconds": 6.441,
+      "redRestoredRuntimeSeconds": 3.929,
+      "total": 10.37,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-0-false": {
+      "compilePairSeconds": 3.994,
+      "redRestoredRuntimeSeconds": 3.608,
+      "total": 7.602,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-0-true": {
+      "compilePairSeconds": 6.69,
+      "redRestoredRuntimeSeconds": 4.372,
+      "total": 11.062,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-1-false": {
+      "compilePairSeconds": 3.677,
+      "redRestoredRuntimeSeconds": 3.648,
+      "total": 7.325,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-1-true": {
+      "compilePairSeconds": 6.064,
+      "redRestoredRuntimeSeconds": 3.834,
+      "total": 9.897,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-2-false": {
+      "compilePairSeconds": 3.742,
+      "redRestoredRuntimeSeconds": 4.214,
+      "total": 7.957,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-2-true": {
+      "compilePairSeconds": 6.29,
+      "redRestoredRuntimeSeconds": 4.427,
+      "total": 10.717,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-3-false": {
+      "compilePairSeconds": 6.972,
+      "redRestoredRuntimeSeconds": 3.807,
+      "total": 10.779,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-3-true": {
+      "compilePairSeconds": 5.521,
+      "redRestoredRuntimeSeconds": 5.053,
+      "total": 10.574,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-4-false": {
+      "compilePairSeconds": 9.577,
+      "redRestoredRuntimeSeconds": 4.61,
+      "total": 14.186,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-4-true": {
+      "compilePairSeconds": 7.299,
+      "redRestoredRuntimeSeconds": 3.76,
+      "total": 11.059,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-5-false": {
+      "compilePairSeconds": 8.621,
+      "redRestoredRuntimeSeconds": 3.88,
+      "total": 12.501,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-sensitive-5-true": {
+      "compilePairSeconds": 6.524,
+      "redRestoredRuntimeSeconds": 3.863,
+      "total": 10.387,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-unknown-value": {
+      "compilePairSeconds": 4.745,
+      "redRestoredRuntimeSeconds": 4.203,
+      "total": 8.948,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-unsettled-exit": {
+      "compilePairSeconds": 6.129,
+      "redRestoredRuntimeSeconds": 3.807,
+      "total": 9.936,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "diagnostic-exit-channel": {
+      "compilePairSeconds": 6.825,
+      "redRestoredRuntimeSeconds": 3.8,
+      "total": 10.625,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "darwin-sigcont-linux-literal": {
+      "compilePairSeconds": 5.884,
+      "redRestoredRuntimeSeconds": 4.4,
+      "total": 10.283,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "root-error-as-absence": {
+      "compilePairSeconds": 4.804,
+      "redRestoredRuntimeSeconds": 3.641,
+      "total": 8.446,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "root-inode-record-drop": {
+      "compilePairSeconds": 6.941,
+      "redRestoredRuntimeSeconds": 3.901,
+      "total": 10.842,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-chrome-budget-old-five": {
+      "compilePairSeconds": 6.192,
+      "redRestoredRuntimeSeconds": 3.778,
+      "total": 9.97,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-clock-write-after": {
+      "compilePairSeconds": 7.97,
+      "redRestoredRuntimeSeconds": 3.849,
+      "total": 11.819,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-clock-disjoint-accepted": {
+      "compilePairSeconds": 6.051,
+      "redRestoredRuntimeSeconds": 3.802,
+      "total": 9.853,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-snapshot-window-drop": {
+      "compilePairSeconds": 5.831,
+      "redRestoredRuntimeSeconds": 3.847,
+      "total": 9.678,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-snapshot-refusal-drop": {
+      "compilePairSeconds": 6.615,
+      "redRestoredRuntimeSeconds": 3.746,
+      "total": 10.362,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-owner-status-drop": {
+      "compilePairSeconds": 5.82,
+      "redRestoredRuntimeSeconds": 3.824,
+      "total": 9.644,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-baseline-file-check-drop": {
+      "compilePairSeconds": 6.462,
+      "redRestoredRuntimeSeconds": 4.395,
+      "total": 10.857,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-baseline-kernel-check-drop": {
+      "compilePairSeconds": 5.863,
+      "redRestoredRuntimeSeconds": 3.832,
+      "total": 9.695,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-baseline-ignore-budget": {
+      "compilePairSeconds": 6.229,
+      "redRestoredRuntimeSeconds": 3.768,
+      "total": 9.997,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-baseline-widen-budget": {
+      "compilePairSeconds": 7.086,
+      "redRestoredRuntimeSeconds": 4.515,
+      "total": 11.601,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-baseline-static-slow-path": {
+      "compilePairSeconds": 4.844,
+      "redRestoredRuntimeSeconds": 3.653,
+      "total": 8.497,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-clock-marker-accept-any": {
+      "compilePairSeconds": 4.011,
+      "redRestoredRuntimeSeconds": 3.656,
+      "total": 7.666,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-window-approval-drop": {
+      "compilePairSeconds": 4.637,
+      "redRestoredRuntimeSeconds": 3.622,
+      "total": 8.259,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-clock-write-dropped": {
+      "compilePairSeconds": 4.332,
+      "redRestoredRuntimeSeconds": 3.636,
+      "total": 7.968,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-refusal-decode-dropped": {
+      "compilePairSeconds": 4.089,
+      "redRestoredRuntimeSeconds": 3.621,
+      "total": 7.709,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-refusal-enum-unapproved": {
+      "compilePairSeconds": 4.062,
+      "redRestoredRuntimeSeconds": 4.26,
+      "total": 8.323,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-refusal-count-truncation-drop": {
+      "compilePairSeconds": 6.547,
+      "redRestoredRuntimeSeconds": 3.846,
+      "total": 10.394,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-refusal-owner-presence-drop": {
+      "compilePairSeconds": 3.626,
+      "redRestoredRuntimeSeconds": 3.62,
+      "total": 7.246,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-refusal-provenance-drop": {
+      "compilePairSeconds": 7.143,
+      "redRestoredRuntimeSeconds": 3.909,
+      "total": 11.052,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-refusal-identifier-newline": {
+      "compilePairSeconds": 8.244,
+      "redRestoredRuntimeSeconds": 3.859,
+      "total": 12.103,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-refusal-duplicate-attempt": {
+      "compilePairSeconds": 9.472,
+      "redRestoredRuntimeSeconds": 3.922,
+      "total": 13.394,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-refusal-changes-verdict": {
+      "compilePairSeconds": 3.701,
+      "redRestoredRuntimeSeconds": 4.247,
+      "total": 7.948,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-baseline-real-deadline-lost": {
+      "compilePairSeconds": 2.017,
+      "redRestoredRuntimeSeconds": 6.674,
+      "total": 8.691,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v8-baseline-real-deadline-widened": {
+      "compilePairSeconds": 5.222,
+      "redRestoredRuntimeSeconds": 8.328,
+      "total": 13.551,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v81-baseline-after-only-bsd": {
+      "compilePairSeconds": 6.029,
+      "redRestoredRuntimeSeconds": 4.049,
+      "total": 10.079,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v81-baseline-after-only-kernel": {
+      "compilePairSeconds": 3.653,
+      "redRestoredRuntimeSeconds": 3.618,
+      "total": 7.271,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v82-owner-bsd-json-collision": {
+      "compilePairSeconds": 3.715,
+      "redRestoredRuntimeSeconds": 3.636,
+      "total": 7.351,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v82-surface-stage-drop": {
+      "compilePairSeconds": 3.868,
+      "redRestoredRuntimeSeconds": 3.618,
+      "total": 7.486,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v82-surface-predicate-guard": {
+      "compilePairSeconds": 5.977,
+      "redRestoredRuntimeSeconds": 3.976,
+      "total": 9.953,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v82-surface-false-status": {
+      "compilePairSeconds": 3.659,
+      "redRestoredRuntimeSeconds": 3.603,
+      "total": 7.261,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v82-surface-status-drop": {
+      "compilePairSeconds": 6.852,
+      "redRestoredRuntimeSeconds": 3.824,
+      "total": 10.676,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v82-surface-operation-guard": {
+      "compilePairSeconds": 3.95,
+      "redRestoredRuntimeSeconds": 3.646,
+      "total": 7.596,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v82-surface-fieldset-guard": {
+      "compilePairSeconds": 5.925,
+      "redRestoredRuntimeSeconds": 3.899,
+      "total": 9.825,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v82-surface-composite-enum": {
+      "compilePairSeconds": 7.268,
+      "redRestoredRuntimeSeconds": 3.819,
+      "total": 11.087,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v82-inventory-composite-enum": {
+      "compilePairSeconds": 6.405,
+      "redRestoredRuntimeSeconds": 3.753,
+      "total": 10.159,
+      "basis": "prior exact overlay compile plus prior negative and full-restored runtime, scaled1.5"
+    },
+    "v83-snapshot-class-rollback512": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-ordinary-class-widened": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-phase-float-rounded": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-operation-ref-accepted": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-footer-integrity-skipped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-nominal-volume-gate-bypassed": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 82.08,
+      "total": 87.081,
+      "basis": "maximum prior compile pair plus actual measured heavy red/restored pair scaled1.5"
+    },
+    "v83-overflow-loss-blocker-removed": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 10.38,
+      "total": 15.381,
+      "basis": "maximum prior compile pair plus actual measured heavy red/restored pair scaled1.5"
+    },
+    "v83-raw-array-retirement-removed": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-C-field-union-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-C-predicate-true-accepted": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-C-owner-role-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-C-incarnation-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-C-independent-CG-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-C-mixed-category-accepted": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-C-incomplete-accepted": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-C-stronger-claim-promoted": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-display-origin-fields-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-display-screen-fields-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-display-trigger-enum-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-display-parent-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-display-screen-count-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-display-close-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-display-unfinished-promoted": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-display-terminal-gate-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    },
+    "v83-post-index-deadline-dropped": {
+      "compilePairSeconds": 5.001,
+      "redRestoredRuntimeSeconds": 1.5,
+      "total": 6.501,
+      "basis": "twice maximum prior restored compile scaled1.5; new light runtime1.5s"
+    }
+  },
   "shards": [
     {
       "shard": 0,
-      "mutants": 34,
-      "newMutants": 7,
+      "mutants": 17,
       "heavy": [
         "v83-nominal-volume-gate-bypassed"
       ],
-      "seconds": {
-        "toolchainDownloadExtractAndFilesystem": 35,
-        "fiveFoundationEncoders": 35,
-        "coldBaselineCompile": 45,
-        "threeFullSuites": 87,
-        "fullRestoredAndFormattedCompile": 12,
-        "formatter": 5,
-        "otherHarnessAndHashing": 20,
-        "oldOverlayCompilePairsObservedTimes1_25": 109.902,
-        "newOverlayCompilePairsEstimate": 49,
-        "oldExactTestRedGreenEstimate": 8.428,
-        "newExactTestRedGreenEstimate": 26
+      "fixedSeconds": {
+        "setupAndToolchainMeasuredScaled1_5": 19.59,
+        "fiveFoundationStagesMeasuredScaled1_5": 37.355,
+        "coldBaselineCompileMeasuredScaled1_5": 61.072,
+        "threeFullPartitions": 165.69,
+        "restoredAndFormattedCompileMaximumPriorScaled1_5": 5.001,
+        "formatterAndExtraSourceHashIO": 20
       },
-      "estimatedSeconds": 432.33,
-      "marginTo600Seconds": 167.67
+      "overlaySeconds": 221.527,
+      "estimatedSeconds": 530.235,
+      "marginTo600Seconds": 69.765
     },
     {
       "shard": 1,
-      "mutants": 34,
-      "newMutants": 7,
+      "mutants": 23,
       "heavy": [
         "v83-overflow-loss-blocker-removed"
       ],
-      "seconds": {
-        "toolchainDownloadExtractAndFilesystem": 35,
-        "fiveFoundationEncoders": 35,
-        "coldBaselineCompile": 45,
-        "threeFullSuites": 87,
-        "fullRestoredAndFormattedCompile": 12,
-        "formatter": 5,
-        "otherHarnessAndHashing": 20,
-        "oldOverlayCompilePairsObservedTimes1_25": 149.596,
-        "newOverlayCompilePairsEstimate": 49,
-        "oldExactTestRedGreenEstimate": 10.835,
-        "newExactTestRedGreenEstimate": 26
+      "fixedSeconds": {
+        "setupAndToolchainMeasuredScaled1_5": 19.59,
+        "fiveFoundationStagesMeasuredScaled1_5": 37.355,
+        "coldBaselineCompileMeasuredScaled1_5": 61.072,
+        "threeFullPartitions": 165.69,
+        "restoredAndFormattedCompileMaximumPriorScaled1_5": 5.001,
+        "formatterAndExtraSourceHashIO": 20
       },
-      "estimatedSeconds": 474.431,
-      "marginTo600Seconds": 125.569
+      "overlaySeconds": 218.212,
+      "estimatedSeconds": 526.92,
+      "marginTo600Seconds": 73.08
     },
     {
       "shard": 2,
-      "mutants": 34,
-      "newMutants": 6,
+      "mutants": 24,
       "heavy": [],
-      "seconds": {
-        "toolchainDownloadExtractAndFilesystem": 35,
-        "fiveFoundationEncoders": 35,
-        "coldBaselineCompile": 45,
-        "threeFullSuites": 87,
-        "fullRestoredAndFormattedCompile": 12,
-        "formatter": 5,
-        "otherHarnessAndHashing": 20,
-        "oldOverlayCompilePairsObservedTimes1_25": 115.769,
-        "newOverlayCompilePairsEstimate": 42,
-        "oldExactTestRedGreenEstimate": 3.551,
-        "newExactTestRedGreenEstimate": 6
+      "fixedSeconds": {
+        "setupAndToolchainMeasuredScaled1_5": 19.59,
+        "fiveFoundationStagesMeasuredScaled1_5": 37.355,
+        "coldBaselineCompileMeasuredScaled1_5": 61.072,
+        "threeFullPartitions": 165.69,
+        "restoredAndFormattedCompileMaximumPriorScaled1_5": 5.001,
+        "formatterAndExtraSourceHashIO": 20
       },
-      "estimatedSeconds": 406.32,
-      "marginTo600Seconds": 193.68
+      "overlaySeconds": 224.026,
+      "estimatedSeconds": 532.734,
+      "marginTo600Seconds": 67.266
     },
     {
       "shard": 3,
-      "mutants": 33,
-      "newMutants": 5,
+      "mutants": 24,
       "heavy": [],
-      "seconds": {
-        "toolchainDownloadExtractAndFilesystem": 35,
-        "fiveFoundationEncoders": 35,
-        "coldBaselineCompile": 45,
-        "threeFullSuites": 87,
-        "fullRestoredAndFormattedCompile": 12,
-        "formatter": 5,
-        "otherHarnessAndHashing": 20,
-        "oldOverlayCompilePairsObservedTimes1_25": 158.697,
-        "newOverlayCompilePairsEstimate": 35,
-        "oldExactTestRedGreenEstimate": 3.656,
-        "newExactTestRedGreenEstimate": 5
+      "fixedSeconds": {
+        "setupAndToolchainMeasuredScaled1_5": 19.59,
+        "fiveFoundationStagesMeasuredScaled1_5": 37.355,
+        "coldBaselineCompileMeasuredScaled1_5": 61.072,
+        "threeFullPartitions": 165.69,
+        "restoredAndFormattedCompileMaximumPriorScaled1_5": 5.001,
+        "formatterAndExtraSourceHashIO": 20
       },
-      "estimatedSeconds": 441.353,
-      "marginTo600Seconds": 158.647
+      "overlaySeconds": 224.684,
+      "estimatedSeconds": 533.392,
+      "marginTo600Seconds": 66.608
+    },
+    {
+      "shard": 4,
+      "mutants": 24,
+      "heavy": [],
+      "fixedSeconds": {
+        "setupAndToolchainMeasuredScaled1_5": 19.59,
+        "fiveFoundationStagesMeasuredScaled1_5": 37.355,
+        "coldBaselineCompileMeasuredScaled1_5": 61.072,
+        "threeFullPartitions": 165.69,
+        "restoredAndFormattedCompileMaximumPriorScaled1_5": 5.001,
+        "formatterAndExtraSourceHashIO": 20
+      },
+      "overlaySeconds": 224.698,
+      "estimatedSeconds": 533.406,
+      "marginTo600Seconds": 66.594
+    },
+    {
+      "shard": 5,
+      "mutants": 23,
+      "heavy": [],
+      "fixedSeconds": {
+        "setupAndToolchainMeasuredScaled1_5": 19.59,
+        "fiveFoundationStagesMeasuredScaled1_5": 37.355,
+        "coldBaselineCompileMeasuredScaled1_5": 61.072,
+        "threeFullPartitions": 165.69,
+        "restoredAndFormattedCompileMaximumPriorScaled1_5": 5.001,
+        "formatterAndExtraSourceHashIO": 20
+      },
+      "overlaySeconds": 218.218,
+      "estimatedSeconds": 526.926,
+      "marginTo600Seconds": 73.074
     }
   ]
 }

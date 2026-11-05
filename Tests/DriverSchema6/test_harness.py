@@ -6,6 +6,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from runtime_result import exact_test_pattern, runtime_result, suite_result
+from suite_schedule import mutation_test_seconds, checked_suite_groups, run_full_suite
 
 
 class CollectorTests(unittest.TestCase):
@@ -63,7 +64,7 @@ class CollectorTests(unittest.TestCase):
                     return SimpleNamespace(returncode=status, stdout=stdout, stderr=stderr)
 
                 sha = lambda raw: hashlib.sha256(raw).hexdigest()
-                namespace = {'Path': Path, 'json': json, 'os': SimpleNamespace(environ={'GITHUB_WORKSPACE': str(workspace)}), 'target': source, 'go': 'never-executed-go', 'binary': 'never-executed-binary', 'selected': '^TestFake$', 'command': command, 'selected_mutations': mutations, 'mutation_results': [], 'restoration_gates': [], 'results': workspace, 'exact_test_pattern': exact_test_pattern, 'runtime_result': runtime_result, 'sha': sha, 'manifest': {'files': {'fixture.go': sha(original), 'untouched.go': sha(b'other=1\n')}}}
+                namespace = {'Path': Path, 'json': json, 'os': SimpleNamespace(environ={'GITHUB_WORKSPACE': str(workspace)}), 'target': source, 'go': 'never-executed-go', 'binary': 'never-executed-binary', 'selected': '^TestFake$', 'command': command, 'selected_mutations': mutations, 'mutation_results': [], 'restoration_gates': [], 'results': workspace, 'exact_test_pattern': exact_test_pattern, 'mutation_test_seconds': mutation_test_seconds, 'runtime_result': runtime_result, 'sha': sha, 'manifest': {'files': {'fixture.go': sha(original), 'untouched.go': sha(b'other=1\n')}}}
                 if mode == 'extra-source':
                     with self.assertRaises(AssertionError):
                         exec(code, namespace)
@@ -105,8 +106,8 @@ class PartitionTests(unittest.TestCase):
         from partition import select_mutations
         rows = json.loads((Path(__file__).parent / 'mutants.json').read_text())
         sets = []
-        for index in range(4):
-            selected, names, universe = select_mutations(rows, index, 4)
+        for index in range(6):
+            selected, names, universe = select_mutations(rows, index, 6)
             self.assertEqual(names, sorted(names))
             self.assertEqual({r['name'] for r in selected}, set(names))
             self.assertTrue(all(not set(names) & previous for previous in sets))
@@ -115,13 +116,70 @@ class PartitionTests(unittest.TestCase):
         self.assertEqual(sum(map(len, sets)), 135)
         self.assertIn('v83-nominal-volume-gate-bypassed', sets[0])
         self.assertIn('v83-overflow-loss-blocker-removed', sets[1])
-        for index, count in [(-1, 4), (4, 4), (0, 1), (0, 2), (0, 3), (True, 4), (0, True)]:
+        for index, count in [(-1, 6), (6, 6), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (True, 6), (0, True)]:
             with self.assertRaises(ValueError):
                 select_mutations(rows, index, count)
         with self.assertRaises(ValueError):
-            select_mutations(rows[:-1], 0, 4)
+            select_mutations(rows[:-1], 0, 6)
         with self.assertRaises(ValueError):
-            select_mutations(rows[:-1] + [rows[0]], 0, 4)
+            select_mutations(rows[:-1] + [rows[0]], 0, 6)
+
+
+class SuiteScheduleTests(unittest.TestCase):
+    def ledger(self):
+        return json.loads((Path(__file__).parent / 'shards.json').read_text())
+
+    def test_fixed_invocation_partition_rejects_missing_duplicate_and_widened(self):
+        ledger = self.ledger()
+        self.assertEqual([len(g['tests']) for g in checked_suite_groups(ledger)], [99, 1, 1])
+        for mode in ('missing', 'duplicate', 'unknown', 'nonheavy-limit', 'overflow-limit', 'nominal-limit', 'universe-duplicate'):
+            with self.subTest(mode=mode):
+                changed = json.loads(json.dumps(ledger))
+                if mode == 'missing': changed['suiteInvocations'][0]['tests'].pop()
+                if mode == 'duplicate': changed['suiteInvocations'][0]['tests'].append(changed['suiteInvocations'][1]['tests'][0])
+                if mode == 'unknown': changed['suiteInvocations'][0]['tests'][0] = 'TestUnknown'
+                if mode == 'nonheavy-limit': changed['suiteInvocations'][0]['testSeconds'] = 60
+                if mode == 'overflow-limit': changed['suiteInvocations'][2]['testSeconds'] = 60
+                if mode == 'nominal-limit': changed['suiteInvocations'][1]['testSeconds'] = 61
+                if mode == 'universe-duplicate': changed['baselineTests'][-1] = changed['baselineTests'][0]
+                with self.assertRaises(ValueError): checked_suite_groups(changed)
+
+    def test_actual_split_invocations_require_every_exact_runtime_pass(self):
+        ledger = self.ledger()
+        for mode in ('valid', 'missing', 'duplicate', 'wrong', 'skip', 'signal', 'timeout'):
+            with self.subTest(mode=mode):
+                calls, reports = [], []
+                def command(label, args, maximum):
+                    group = ledger['suiteInvocations'][len(calls)]
+                    self.assertEqual(args[2], '-test.timeout=' + str(group['testSeconds']) + 's')
+                    self.assertEqual(maximum, group['testSeconds'] + 15)
+                    import re
+                    actual = [n for n in ledger['baselineTests'] if re.fullmatch(args[-1], n)]
+                    self.assertEqual(actual, group['tests'])
+                    names = list(group['tests'])
+                    calls.append(label)
+                    if mode == 'missing': names.pop()
+                    if mode == 'duplicate': names.append(names[0])
+                    if mode == 'wrong': names[0] = 'TestUnknown'
+                    text = ''.join('=== RUN   ' + n + '\n--- PASS: ' + n + ' (0.01s)\n' for n in names)
+                    if mode == 'skip': text += '--- SKIP: TestSkipped (0.01s)\n'
+                    return SimpleNamespace(returncode=-9 if mode == 'signal' else 2 if mode == 'timeout' else 0, stdout=text.encode(), stderr=b'panic: test timed out' if mode == 'timeout' else b'')
+                if mode == 'valid':
+                    run_full_suite('fake', 'never-native', command, ledger, reports.append)
+                    self.assertEqual(len(calls), 3)
+                    self.assertEqual(sum(len(r['tests']) for r in reports), 101)
+                    self.assertTrue(all(r['exactTestsPassed'] for r in reports))
+                else:
+                    with self.assertRaises(AssertionError): run_full_suite('fake', 'never-native', command, ledger, reports.append)
+                    self.assertEqual(len(calls), 1)
+                    self.assertFalse(reports[-1]['exactTestsPassed'])
+
+    def test_only_exact_nominal_overlay_gets_sixty_seconds(self):
+        from suite_schedule import NOMINAL, OVERFLOW
+        self.assertEqual(mutation_test_seconds(NOMINAL), 60)
+        self.assertEqual(mutation_test_seconds(OVERFLOW), 30)
+        self.assertEqual(mutation_test_seconds(NOMINAL + 'Other'), 30)
+        self.assertEqual(mutation_test_seconds('TestOther'), 30)
 
 
 if __name__ == '__main__':
