@@ -1,5 +1,5 @@
 {
-  "status": "CORRECTED_WORKFLOW2B_PREEXECUTION_BOTH_READS_REQUIRED",
+  "status": "WORKFLOW2B_FOLDED_FINAL_BUILD16_PIN_PREEXECUTION_BOTH_READS_REQUIRED",
   "designSHA256": "d321c84c83cd2d7ddf37d2caf662d216f51003c76eaadb7464d3e3e11e601fe6",
   "windowServerDesignSHA256": "8e629dbbf03e27c3aebcbc31283b0e2d03284af38d4b99d5b6fbbc63ea8cd979",
   "appContractSHA256": "3c73a4b6e9d729151e37826a0b81d35aafcd7cd3f0ec19c9086fba3c5ccfbe62",
@@ -320,15 +320,15 @@
     "workflows": {
       "1": "42059282405 app synthetic PASS",
       "2": "42066496638 driver baseline failure; all135 mutations NOT_RUN",
-      "2b": "corrected driver6shards; BOTH READS REQUIRED BEFORE PUSH",
+      "2b": "CORRECTED + FINAL BUILD16 PIN combined run: supplies workflow5 only if every required gate passes; both exact reads required before push",
       "3": "42069097054 build16 signing completed",
       "4": "42071731231 hosted static independently authenticated PASS_STATIC_ONLY",
-      "5": "final-artifact-pin driver pending"
+      "5": "FOLDED INTO 2b; no separate dispatch authorized by a failure"
     },
     "seventhRequiresCoordinator": true,
     "noCaptureAuthorization": true
   },
-  "pins": "Build16 signed artifact13435980723 and hosted static receipt now exist. This corrected synthetic workflow2b intentionally keeps exact accepted build15 driver pins provisional. Only separately authorized final-pin workflow5 substitutes verified build16 bytes; helper12/CLI unchanged.",
+  "pins": "Exact authenticated build16/source261b/run42069097054/artifact13435980723 plus immutable helper12 and releasedCLI. Eight literal/label substitutions only; no provisional build15 input in this source acceptance chain. Both exact pin reads required before push. Wrapper remains separate/pending; no capture clearance.",
   "correctionScope": {
     "fixtures": [
       "held-owner test uses snapshot trace; ordinary-class reservation refusal explicitly retained in same test",
@@ -338,5 +338,91 @@
     "mutantSpecifications": "all135 byte-identical d2d706b",
     "schedule": "six cost-balanced shards; full suites99+1+1; exact coverage and all94 restoration unchanged",
     "oldScheduleAddendum": "3f56c79155029e1f4e9996afb70c1fbb1d29e7596696a2852121fa797b82b5ec applies only to originald2d failed run; new checked schedule supersedes it for2b"
+  },
+  "foldedFinalPin": {
+    "baseCommit": "6f61a077138fe71bb331062fd0ad4e52db957c2e",
+    "changedGoFiles": [
+      "runner_controller_darwin_test.go",
+      "runner_identity_boundary_darwin_test.go",
+      "runner_normalized_case_darwin_test.go",
+      "runner_entry_darwin_test.go"
+    ],
+    "substitutions": [
+      {
+        "file": "runner_controller_darwin_test.go",
+        "before": "6b9c1845c5d1e1561a9b1a45c92ece2bb8efa77a2355eb61d808686a740d6a3d",
+        "after": "5ace5f93cc29a51b80f0195a5a61a8a097b72227f5ecdce20e006827ec456afc",
+        "occurrences": 1
+      },
+      {
+        "file": "runner_controller_darwin_test.go",
+        "before": "ebdc8c6b44f6f1ee08345fe9ed15b8d099221220ae3056cb955ea6b2accbb5b2",
+        "after": "6651819152eec08996f1fda90f125741898a1a301c3ffef1940fd77004c51a27",
+        "occurrences": 1
+      },
+      {
+        "file": "runner_identity_boundary_darwin_test.go",
+        "before": "45ec8c7806b1f376c101501c94865839827aaf65",
+        "after": "cb6dea8dc7235041f14f3095d71240f5d6312f2a",
+        "occurrences": 1
+      },
+      {
+        "file": "runner_normalized_case_darwin_test.go",
+        "before": "ce8c707f5a514ec689b2fa4d7b912bdbbd197d3926ee1bff3fb8fadcb39dd6e9",
+        "after": "69fd7986228a0e258c57724989bd747a56d7401f029048de8ad6ac2e4ec47167",
+        "occurrences": 1
+      },
+      {
+        "file": "runner_entry_darwin_test.go",
+        "before": "fixed build15 immutable fixture mismatch",
+        "after": "fixed build16 immutable fixture mismatch",
+        "occurrences": 1
+      },
+      {
+        "file": "runner_entry_darwin_test.go",
+        "before": "0cd76ac0f064f52aaa5a24bb17490e8cf9ccb4a4",
+        "after": "261b1e3592f4bacafb810bd76480b68b54ca3f55",
+        "occurrences": 1
+      },
+      {
+        "file": "runner_entry_darwin_test.go",
+        "before": "uint64(42018680351)",
+        "after": "uint64(42069097054)",
+        "occurrences": 1
+      },
+      {
+        "file": "runner_entry_darwin_test.go",
+        "before": "\"build\": \"15\"",
+        "after": "\"build\": \"16\"",
+        "occurrences": 1
+      }
+    ],
+    "signedTarget": {
+      "run": 42069097054,
+      "source": "261b1e3592f4bacafb810bd76480b68b54ca3f55",
+      "artifact": 13435980723,
+      "outerSHA256": "08d71a606b21083a162d31690ed026024f67591e07a95e490cb66d9c39474c39",
+      "innerSHA256": "6bc970253574ad281e6acecfa08ca97bc95a5bba656366a44cd7b612b766656a",
+      "manifestSHA256": "69fd7986228a0e258c57724989bd747a56d7401f029048de8ad6ac2e4ec47167",
+      "build16ContractSHA256": "3c73a4b6e9d729151e37826a0b81d35aafcd7cd3f0ec19c9086fba3c5ccfbe62",
+      "hostedStaticRun": 42071731231,
+      "hostedStaticReceiptSHA256": "c1b0e489d2f8dd50a411e3b290114ff44ea185e9f065772ff6774997cd88ebc8"
+    },
+    "exclusions": "No build15 provisional evidence used to accept current artifact identity. Prior failed/synthetic timing data are solely historical scheduling evidence, never final-pin acceptance. All unchanged policy/schedule/source is inherited from exact reviewed6f61a07."
+  },
+  "runReportRequired": {
+    "eachShard": [
+      "API started_at/completed_at elapsed (job including upload)",
+      "last commands.json endMs as observed work-through-last-command; explicitly excludes unmeasured final serialization/upload, never called full wall-clock",
+      "every invocation beginMs/endMs/returncode and exact executed test set",
+      "estimate versus actual job and recorded work elapsed, with any censoring/limit precisely labeled"
+    ],
+    "heavy": [
+      "raw/restored/formatted nominal and overflow durations",
+      "own RED/restored heavy overlay durations",
+      "actual nominal encoded bytes/tar bytes/margin/scenario counts",
+      "first max overflow refusal and loss/later-case blocker"
+    ],
+    "estimateSource": "schedule-estimate.json binds failed run42066496638 commands and completed nominal20.34/27.36s,overflow3.46s; interrupted durations are censored. Prior overlay costs from42022850390. All sources copied into final freeze. No runtime speedup assumed."
   }
 }
