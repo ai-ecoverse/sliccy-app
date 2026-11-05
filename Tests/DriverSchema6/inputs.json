@@ -1,5 +1,5 @@
 {
-  "stage": "V81_AFTER_ONLY_BSD_KERNEL_BOUNDARY_REGRESSIONS",
+  "stage": "V82_BSD_DIAGNOSTIC_SERIALIZATION_AND_DRAFT_SURFACE_REFUSAL_DECODER",
   "files": {
     "code_status_darwin_test.go": "96339768f8a2a658bb1374f941cb6a6ea783d2239696718f24e76f1b7b36b41c",
     "fakehub_test.go": "b9d5ce98a94949544e8ec20317678494213e9a16a1170a2ca807260fbcc2b711",
@@ -58,12 +58,12 @@
     "runner_receipts_darwin_test.go": "002b5712ab41b194666dd6e76dcfe3dfa59c5a1a9eacb37ea691d811887b9ae3",
     "runner_receiver_darwin_test.go": "366bbe77ace708a4fc324a7b9c3f7d9be4208f34f07f9afc78e8c0eeb54d4858",
     "runner_record_darwin_test.go": "b9c38e82f621e4ca1c833db130ffe3fb20b8bed2755bce0af022435c5f1856fe",
-    "runner_refusal_schema_darwin_test.go": "6822b99049fb1c78b26f737b01569cb382f51534416f3ecf8cb0e64326f18220",
-    "runner_refusal_schema_fixture_darwin_test.go": "237274a58f57f464a803bd596a92e57a549b602aff29b389816565e570c470e0",
-    "runner_refusal_snapshot_darwin_test.go": "ca0c9ebbd16af96abe63e0a4e94168e3a55a7ea29436088e9d0c0dad0c6e7439",
+    "runner_refusal_schema_darwin_test.go": "3cc389bd9b19a656ffcac0d153e1e4e11513fb5598fa9b622ad8195e570a19b2",
+    "runner_refusal_schema_fixture_darwin_test.go": "21dc948cffa396a13301ff8352030ddc744ef38c3fb6a58a9b906366df320b2a",
+    "runner_refusal_snapshot_darwin_test.go": "46fbec28d6d33d472a778d43e799685c32f56a43565457850343c4caf383adc6",
     "runner_root_observation_darwin_test.go": "5aa1830622c38c93f18aab19768107e64a2e110c5a6cf51e18211b7def1509ca",
     "runner_root_observation_fixture_darwin_test.go": "2233c89fb5ec46d466494c928d25ec295c03fdc5ac82424e2071e1f7cb455351",
-    "runner_schema_darwin_test.go": "9e4620d97600d944b4dfdbed52a1097a1ff16ca11f6bacff20c5c9976b932f68",
+    "runner_schema_darwin_test.go": "bdd07d8a4dd6ad691fe8710644be8bc9f311b4c35e4272302ec049e83d502010",
     "runner_scope_darwin_test.go": "f7e2e300734bd99e30a6ec9e8f1541d9fa94045d6a395ee5f72c7fc05c36fcf0",
     "runner_security_constructor_darwin_test.go": "cf95096eac7fca47666c812e9075fd7c877a67083a25ab9676c4d6f3815d8df1",
     "runner_security_native_darwin_test.go": "4fbcf18fc9bc6b71c78739df3f3cd3b2fefb8f51580b1272c6adf2878ebeb4b4",
@@ -73,7 +73,7 @@
     "runner_timing_darwin_test.go": "ed1d1372b81a12a279dbe44b7a319db8b890657210b13b8ae73b72fda34ae180",
     "runner_union_darwin_test.go": "562cd33a4b2aa89802a82d13d8f0ee6abaf3f4a967e78efb36268c09d7925e4a",
     "runner_union_fixture_darwin_test.go": "2fdac0af150db7709ccbd55733885eaba13ce65f575d6ec577f88ae87b71e169",
-    "runner_v8_fixture_darwin_test.go": "5524d125491c5c170f72287a43da8194f12898ddcc9349deb608ee31a3d7e2bc",
+    "runner_v8_fixture_darwin_test.go": "611cee62f493c8566b9ce050f9f8fba7a729b893896317207c4bc1e4b76c20de",
     "runner_windows_darwin_test.go": "70e66d44da17bf99beed038f0d13596fdd957d9197cfbaba20bd0df7a5a1b878",
     "runner_wire_decode_darwin_test.go": "68efb087cdcc02575d3665b2754a030c95bcd549830a7abbe0faf46d0bd61d2d",
     "safety_handoff_darwin_test.go": "680ff5cae19825aa39288dfa7df162d4ffbf29d83be1e6c2e10ee49ecf260be0",
@@ -89,7 +89,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "ba804654f69a5add8e85a9940842756b58a4c500cb628a44a8f4961e89d5e212",
+    "inputs/driver-source.tar.gz": "1d0e8c2999850c285d35925c6a2811af29b2f9b82d36b2995f3ae1c45449cdf6",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
   },
   "fixtureSHA256": "30454bdbe417a34a07d3ae68702e2c9e816e7b58397c928165cc07473780b21b",
@@ -99,12 +99,15 @@
     "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6"
   },
   "scope": "incomplete driver components: real CoreFoundation constructors with ALL Security callbacks substituted; BSD/kernel/file hooks fabricated; no real process/Security query or subject",
-  "collectorTestSHA256": "64ba644765a8cab3a568e748519b926bfffcb12914be8272e2a531534a3ad862",
+  "collectorTestSHA256": "c7bbd7d7b1707b1c3b6b5dfed6418eb99242113ab8ec4d4547c2afd7efa156d0",
   "clockFixtureSHA256": "4bf2c94f9f530fcbc020356f132c0d6a412b5866a7647975b4af966979afb089",
   "refusalFixtureSources": {
     "RefusalDiagnostics.swift": "eaba60e4477811a928afb3d0e6c6dfad040441c3e424e68734f54474456590fb",
     "RefusalFixture.swift": "13cfbd6860ae08d8dc5e9f299e1bcda11760b2a0abe20a7c3b855b2dd79f8361",
     "refusal-producer-origin.json": "898dfc3ebe35c133cf4bf3a6ffc6a0fbb24722ae5548f7c32c2cc35bcf2c502e",
-    "build14-producer-files.json": "149afeb9fcbb97650823b1b055cefdff13e5917843254d57510ecea81402bce2"
+    "build14-producer-files.json": "149afeb9fcbb97650823b1b055cefdff13e5917843254d57510ecea81402bce2",
+    "SurfaceDiagnostics.swift": "4a619c0d8f13721a6e11d0b154a3fc8413c5a79d4c4f8baa60a4f8d83464cf57",
+    "SurfaceFixture.swift": "9e806d0f7463a84ccdd27e2f2358bd2dd9fccf3174a7bbf2c3be36bfa81903e8",
+    "surface-producer-contract.json": "3eea007233fbb1b72e526c1d05a6d92969ee057573dcbcc4b975ce9b28c35947"
   }
 }

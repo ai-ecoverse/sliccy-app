@@ -1,0 +1,42 @@
+{
+  "status": "IMMUTABLE_PRODUCER_DRAFT_NOT_SOURCE_ACCEPTANCE",
+  "stage": "surface-refusal",
+  "schema": 6,
+  "producer": "ScreenRunnerSurfaceDiagnostics.swift",
+  "producerSHA256": "4a619c0d8f13721a6e11d0b154a3fc8413c5a79d4c4f8baa60a4f8d83464cf57",
+  "fields": {
+    "predicate": [
+      "host",
+      "identifier",
+      "team",
+      "hash",
+      "role",
+      "path",
+      "operation"
+    ],
+    "operation": [
+      "host",
+      "executable-read",
+      "executable-hash",
+      "policy",
+      "static-code",
+      "requirement",
+      "static-validity",
+      "signing-information",
+      "catalogue",
+      "launch"
+    ],
+    "status": "null or signed Int32; actual native static-validity status only when available"
+  },
+  "journal": "actual unchanged ScreenRunnerJournal; normal schema/case/eventElapsedMs envelope",
+  "multiplicity": "at most one per surface launch attempt; actual surface caller creates one attempt per case",
+  "order": "after preflight+clock anchor; before or during helper construction; record occurs before generic first-cause/terminal; no fabricated successful spawn",
+  "semantics": "diagnostic-only; first observation retained, no verdict/identity/selection/signal authority; combined native requirement failure labelled role, not guessed identifier/team; policy identifier/team only for actual caller-policy failure; path for read/static-create/path comparison failure; hash for executable SHA mismatch; operation fallback for otherwise unclassified constructor failure",
+  "privacy": "fixed enum strings and nullable status only; no path/title/content/exception strings",
+  "fixtureDependencies": [
+    "Foundation",
+    "SLICCY_CAPTURE_RUNNER_PROOF define",
+    "stand-in ScreenFailure.peerUntrusted for producer-only harness"
+  ],
+  "boundsUnchanged": true
+}

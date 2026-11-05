@@ -114,6 +114,12 @@ try:
     refusal_encoded = command('refusal-foundation-encode', [refusal_fixture], 10)
     assert refusal_encoded.returncode == 0 and 0 < len(refusal_encoded.stdout) <= 32768 and refusal_encoded.stderr == b''
     env['SLICCY_REFUSAL_FIXTURE'] = str(results.resolve() / 'refusal-foundation-encode.stdout')
+    surface_fixture = str(private / 'surface-fixture')
+    surface_compile = command('surface-foundation-compile', ['/usr/bin/xcrun', 'swiftc', '-D', 'SLICCY_CAPTURE_RUNNER_PROOF', 'Sources/Sliccy/Screen/ScreenRunnerJournal.swift', str(root / 'SurfaceDiagnostics.swift'), str(root / 'SurfaceFixture.swift'), '-o', surface_fixture], 120)
+    assert surface_compile.returncode == 0
+    surface_encoded = command('surface-foundation-encode', [surface_fixture], 10)
+    assert surface_encoded.returncode == 0 and 0 < len(surface_encoded.stdout) <= 32768 and surface_encoded.stderr == b''
+    env['SLICCY_SURFACE_REFUSAL_FIXTURE'] = str(results.resolve() / 'surface-foundation-encode.stdout')
     os.chdir(source)
     selected = '^(TestRunner.*|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission)$'
     binary = str(private / 'driver-components')

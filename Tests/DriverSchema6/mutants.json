@@ -806,5 +806,61 @@
     "new": "err!=nil",
     "test": "TestRunnerV81BaselineAfterOnlyKernelMismatch",
     "assertion": "ASSERTION:v81-after-only-kernel-refused"
+  },
+  {
+    "name": "v82-owner-bsd-json-collision",
+    "file": "runner_refusal_snapshot_darwin_test.go",
+    "old": "Before *runnerBSDReceipt `json:\"before\"`\n After *runnerBSDReceipt `json:\"after\"`",
+    "new": "Before, After *runnerBSDReceipt `json:\"before\"`",
+    "test": "TestRunnerV82DiagnosticOwnerActualEncoderRoundTrip",
+    "assertion": "ASSERTION:v82-owner-bsd-encoder"
+  },
+  {
+    "name": "v82-surface-stage-drop",
+    "file": "runner_schema_darwin_test.go",
+    "old": "if row.Stage==\"surface-refusal\"",
+    "new": "if false",
+    "test": "TestRunnerV82ActualSurfaceRefusalEncoderStrictFields",
+    "assertion": "ASSERTION:v82-surface-actual-encoder"
+  },
+  {
+    "name": "v82-surface-predicate-guard",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "!runnerOneOf(value.Predicate,\"host identifier team hash role path operation\")",
+    "new": "false",
+    "test": "TestRunnerV82ActualSurfaceRefusalEncoderStrictFields",
+    "assertion": "ASSERTION:v82-surface-invalid-field"
+  },
+  {
+    "name": "v82-surface-false-status",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "if string(row.Fields[\"status\"])!=\"null\" {",
+    "new": "if string(row.Fields[\"status\"])!=\"null\" && string(row.Fields[\"status\"])!=\"false\" {",
+    "test": "TestRunnerV82ActualSurfaceRefusalEncoderStrictFields",
+    "assertion": "ASSERTION:v82-surface-invalid-field"
+  },
+  {
+    "name": "v82-surface-status-drop",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "actual:=int32(status);value.Status=&actual",
+    "new": "_ = status",
+    "test": "TestRunnerV82ActualSurfaceRefusalEncoderStrictFields",
+    "assertion": "ASSERTION:v82-surface-status-roundtrip"
+  },
+  {
+    "name": "v82-surface-operation-guard",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "!runnerOneOf(value.Operation,\"host executable-read executable-hash policy static-code requirement static-validity signing-information catalogue launch\")",
+    "new": "false",
+    "test": "TestRunnerV82ActualSurfaceRefusalEncoderStrictFields",
+    "assertion": "ASSERTION:v82-surface-invalid-field"
+  },
+  {
+    "name": "v82-surface-fieldset-guard",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "if err=runnerExactNullableFields(row.Fields,strings.Fields(\"schema case capture stage elapsedMs eventElapsedMs predicate operation status\"),\"status\");err!=nil{return value,err}",
+    "new": "if false{return value,fmt.Errorf(\"disabled field guard\")}",
+    "test": "TestRunnerV82ActualSurfaceRefusalEncoderStrictFields",
+    "assertion": "ASSERTION:v82-surface-invalid-field"
   }
 ]
