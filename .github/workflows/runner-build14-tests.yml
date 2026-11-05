@@ -1,0 +1,39 @@
+name: Build14 synthetic inventory diagnostics tests
+
+on:
+  push:
+    branches: [proof/capture-build14-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-build14:
+    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'push' && github.ref == 'refs/heads/proof/capture-build14-v1'
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Fixed hosted placement and source
+        run: |
+          python3 -B - <<'PY'
+          import os,subprocess
+          assert os.environ['RUNNER_ENVIRONMENT']=='github-hosted' and os.environ['RUNNER_OS']=='macOS' and os.environ['RUNNER_ARCH']=='ARM64'
+          assert subprocess.check_output(['/usr/bin/git','rev-parse','HEAD'],text=True).strip()==os.environ['GITHUB_SHA']
+          PY
+      - name: Pure source and packaging regressions
+        run: python3 -B Tests/RunnerBuild14/pure.py
+      - name: Actual synthetic Swift boundaries and faults
+        run: python3 -B Tests/RunnerBuild14/hosted.py
+      - name: Retain synthetic evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: build14-inventory-diagnostic-results
+          path: |
+            build14-results/
+            build14-pure-results.json
+          if-no-files-found: error
+          retention-days: 14

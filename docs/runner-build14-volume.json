@@ -1,0 +1,22 @@
+{
+  "scope": "planning only; not an observed fit or timing guarantee",
+  "journalCapBytes": 1048576,
+  "priorConservativeNominalBytes": 541696,
+  "newFailedAttemptAllowance": 104,
+  "newClockAllowance": 1,
+  "rowCapBytes": 4096,
+  "addedBytes": 430080,
+  "nominalTotalBytes": 971776,
+  "nominalMarginBytes": 76800,
+  "worstRefreshEnvelope": 701,
+  "withoutAggregationBytes": 138285056,
+  "withAggregationWorstBytes": 3671040,
+  "withAggregationWorstMarginBytes": -2622464,
+  "limits": [
+    "Each attempt retains its first issue; first failed source-monitor iteration terminates the monitor.",
+    "104 refusal rows conservatively cover the original5-second/50ms initial retry plus authorization baseline, refresh and monitor.",
+    "The150-second whole-case envelope is deliberately pessimistic for refresh volume; it is not a capture allowance. Capture remains10seconds.",
+    "Changed receipt keys, extra owners or slow/unsettled workers can exhaust bytes or deadlines; original journal overflow remains fail-closed.",
+    "No capacity, row or stream bound is raised. Aggregation and all identity checks remain unchanged."
+  ]
+}

@@ -29,9 +29,9 @@ struct ScreenRunnerInventoryBoundaryTests {
                   identifier: bundle, path: "/fixed/" + bundle, hash: Data(repeating: hash, count: 20),
                   appleAnchored: apple, verified: true, sysctlBound: bundle == "com.apple.WindowServer", realUID: bundle == "com.apple.WindowServer" ? 0 : nil, savedUID: bundle == "com.apple.WindowServer" ? 0 : nil)
         }
-        func read(display: UInt32 = 1, rect: CGRect = CGRect(x: 0, y: 0, width: 1024, height: 768)) throws -> B.Validated {
+        func read(display: UInt32 = 1, rect: CGRect = CGRect(x: 0, y: 0, width: 1024, height: 768), diagnostics: ScreenRunnerInventoryDiagnostics.Attempt? = nil) throws -> B.Validated {
             try B.validate(display: display, rect: rect, cg: cg, sck: sck,
-                           context: context, verify: { pid in
+                           context: context, diagnostics: diagnostics, verify: { pid in
                 guard let owner = owners[pid] else { throw ScreenRunnerInventoryIssue.ownerAttribution }
                 return owner
             })
