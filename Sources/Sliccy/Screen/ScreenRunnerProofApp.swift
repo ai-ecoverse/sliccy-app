@@ -103,7 +103,9 @@ final class ScreenRunnerSession {
             let sliceRecord: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { [receipts] evidence in
                 receipts.record("code-binding", fields: evidence.fields, at: evidence.at)
             }
-            let surface = try ScreenRunnerOwnedProcess.surface(home: home, sliceEvidence: sliceRecord, ended: surfaceEnded("allowed"))
+            let surface = try ScreenRunnerOwnedProcess.surface(home: home, sliceEvidence: sliceRecord, refusal: { [journal] notice in
+                journal.emit("surface-refusal", notice.fields, at: notice.at)
+            }, ended: surfaceEnded("allowed"))
             owned.append(("allowed", surface)); primaries.append(surface)
             try reportOwned(surface.recordedIdentity)
             journal.emit("surface-process", ["label": "allowed", "pid": surface.pid, "bundleIdentifier": "ai.sliccy.proof-helper"])

@@ -1,0 +1,32 @@
+{
+  "appRoleRefusalExit": 3,
+  "appRoleRefused": true,
+  "architectures": [
+    "arm64"
+  ],
+  "archive": "ScreenProofSurface-0.1.0.zip",
+  "archiveSHA256": "5e5e19d94c64b629b0f21a19c1015ab60ab0e5fa49a25595132c42d9bc57082f",
+  "attempt": 1,
+  "build": "12",
+  "cdhash": "37517f1a6e6a0085f9188f3723ab6209fd131dfd",
+  "entitlements": {},
+  "files": {
+    "Contents/CodeResources": "26ac87e435876410294563f19a3a0872668910af8c6640c7a03b8c61fb3f5188",
+    "Contents/Info.plist": "14f7874c0fe98de803e48c3945067f11e66d7ef2054a94798b70f4a723c4aa29",
+    "Contents/MacOS/ScreenProofSurface": "85ef7c16e6542d94b26051ba1e04e6df12da7317923726943e4ff292c75a1e89",
+    "Contents/_CodeSignature/CodeResources": "6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b"
+  },
+  "identifier": "ai.sliccy.proof-helper",
+  "run": "41978928697",
+  "runtime": true,
+  "schema": 1,
+  "scope": "Static distribution/role binding only; helper not launched, no presence/capture claim.",
+  "sourceCommit": "4c873bab986e62f404255cc85e08d9dab52ead93",
+  "sources": {
+    "Tests/NativeCaptureSurface/presence-tests.swift": "1dc096704240c1b87611aba6b9321d90619444a1fc9359b111f9cd15e5921bf9",
+    "Tests/NativeCaptureSurface/surface-app.swift": "f9ba2d6a1f1e8d31f1b4e90ff78afbf609ee7ad788660a2ea1ca51d051e882d8",
+    "Tests/NativeCaptureSurface/surface-presence.swift": "00da5e062f53f31ff81c899b6f957b9c8a5480574bb5b1534d58e845423a49e5"
+  },
+  "team": "S8LB56P782",
+  "version": "0.1.0"
+}

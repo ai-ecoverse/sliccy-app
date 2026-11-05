@@ -23,14 +23,20 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
     private var signalRefused = false
     var isAlive: Bool { lock.lock(); defer { lock.unlock() }; return !invalid && !reaped }
 
-    static func surface(home: URL, sliceEvidence: @escaping @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }, ended: @escaping @Sendable (pid_t, Bool) -> Void) throws -> ScreenRunnerOwnedProcess {
-        _ = try ScreenRunnerHost.require()
+    static let surfaceSHA256 = "85ef7c16e6542d94b26051ba1e04e6df12da7317923726943e4ff292c75a1e89"
+    static func surface(home: URL, sliceEvidence: @escaping @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in },
+                        refusal: @escaping @Sendable (ScreenRunnerSurfaceDiagnostics.Notice) -> Void,
+                        ended: @escaping @Sendable (pid_t, Bool) -> Void) throws -> ScreenRunnerOwnedProcess {
+        let diagnostics = ScreenRunnerSurfaceDiagnostics(output: refusal)
+        _ = try diagnostics.observe(.host, .host) { try ScreenRunnerHost.require() }
         let app = Bundle.main.bundleURL.appending(path: "Contents/Helpers/ScreenProofSurface.app")
         let executable = app.appending(path: "Contents/MacOS/ScreenProofSurface")
-        guard SHA256.hash(data: try Data(contentsOf: executable)).map({ String(format: "%02x", $0) }).joined() ==
-              "baff7b8b21264018138c9f7e2e7f6b8052bdcaf6e10b8ffa06dde854ac2b20c9" else { throw ScreenFailure.peerUntrusted }
-        return try ScreenRunnerOwnedProcess(executable: app.appending(path: "Contents/MacOS/ScreenProofSurface"),
-            identifier: "ai.sliccy.proof-helper", team: "S8LB56P782", arguments: [], home: home, sliceEvidence: sliceEvidence, ended: ended)
+        let bytes = try diagnostics.observe(.path, .executableRead) { try Data(contentsOf: executable) }
+        try diagnostics.verifyHash(SHA256.hash(data: bytes).map({ String(format: "%02x", $0) }).joined(), expected: surfaceSHA256)
+        return try diagnostics.observe(.operation, .launch) {
+            try ScreenRunnerOwnedProcess(executable: executable, identifier: "ai.sliccy.proof-helper", team: "S8LB56P782",
+                arguments: [], home: home, sliceEvidence: sliceEvidence, surfaceDiagnostics: diagnostics, ended: ended)
+        }
     }
     static func chrome(window: ScreenRunnerBrowserWindow, join: String, home: URL,
                        evidence: @escaping @Sendable (String, ScreenRunnerChromePolicy.Evidence) -> Void,
@@ -57,11 +63,12 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
                  chromeEvidence: @escaping @Sendable (String, ScreenRunnerChromePolicy.Evidence) -> Void = { _, _ in },
                  evidenceLost: @escaping @Sendable () -> Void = {},
                  sliceEvidence: @escaping @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in },
+                 surfaceDiagnostics: ScreenRunnerSurfaceDiagnostics? = nil,
                  ended: @escaping @Sendable (pid_t, Bool) -> Void) throws {
         self.executable = executable; self.identifier = identifier; self.ended = ended; self.team = team; self.chromeEvidence = chromeEvidence; self.evidenceLost = evidenceLost; self.sliceEvidence = sliceEvidence
         staticCatalogue = try Self.preflight(executable: executable, identifier: identifier, team: team,
             calls: ScreenRunnerSecurityCalls<SecStaticCode, SecCode, SecRequirement>.native,
-            chromeEvidence: { chromeEvidence("preflight", $0) }, sliceEvidence: sliceEvidence)
+            chromeEvidence: { chromeEvidence("preflight", $0) }, sliceEvidence: sliceEvidence, surfaceDiagnostics: surfaceDiagnostics)
         var actions: posix_spawn_file_actions_t?, attributes: posix_spawnattr_t?
         guard posix_spawn_file_actions_init(&actions) == 0 else { throw ScreenFailure.peerLost }
         defer { posix_spawn_file_actions_destroy(&actions) }
@@ -125,11 +132,43 @@ final class ScreenRunnerOwnedProcess: @unchecked Sendable {
     static func preflight<Static, Guest, Rule>(executable: URL, identifier: String, team: String?,
                                               calls: ScreenRunnerSecurityCalls<Static, Guest, Rule>,
                                               chromeEvidence: @Sendable (ScreenRunnerChromePolicy.Evidence) -> Void,
-                                              sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }) throws -> ScreenRunnerSliceBinding.Catalogue {
-        let policy = try ScreenRunnerSliceBinding.Policy.make(identifier, team: team)
+                                              sliceEvidence: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in },
+                                              surfaceDiagnostics: ScreenRunnerSurfaceDiagnostics? = nil) throws -> ScreenRunnerSliceBinding.Catalogue {
+        let policy: ScreenRunnerSliceBinding.Policy
+        do { policy = try ScreenRunnerSliceBinding.Policy.make(identifier, team: team) }
+        catch {
+            surfaceDiagnostics?.reject(identifier != "ai.sliccy.proof-helper" ? .identifier : team != "S8LB56P782" ? .team : .role, .policy)
+            throw error
+        }
+        let calls = surfaceDiagnostics.map { surfaceCalls(calls, executable: executable, identifier: identifier, diagnostics: $0) } ?? calls
         let code = try calls.staticCode(executable), rule = try calls.makeRule(policy.requirement)
         try ScreenRunnerChromePolicy.verify(code, identifier: identifier, site: .preflight, ordinary: rule, calls: calls, record: chromeEvidence)
         return try ScreenRunnerSliceBinding.preflight(path: executable, policy: policy, calls: calls, record: sliceEvidence)
+    }
+    static func surfaceCalls<S, G, R>(_ calls: ScreenRunnerSecurityCalls<S, G, R>, executable: URL, identifier: String,
+                                      diagnostics: ScreenRunnerSurfaceDiagnostics) -> ScreenRunnerSecurityCalls<S, G, R> {
+        var result = ScreenRunnerSecurityCalls<S, G, R>(makeRule: { text in
+            try diagnostics.observe(.role, .requirement) { try calls.makeRule(text) }
+        }, staticCode: { path in
+            try diagnostics.observe(.path, .staticCode) { try calls.staticCode(path) }
+        }, guest: calls.guest, copyStatic: calls.copyStatic, checkStatic: { code, flags, rule in
+            let status = calls.checkStatic(code, flags, rule)
+            if status != errSecSuccess { diagnostics.reject(.role, .staticValidity, status: status) }
+            return status
+        }, checkGuest: calls.checkGuest, information: { code in
+            let value = try diagnostics.observe(.operation, .signingInformation) { try calls.information(code) }
+            if value.identifier != identifier { diagnostics.reject(.identifier, .signingInformation) }
+            else if value.path != executable { diagnostics.reject(.path, .signingInformation) }
+            return value
+        })
+        if let operations = calls.slices {
+            result.slices = .init(open: { path in
+                let snapshot = try diagnostics.observe(.path, .catalogue) { try operations.open(path) }
+                if snapshot.path != path { diagnostics.reject(.path, .catalogue) }
+                return snapshot
+            }, explicit: operations.explicit, kernel: operations.kernel, incarnation: operations.incarnation)
+        }
+        return result
     }
     static func verifyLiveCopy<Static, Guest, Rule>(pid: pid_t, executable: URL, identifier: String, team: String?, hash: Data,
                                                    calls: ScreenRunnerSecurityCalls<Static, Guest, Rule>,
