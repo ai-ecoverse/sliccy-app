@@ -30,6 +30,7 @@ final class ScreenRunnerSession {
     private let journal: ScreenRunnerJournal
     private let receipts: ScreenRunnerReceiptLedger
     private let diagnosticAbort: ScreenRunnerDiagnosticAbort
+    private let inventoryDiagnostics: ScreenRunnerInventoryDiagnostics
     private let causes: ScreenRunnerCauseLedger
     private var connection: ScreenRunnerConnection?
     private var indicator: ScreenIndicator?
@@ -51,6 +52,9 @@ final class ScreenRunnerSession {
         let abort = ScreenRunnerDiagnosticAbort(); diagnosticAbort = abort
         let output = try ScreenRunnerJournal(selected, authorityFailed: { abort.fail() })
         journal = output
+        inventoryDiagnostics = ScreenRunnerInventoryDiagnostics { notice in
+            output.emit("inventory-refusal", notice.fields, at: notice.at)
+        }
         let ledger = ScreenRunnerReceiptLedger(output: { delivery in
             var fields = delivery.journalFields
             fields["receiptCount"] = delivery.count
@@ -78,7 +82,7 @@ final class ScreenRunnerSession {
     }
     func run() async {
         var outcome = "failed", reason = "fixed-failure", exitCode: Int32 = 1
-        let watchdog = Task { try? await Task.sleep(for: .seconds(40)); if !Task.isCancelled { cancel(origin: .watchdog) } }
+        let watchdog = Task { try? await Task.sleep(for: .seconds(ScreenRunnerSetupAllowance.watchdogSeconds)); if !Task.isCancelled { cancel(origin: .watchdog) } }
         defer { watchdog.cancel() }
         do {
             try ScreenPeerVerifier.verifySelf()
@@ -88,6 +92,9 @@ final class ScreenRunnerSession {
             guard screen, selected != .hotkeyStop || (listen && post), NSScreen.main != nil else { reason = "permission-unavailable"; exitCode = 2; throw ScreenFailure.permission }
             causes.advance(.preparing)
             let join = try await Task.detached { try ScreenProofSession.readJoin() }.value
+            let anchor = try await marker(ScreenRunnerClockAnchor.marker, timeout: .seconds(5))
+            journal.emit("clock-anchor", ScreenRunnerClockAnchor.fields, at: anchor)
+            try check()
             let home = try prepareHome()
             audit = try ScreenAudit(base: home.appending(path: "Library/Application Support"))
             let identityRecord: @Sendable (ScreenRunnerBSD.Evidence) -> Void = { [receipts] evidence in
@@ -118,7 +125,10 @@ final class ScreenRunnerSession {
             var authorization: ScreenRunnerOwnedProcess?
             var correlation: ScreenRunnerInventory.Authorization?
             if selected == .authorizationExclusion {
-                let before = try await ScreenRunnerInventory.authorizationBaseline(surface: surface, browsers: browsers, identityRecord: identityRecord, sliceRecord: sliceRecord)
+                let attempt = inventoryDiagnostics.begin(.authorizationBaseline)
+                let before: Set<UInt32>
+                do { before = try await ScreenRunnerInventory.authorizationBaseline(surface: surface, browsers: browsers, diagnostics: attempt, identityRecord: identityRecord, sliceRecord: sliceRecord) }
+                catch { attempt.reject(error as? ScreenRunnerInventoryIssue ?? .unknown, .operation); throw error }
                 guard before.isEmpty else { reason = "authorization-preexisting"; exitCode = 2; throw ScreenFailure.protection }
                 let requestedAt = ContinuousClock.now
                 let requester = try ScreenRunnerOwnedProcess.authorization(home: home, sliceEvidence: sliceRecord, ended: surfaceEnded("authorization-requester"))
@@ -157,7 +167,7 @@ final class ScreenRunnerSession {
             let inventoryDeadline = ContinuousClock.now.advanced(by: .seconds(5))
             while inventory == nil, ContinuousClock.now < inventoryDeadline {
                 try check()
-                do { inventory = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization, correlation: correlation, identityRecord: identityRecord, sliceRecord: sliceRecord) }
+                do { inventory = try await readInventory(.initial, surface: surface, browsers: browsers, authorization: authorization, correlation: correlation, identityRecord: identityRecord, sliceRecord: sliceRecord) }
                 catch { inventoryIssue = error as? ScreenRunnerInventoryIssue ?? .unknown }
                 if inventory == nil { try await Task.sleep(for: .milliseconds(50)) }
             }
@@ -175,7 +185,7 @@ final class ScreenRunnerSession {
             causes.advance(.consent)
             try audit?.record(.consent, reason: "active", scope: selected.scope, session: nil)
             let refreshed: ScreenRunnerInventory
-            do { refreshed = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected, authorization: authorization, correlation: correlation, identityRecord: identityRecord, sliceRecord: sliceRecord) }
+            do { refreshed = try await readInventory(.refresh, surface: surface, browsers: browsers, authorization: authorization, correlation: correlation, identityRecord: identityRecord, sliceRecord: sliceRecord) }
             catch { reportInventoryUnavailable(error as? ScreenRunnerInventoryIssue ?? .unknown); throw error }
             guard inventory.fingerprint == refreshed.fingerprint else { throw ScreenFailure.sourceChanged }
             journal.emit("surfaces-confirmed")
@@ -192,7 +202,7 @@ final class ScreenRunnerSession {
                     do {
                         try await Task.sleep(for: .milliseconds(250))
                         guard let self, !self.cleaning, !self.stopping, !Task.isCancelled else { return }
-                        let next = try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: self.selected, authorization: authorization, correlation: correlation, identityRecord: identityRecord, sliceRecord: sliceRecord)
+                        let next = try await self.readInventory(.monitor, surface: surface, browsers: browsers, authorization: authorization, correlation: correlation, identityRecord: identityRecord, sliceRecord: sliceRecord)
                         guard !Task.isCancelled, !self.cleaning, !self.stopping else { return }
                         guard next.fingerprint == frozenInventory else { throw ScreenFailure.sourceChanged }
                         connection.health.renewSource()
@@ -280,14 +290,14 @@ final class ScreenRunnerSession {
         await sourceMonitor?.value
         drainReverse()
         for (_, process) in owned { process.stop() }
-        let cleanupRemaining = max(0, 45 - ScreenRunnerJournal.ms(journal.began.duration(to: .now)) / 1000)
+        let cleanupRemaining = ScreenRunnerSetupAllowance.cleanupRemaining(elapsed: ScreenRunnerJournal.ms(journal.began.duration(to: .now)) / 1000)
         let cleanupDeadline = DispatchTime.now() + cleanupRemaining
         for (label, process) in owned {
             do { try await Task.detached { try process.stopAndReap(until: min(cleanupDeadline, .now() + 3)) }.value } catch { cleaned = false; causes.record(.failure, reason: .error(error), origin: .launcher) }
             if process.hasReaped { reportReap(pid: process.pid, label: label) }
         }
         if !removeHome() { cleaned = false; causes.record(.failure, reason: .screen(.audit), origin: .fixture) }
-        if !cleaned || journal.began.duration(to: .now) > .seconds(45) || journal.failed { outcome = "failed"; reason = "cleanup-failed"; exitCode = 1 }
+        if !cleaned || journal.began.duration(to: .now) > .seconds(ScreenRunnerSetupAllowance.finalSeconds) || journal.failed { outcome = "failed"; reason = "cleanup-failed"; exitCode = 1 }
         if journal.failed { outcome = "failed-to-demonstrate"; reason = "diagnostic-loss"; exitCode = 2 }
         if outcome != "complete" { causes.record(.failure, reason: journal.failed ? .screen(.resourceLimit) : .screen(.stalled), origin: journal.failed ? .diagnostic : .fixture) }
         receipts.finish()
@@ -295,6 +305,16 @@ final class ScreenRunnerSession {
         causes.advance(.finished)
         let delivered = journal.emit("terminal", ["outcome": outcome, "reason": reason])
         Darwin.exit(delivered && !journal.failed ? exitCode : 2)
+    }
+    private func readInventory(_ site: ScreenRunnerInventoryDiagnostics.Site, surface: ScreenRunnerOwnedProcess,
+                               browsers: [ScreenRunnerOwnedProcess], authorization: ScreenRunnerOwnedProcess?, correlation: ScreenRunnerInventory.Authorization?,
+                               identityRecord: @escaping @Sendable (ScreenRunnerBSD.Evidence) -> Void,
+                               sliceRecord: @escaping @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void) async throws -> ScreenRunnerInventory {
+        let attempt = inventoryDiagnostics.begin(site)
+        do {
+            return try await ScreenRunnerInventory.read(surface: surface, browsers: browsers, selected: selected,
+                authorization: authorization, correlation: correlation, diagnostics: attempt, identityRecord: identityRecord, sliceRecord: sliceRecord)
+        } catch { attempt.reject(error as? ScreenRunnerInventoryIssue ?? .unknown, .operation); throw error }
     }
     private func reportInventoryUnavailable(_ issue: ScreenRunnerInventoryIssue) {
         receipts.flush()
@@ -398,8 +418,9 @@ final class ScreenRunnerSession {
         while !condition(), ContinuousClock.now < deadline { try check(); try await Task.sleep(for: .milliseconds(5)) }
         try check(); guard condition() else { throw ScreenFailure.stalled }
     }
-    private func marker(_ marker: String, timeout: Duration) async throws {
-        try await Task.detached {
+    @discardableResult
+    private func marker(_ marker: String, timeout: Duration) async throws -> ContinuousClock.Instant {
+        return try await Task.detached {
             let deadline = ContinuousClock.now.advanced(by: timeout), expected = Array((marker + "\n").utf8)
             var index = 0
             while index < expected.count, ContinuousClock.now < deadline {
@@ -411,6 +432,7 @@ final class ScreenRunnerSession {
                 index += 1
             }
             guard index == expected.count else { throw ScreenFailure.stalled }
+            return ContinuousClock.now
         }.value
     }
     private func report(_ inventory: ScreenRunnerInventory) {

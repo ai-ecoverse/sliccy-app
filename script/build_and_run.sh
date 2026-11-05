@@ -38,7 +38,7 @@ if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF
     [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" != 1 && "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" != 1 && "${SLICCY_SNAPSHOT_PROOF:-0}" != 1 && "${SLICCY_HOSTED_PID_PROOF:-0}" != 1 && "$(uname -m)" == arm64 ]] || { echo 'Capture fixture requires its separate arm64 variant.' >&2; exit 2; }
     SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/capture-runner-proof" -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_CAPTURE_RUNNER_PROOF -Xcc -DSLICCY_CAPTURE_RUNNER_PROOF)
     APP_BUNDLE="$ROOT_DIR/dist-capture-proof/$APP_NAME.app"
-    BUILD_NUMBER=13
+    BUILD_NUMBER=14
   fi
 fi
 SWIFT="${SLICCY_SWIFT:-$(/usr/bin/xcrun --find swift)}"

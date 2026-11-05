@@ -1,0 +1,34 @@
+{
+  "base": "91c1b3ef7aae7a4f2581a2ca6631a740d5556755",
+  "boundaryGuardPredicates": [
+    "display!=0,rect.origin==.zero,rect.width>=1024,rect.height>=768,max(rect.width,rect.height)<=2560,rect.width*rect.height<=4_000_000,!cg.isEmpty,cg.count<=512,sck.count<=512",
+    "context.app>0,context.surface>0,context.app!=context.surface,context.browsers.count==(context.selected.needsBrowser?4:0),Set(context.browsers.values).count==context.browsers.count,context.browsers.values.allSatisfy({$0>0&&$0!=context.app&&$0!=context.surface})",
+    "!cgIDs.contains(0),!sckIDs.contains(0),Set(cgIDs).count==cgIDs.count,Set(sckIDs).count==sckIDs.count",
+    "pids.allSatisfy({$0>0}),pids.count<=128",
+    "owner.pid==pid,owner.verified,owner.seconds>0,owner.microseconds<1_000_000,!owner.identifier.isEmpty,owner.path.hasPrefix(\"/\"),owner.hash.count==20",
+    "owner.identifier==\"ai.sliccy.proof-helper\"",
+    "owner.identifier==\"ai.sliccy.mac\"",
+    "owner.identifier==\"com.google.Chrome\"",
+    "owner.identifier!=\"com.apple.WindowServer\"||(owner.sysctlBound&&owner.parent==1&&owner.uid==88&&owner.realUID==0&&owner.savedUID==0)",
+    "left.rect==right.rect,left.layer==right.layer",
+    "!cg.contains(where:{$0.id==id&&$0.pid!=pid}),!sck.contains(where:{$0.id==id&&$0.pid!=pid})",
+    "frame.origin.x.isFinite,frame.origin.y.isFinite,frame.width.isFinite,frame.height.isFinite,frame.width>0,frame.height>0",
+    "!windows.contains(where:{$0.pid==pid&&$0.rect==frame})",
+    "allowed.count==1,letselected=allowed.first,selected.layer==0,selected.rect==CGRect(x:128,y:128,width:256,height:256),selected.inCG,selected.inSCK",
+    "windows.contains(where:{$0.kind==.app})",
+    "matches.count==1,matches[0].rect==layout.rect,matches[0].layer==0",
+    "context.authorizationRequesterVerified,letbefore=context.authorizationBefore,letrequested=context.authorizationRequestedAt,requested<context.observedAt",
+    "newPrompts.count==1"
+  ],
+  "unchangedFiles": {
+    "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6",
+    "Sources/Sliccy/Screen/ScreenRunnerSliceBinding.swift": "cf2c5d88f7b9b96006d4833b90fe86b5bea15e32e2ea6d3443e69d1356a188d7",
+    "Sources/Sliccy/Screen/ScreenRunnerBSD.swift": "3dd7056568881133d64ee16f37ba1dcff6b8f8741e07b0399f1432f756088906",
+    "Sources/Sliccy/Screen/ScreenRunnerSystemOwner.swift": "48859f944f2fe0d20f0ac8a3fe4cf7f779dc9ac6a7f9e6f4281013c78d1ecb3d",
+    "Sources/Sliccy/Screen/ScreenRunnerOwnedProcess.swift": "ca5ea5a8bcfe8d2b73baefdd57b9ff1b1aca5a040946cc04500c11f200235e79",
+    "Sources/Sliccy/Screen/ScreenRunnerChromePolicy.swift": "0ab55dff64d21125e70c8816ec81b62faef76d1b49cb1592661500be0e90be71",
+    "Sources/Sliccy/Screen/ScreenRunnerConnection.swift": "e7a02c0433a3bda5282290bb07a60a4232f98efa68508065544aabff662cc409",
+    "Sources/Sliccy/Screen/ScreenRunnerReceiptLedger.swift": "2c39093785f4e6c05fc211be25756a83f61ac2a8bdf90e97675b49d588668b4b",
+    "Sources/Sliccy/Screen/ScreenRunnerCaptureLimit.swift": "b9614d2a4ed499ea3ca217b35fbc0570c3eca98c7b9fb22e71ca14cd5fc8800a"
+  }
+}

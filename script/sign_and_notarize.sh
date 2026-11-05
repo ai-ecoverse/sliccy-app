@@ -57,7 +57,7 @@ fi
 done
 surface_app="$signed_app/Contents/Helpers/ScreenProofSurface.app"
 if [[ -e "$surface_app" ]]; then
-  [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 13 ]] || { echo 'Unexpected synthetic surface bundle.' >&2; exit 2; }
+  [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 14 ]] || { echo 'Unexpected synthetic surface bundle.' >&2; exit 2; }
   python3 "$(dirname "$0")/surface_pin.py" "$surface_app"
 fi
 /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" \
@@ -71,7 +71,7 @@ fi
 if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 10 ]]; then
   python3 "$(dirname "$0")/hosted_pid_manifest.py" "$signed_app" "$artifact_dir/hosted-pid-manifest.json"
 fi
-if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 13 ]]; then
+if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 14 ]]; then
   python3 "$(dirname "$0")/surface_pin.py" "$surface_app"
   python3 "$(dirname "$0")/capture_manifest.py" "$signed_app" "$artifact_dir/capture-manifest.json"
 fi

@@ -32,9 +32,9 @@ final class ScreenRunnerInventory {
         self.selected = selected; self.display = display; self.windows = windows; self.protected = protected; self.allowed = allowed
         self.surface = surface; self.browsers = browsers; self.content = content; self.validated = validated
     }
-    private static func cgRecords() throws -> [ScreenRunnerInventoryBoundary.CGRecord] {
+    private static func cgRecords(diagnostics: ScreenRunnerInventoryDiagnostics.Attempt) throws -> [ScreenRunnerInventoryBoundary.CGRecord] {
         guard let values = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]], values.count <= 512 else {
-            throw ScreenRunnerInventoryIssue.cgInventory
+            throw diagnostics.reject(.cgInventory, .cgList)
         }
         return try values.map { value in
             guard let id = value[kCGWindowNumber as String] as? NSNumber,
@@ -43,7 +43,8 @@ final class ScreenRunnerInventory {
                   let bounds = value[kCGWindowBounds as String] as? [String: Any],
                   let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary),
                   (value[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == true else {
-                throw ScreenRunnerInventoryIssue.cgInventory
+                throw diagnostics.reject(.cgInventory, .cgFields, pid: (value[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
+                    windowID: (value[kCGWindowNumber as String] as? NSNumber)?.uint32Value)
             }
             return .init(id: id.uint32Value, pid: pid.int32Value, rect: rect, layer: layer.intValue)
         }
@@ -52,23 +53,23 @@ final class ScreenRunnerInventory {
         let work = Task.detached(operation: body)
         return try await withTaskCancellationHandler(operation: { try await work.value }, onCancel: { work.cancel() })
     }
-    static func authorizationBaseline(surface: ScreenRunnerOwnedProcess, browsers: [ScreenRunnerOwnedProcess], identityRecord: @escaping @Sendable (ScreenRunnerBSD.Evidence) -> Void,
+    static func authorizationBaseline(surface: ScreenRunnerOwnedProcess, browsers: [ScreenRunnerOwnedProcess], diagnostics: ScreenRunnerInventoryDiagnostics.Attempt, identityRecord: @escaping @Sendable (ScreenRunnerBSD.Evidence) -> Void,
                                       sliceRecord: @escaping @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }) async throws -> Set<UInt32> {
-        let cg = try cgRecords()
+        let cg = try cgRecords(diagnostics: diagnostics)
         let pids = Set(cg.map(\.pid))
         let known = [surface] + browsers
         return try await offMain {
             var authorized = Set<pid_t>()
             for pid in pids.sorted() {
                 try Task.checkCancellation()
-                if pid == getpid() { _ = try ScreenRunnerSystemOwner.own(pid, sliceRecord: sliceRecord) }
-                else if let owner = known.first(where: { $0.pid == pid }) { _ = try owner.inventoryIdentity() }
+                if pid == getpid() { _ = try diagnostics.observe(.ownerVerification, pid: pid, cg: cg.filter { $0.pid == pid }, operation: { try ScreenRunnerSystemOwner.own(pid, sliceRecord: sliceRecord) }) }
+                else if let owner = known.first(where: { $0.pid == pid }) { _ = try diagnostics.observe(.ownedVerification, pid: pid, cg: cg.filter { $0.pid == pid }, operation: { try owner.inventoryIdentity() }) }
                 else {
-                    let identifier = try ScreenRunnerSystemOwner.identifier(pid)
+                    let identifier = try diagnostics.observe(.ownerIdentifier, pid: pid, cg: cg.filter { $0.pid == pid }, operation: { try ScreenRunnerSystemOwner.identifier(pid) })
                     guard ScreenRunnerInventoryBoundary.systemRoles.contains(identifier) || identifier == "com.apple.SecurityAgent" else {
-                        throw ScreenRunnerInventoryIssue.unclassifiedOwner
+                        throw diagnostics.reject(.unclassifiedOwner, .ownerRole, pid: pid, signingIdentifier: identifier, cg: cg.filter { $0.pid == pid })
                     }
-                    _ = try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, identityRecord: identityRecord, sliceRecord: sliceRecord)
+                    _ = try diagnostics.observe(.ownerVerification, pid: pid, signingIdentifier: identifier, cg: cg.filter { $0.pid == pid }, operation: { try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, identityRecord: identityRecord, sliceRecord: sliceRecord) })
                     if identifier == "com.apple.SecurityAgent" { authorized.insert(pid) }
                 }
             }
@@ -77,23 +78,23 @@ final class ScreenRunnerInventory {
     }
     static func read(surface: ScreenRunnerOwnedProcess, browsers: [ScreenRunnerOwnedProcess], selected: ScreenRunnerCase,
                      authorization: ScreenRunnerOwnedProcess? = nil, correlation: Authorization? = nil,
-                     identityRecord: @escaping @Sendable (ScreenRunnerBSD.Evidence) -> Void,
+                     diagnostics: ScreenRunnerInventoryDiagnostics.Attempt, identityRecord: @escaping @Sendable (ScreenRunnerBSD.Evidence) -> Void,
                                       sliceRecord: @escaping @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { _ in }) async throws -> ScreenRunnerInventory {
-        guard try ScreenRunnerHost.require() == selected else { throw ScreenFailure.protection }
-        guard CGPreflightScreenCaptureAccess() else { throw ScreenRunnerInventoryIssue.permission }
-        guard surface.identifier == "ai.sliccy.proof-helper" else { throw ScreenRunnerInventoryIssue.surfaceIdentity }
-        guard browsers.count == (selected.needsBrowser ? 4 : 0) else { throw ScreenRunnerInventoryIssue.browserIdentity }
+        guard try ScreenRunnerHost.require() == selected else { diagnostics.reject(.unknown, .host); throw ScreenFailure.protection }
+        guard CGPreflightScreenCaptureAccess() else { throw diagnostics.reject(.permission, .permission) }
+        guard surface.identifier == "ai.sliccy.proof-helper" else { throw diagnostics.reject(.surfaceIdentity, .surfaceRole, pid: surface.pid, signingIdentifier: surface.identifier) }
+        guard browsers.count == (selected.needsBrowser ? 4 : 0) else { throw diagnostics.reject(.browserIdentity, .browserCount) }
         let content: SCShareableContent
         do { content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true) }
-        catch { throw ScreenRunnerInventoryIssue.shareableContent }
+        catch { throw diagnostics.reject(.shareableContent, .shareableContent) }
         guard let display = content.displays.first(where: { $0.displayID == CGMainDisplayID() }) else {
-            throw ScreenRunnerInventoryIssue.displayGeometry
+            throw diagnostics.reject(.displayGeometry, .mainDisplay)
         }
-        let cg = try cgRecords()
+        let cg = try cgRecords(diagnostics: diagnostics)
         let sck: [ScreenRunnerInventoryBoundary.SCKRecord] = try content.windows.map { value in
-            guard let owner = value.owningApplication else { throw ScreenRunnerInventoryIssue.ownerAttribution }
-            return .init(id: value.windowID, pid: owner.processID, bundle: owner.bundleIdentifier, rect: value.frame,
-                         layer: value.windowLayer, diagnosticTitle: value.title)
+            let owner = value.owningApplication
+            return try ScreenRunnerInventoryBoundary.sckRecord(id: value.windowID, pid: owner?.processID, bundle: owner?.bundleIdentifier,
+                rect: value.frame, layer: value.windowLayer, diagnosticTitle: value.title, cg: cg, diagnostics: diagnostics)
         }
         var browserPIDs: [ScreenRunnerBrowserWindow: pid_t] = [:]
         if selected.needsBrowser {
@@ -105,23 +106,23 @@ final class ScreenRunnerInventory {
             var result: [pid_t: ScreenRunnerInventoryBoundary.Identity] = [:]
             for pid in pids.sorted() {
                 try Task.checkCancellation()
-                if pid == getpid() { result[pid] = try ScreenRunnerSystemOwner.own(pid, sliceRecord: sliceRecord) }
-                else if let owned = known.first(where: { $0.pid == pid }) { result[pid] = try owned.inventoryIdentity() }
+                if pid == getpid() { result[pid] = try diagnostics.observe(.ownerVerification, pid: pid, cg: cg.filter { $0.pid == pid }, sck: sck.filter { $0.pid == pid }.map(ScreenRunnerInventoryDiagnostics.SCKFact.init), operation: { try ScreenRunnerSystemOwner.own(pid, sliceRecord: sliceRecord) }) }
+                else if let owned = known.first(where: { $0.pid == pid }) { result[pid] = try diagnostics.observe(.ownedVerification, pid: pid, cg: cg.filter { $0.pid == pid }, sck: sck.filter { $0.pid == pid }.map(ScreenRunnerInventoryDiagnostics.SCKFact.init), operation: { try owned.inventoryIdentity() }) }
                 else {
-                    let identifier = try ScreenRunnerSystemOwner.identifier(pid)
+                    let identifier = try diagnostics.observe(.ownerIdentifier, pid: pid, cg: cg.filter { $0.pid == pid }, sck: sck.filter { $0.pid == pid }.map(ScreenRunnerInventoryDiagnostics.SCKFact.init), operation: { try ScreenRunnerSystemOwner.identifier(pid) })
                     guard ScreenRunnerInventoryBoundary.systemRoles.contains(identifier) || identifier == "com.apple.SecurityAgent" else {
-                        throw ScreenRunnerInventoryIssue.unclassifiedOwner
+                        throw diagnostics.reject(.unclassifiedOwner, .ownerRole, pid: pid, signingIdentifier: identifier, cg: cg.filter { $0.pid == pid }, sck: sck.filter { $0.pid == pid }.map(ScreenRunnerInventoryDiagnostics.SCKFact.init))
                     }
-                    result[pid] = try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, identityRecord: identityRecord, sliceRecord: sliceRecord)
+                    result[pid] = try diagnostics.observe(.ownerVerification, pid: pid, signingIdentifier: identifier, cg: cg.filter { $0.pid == pid }, sck: sck.filter { $0.pid == pid }.map(ScreenRunnerInventoryDiagnostics.SCKFact.init), operation: { try ScreenRunnerSystemOwner.verify(pid, identifier: identifier, identityRecord: identityRecord, sliceRecord: sliceRecord) })
                 }
             }
             if selected == .authorizationExclusion {
                 guard let authorization, authorization.identifier == "com.apple.osascript", authorization.isAlive else {
-                    throw ScreenRunnerInventoryIssue.authorizationRequester
+                    throw diagnostics.reject(.authorizationRequester, .requester, pid: authorization?.pid)
                 }
-                try authorization.verifyLive()
+                try diagnostics.observe(.requester, pid: authorization.pid, operation: { try authorization.verifyLive() })
             }
-            for owned in known { try owned.verifyLive() }
+            for owned in known { try diagnostics.observe(.ownedVerification, pid: owned.pid, operation: { try owned.verifyLive() }) }
             return result
         }
         try Task.checkCancellation()
@@ -129,11 +130,11 @@ final class ScreenRunnerInventory {
             selected: selected, authorizationBefore: correlation?.before, authorizationRequesterVerified: authorization != nil,
             authorizationRequestedAt: correlation?.requestedAt, observedAt: observedAt)
         let validated = try ScreenRunnerInventoryBoundary.validate(display: display.displayID, rect: display.frame, cg: cg, sck: sck,
-            context: context, verify: { pid in
-                guard let value = owners[pid] else { throw ScreenRunnerInventoryIssue.ownerAttribution }
+            context: context, diagnostics: diagnostics, verify: { pid in
+                guard let value = owners[pid] else { throw diagnostics.reject(.ownerAttribution, .ownerVerification, pid: pid) }
                 return value
             })
-        guard let allowed = content.windows.first(where: { $0.windowID == validated.allowed }) else { throw ScreenRunnerInventoryIssue.surfaceIdentity }
+        guard let allowed = content.windows.first(where: { $0.windowID == validated.allowed }) else { throw diagnostics.reject(.surfaceIdentity, .allowedLookup, pid: surface.pid, windowID: validated.allowed) }
         var protected = ScreenProtectedSet(), windows: [Window] = []
         for window in validated.fingerprint.windows {
             if window.kind != .allowed {
