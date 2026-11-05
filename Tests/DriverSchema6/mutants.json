@@ -238,5 +238,21 @@
     "new": "true",
     "test": "TestRunnerBSDRawBoundaryRejectsInvalidPIDParentAndMicroseconds",
     "assertion": "ASSERTION:bsd-raw-bound-microseconds"
+  },
+  {
+    "name": "pion-settlement-caller",
+    "file": "runner_loop_darwin_test.go",
+    "old": "settled := p.closeAndWait(until)",
+    "new": "settled := true",
+    "test": "TestRunnerLivePionUnsettledWorkerBlocksLaterCases",
+    "assertion": "ASSERTION:pion-unsettled-closing-boundary"
+  },
+  {
+    "name": "pion-later-case-blocker",
+    "file": "runner_loop_darwin_test.go",
+    "old": "!result.ProtocolWorkersSettled || ",
+    "new": "",
+    "test": "TestRunnerLivePionUnsettledWorkerBlocksLaterCases",
+    "assertion": "ASSERTION:pion-unsettled-blocks-later-cases"
   }
 ]
