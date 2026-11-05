@@ -138,7 +138,7 @@
   {
     "name": "controller-native-unsettled",
     "file": "runner_loop_darwin_test.go",
-    "old": "!result.NativeObservationSettled && len(result.NativeEvidence.Observations)>0",
+    "old": "!result.NativeObservationSettled && len(result.NativeEvidence.Observations) > 0",
     "new": "false",
     "test": "TestRunnerControllerObserverReturnsWithHeldNativeCallAndNoInferredCleanup",
     "assertion": "ASSERTION:controller-unsettled-blocks-later-cases"
@@ -146,7 +146,7 @@
   {
     "name": "controller-window-pid",
     "file": "runner_controller_observer_darwin_test.go",
-    "old": "old.PID!=window.PID||",
+    "old": "old.PID != window.PID ||",
     "new": "",
     "test": "TestRunnerControllerWindowRecheckIgnoresDiagnosticTitleButNoIdentityField",
     "assertion": "ASSERTION:controller-window-set-pid"
@@ -154,7 +154,7 @@
   {
     "name": "controller-owned-start",
     "file": "runner_controller_observer_darwin_test.go",
-    "old": "seconds!=b.Seconds",
+    "old": "seconds != b.Seconds",
     "new": "seconds!=b.Seconds && b.Seconds==0",
     "test": "TestRunnerControllerOriginalOwnedRecordBindsStartRoleAndHash",
     "assertion": "ASSERTION:controller-original-startSeconds"
@@ -162,7 +162,7 @@
   {
     "name": "controller-cli-stream",
     "file": "runner_controller_observer_darwin_test.go",
-    "old": "[]string{\"initial-live\",\"signal\",\"child-initial\",\"child-signal\"}",
+    "old": "[]string{\"initial-live\", \"signal\", \"child-initial\", \"child-signal\"}",
     "new": "[]string{\"initial-live\",\"signal\",\"child-initial\"}",
     "test": "TestRunnerControllerReceiptCoverageRequiresEveryCLIStream",
     "assertion": "ASSERTION:controller-cli-coverage-child-signal"
@@ -170,7 +170,7 @@
   {
     "name": "metadata-first-cause",
     "file": "runner_metadata_ledger_darwin_test.go",
-    "old": "len(l.Causes)>=5||l.Causes[kind].Stage!=\"\"",
+    "old": "len(l.Causes) >= 5 || l.Causes[kind].Stage != \"\"",
     "new": "false",
     "test": "TestRunnerMetadataLedgerKeepsFirstCauseKindsAndRequiresChromePhases",
     "assertion": "ASSERTION:first-cause-duplicate"
@@ -178,7 +178,7 @@
   {
     "name": "metadata-chrome-phase",
     "file": "runner_metadata_ledger_darwin_test.go",
-    "old": "[]string{\"preflight\",\"initial-live\",\"live\",\"live-copy\",\"signal\"}",
+    "old": "[]string{\"preflight\", \"initial-live\", \"live\", \"live-copy\", \"signal\"}",
     "new": "[]string{\"preflight\",\"initial-live\",\"live\",\"live-copy\"}",
     "test": "TestRunnerMetadataLedgerKeepsFirstCauseKindsAndRequiresChromePhases",
     "assertion": "ASSERTION:chrome-phase-missing-phase"
@@ -186,7 +186,7 @@
   {
     "name": "kernel-errno-retention",
     "file": "runner_security_native_darwin_test.go",
-    "old": "c.recordDetailed(\"csops-CDHASH\", 5, status, status == 0,&e)",
+    "old": "c.recordDetailed(\"csops-CDHASH\", 5, status, status == 0, &e)",
     "new": "c.recordDetailed(\"csops-CDHASH\", 5, status, status == 0,nil)",
     "test": "TestRunnerNativeKernelAdapterRetainsActualReturnsErrnoAndCallOrder",
     "assertion": "ASSERTION:kernel-exact-errno"
@@ -194,7 +194,7 @@
   {
     "name": "residual-blind-skip",
     "file": "runner_native_darwin_test.go",
-    "old": "if e!=nil||runnerCleanupCandidate(path,app){return found,fmt.Errorf(\"residual-identity",
+    "old": "if e != nil || runnerCleanupCandidate(path, app) {\n\t\t\t\treturn found, fmt.Errorf(\"residual-identity",
     "new": "if e!=nil || (runnerCleanupCandidate(path,app) && false){return found,fmt.Errorf(\"residual-identity",
     "test": "TestRunnerResidualDiscoveryCannotInferAbsenceOrSignalFromPaths",
     "assertion": "ASSERTION:residual-discovery-identity-unavailable"
@@ -202,7 +202,7 @@
   {
     "name": "residual-dirty-continuation",
     "file": "runner_loop_darwin_test.go",
-    "old": "result.RootAssociatedError!=\"\" || ",
+    "old": "result.RootAssociatedError != \"\" ||",
     "new": "",
     "test": "TestRunnerResidualDiscoveryCannotInferAbsenceOrSignalFromPaths",
     "assertion": "ASSERTION:residual-unconfirmed-blocks-cases"
@@ -210,7 +210,7 @@
   {
     "name": "partial-root-retention",
     "file": "runner_controller_observer_darwin_test.go",
-    "old": "roots[fact.Root]=true",
+    "old": "roots[fact.Root] = true",
     "new": "_ = fact.Root",
     "test": "TestRunnerControllerPartialIdentityBatchRetainsOnlyAcceptedRoots",
     "assertion": "ASSERTION:controller-partial-ownership-retention"
@@ -218,7 +218,7 @@
   {
     "name": "partial-refusal-authority",
     "file": "runner_controller_observer_darwin_test.go",
-    "old": "!settled||observation.Error!=nil",
+    "old": "!settled || observation.Error != nil",
     "new": "!settled",
     "test": "TestRunnerControllerPartialIdentityBatchRetainsOnlyAcceptedRoots",
     "assertion": "ASSERTION:controller-partial-ownership-retention"
@@ -282,7 +282,7 @@
   {
     "name": "prelaunch-protocol-skip",
     "file": "runner_loop_darwin_test.go",
-    "old": "if l.result.ProtocolSettlementAttempted{return}",
+    "old": "if l.result.ProtocolSettlementAttempted {\n\t\treturn\n\t}",
     "new": "if l.result.ProtocolSettlementAttempted || l.result.AppPID==0{return}",
     "test": "TestRunnerPrelaunchPageSettlementIsRecordedAndBlocksWithoutAppPID",
     "assertion": "ASSERTION:prelaunch-protocol-settlement-recorded"
@@ -298,9 +298,153 @@
   {
     "name": "capture-duration-prestart",
     "file": "runner_timing_darwin_test.go",
-    "old": "UpperMS:stopped.Event-grant.Event",
+    "old": "UpperMS: stopped.Event - grant.Event",
     "new": "UpperMS:stopped.Event-started.Event",
     "test": "TestRunnerCaptureDurationIncludesPreStreamStartAndRejectsOverLimit/prestart-delay",
     "assertion": "ASSERTION:capture-span-refuse-prestart-delay"
+  },
+  {
+    "name": "diagnostic-answer",
+    "file": "runner_signalling_darwin_test.go",
+    "old": "d.Record(\"fixture.answer\",err)",
+    "new": "_ = err",
+    "test": "TestRunnerSignallingRejectsKeepActualUnderlyingError/fixture.answer",
+    "assertion": "ASSERTION:signalling-diagnostic-fixture.answer"
+  },
+  {
+    "name": "diagnostic-candidate-marshal",
+    "file": "runner_signalling_darwin_test.go",
+    "old": "d.Record(\"fixture.candidate-marshal\",err)",
+    "new": "_ = err",
+    "test": "TestRunnerSignallingRejectsKeepActualUnderlyingError/fixture.candidate-marshal",
+    "assertion": "ASSERTION:signalling-diagnostic-fixture.candidate-marshal"
+  },
+  {
+    "name": "diagnostic-candidate-decode",
+    "file": "runner_signalling_darwin_test.go",
+    "old": "d.Record(\"fixture.candidate-decode\",err)",
+    "new": "_ = err",
+    "test": "TestRunnerSignallingRejectsKeepActualUnderlyingError/fixture.candidate-decode",
+    "assertion": "ASSERTION:signalling-diagnostic-fixture.candidate-decode"
+  },
+  {
+    "name": "diagnostic-candidate-add",
+    "file": "runner_signalling_darwin_test.go",
+    "old": "d.Record(\"fixture.candidate-add\",err)",
+    "new": "_ = err",
+    "test": "TestRunnerSignallingRejectsKeepActualUnderlyingError/fixture.candidate-add",
+    "assertion": "ASSERTION:signalling-diagnostic-fixture.candidate-add"
+  },
+  {
+    "name": "diagnostic-metadata-decoder",
+    "file": "runner_controller_darwin_test.go",
+    "old": "d.Record(\"metadata.decoder\",e)",
+    "new": "_ = 0",
+    "test": "TestRunnerMetadataFailurePathsKeepFirstUnderlyingError/decoder",
+    "assertion": "ASSERTION:metadata-diagnostic-decoder"
+  },
+  {
+    "name": "diagnostic-metadata-envelope",
+    "file": "runner_controller_darwin_test.go",
+    "old": "d.Record(\"metadata.envelope\",fmt.Errorf(\"case/monotonic/terminal envelope refused row %d\",count))",
+    "new": "_ = 0",
+    "test": "TestRunnerMetadataFailurePathsKeepFirstUnderlyingError/envelope",
+    "assertion": "ASSERTION:metadata-diagnostic-envelope"
+  },
+  {
+    "name": "diagnostic-metadata-queue",
+    "file": "runner_controller_darwin_test.go",
+    "old": "problem = fmt.Errorf(\"metadata queue overflow\");d.Record(\"metadata.queue\",problem)",
+    "new": "problem = fmt.Errorf(\"metadata queue overflow\")",
+    "test": "TestRunnerMetadataFailurePathsKeepFirstUnderlyingError/queue",
+    "assertion": "ASSERTION:metadata-diagnostic-queue"
+  },
+  {
+    "name": "diagnostic-metadata-pipe",
+    "file": "runner_controller_darwin_test.go",
+    "old": "d.Record(\"metadata.pipe\",scanner.Err())",
+    "new": "_ = 0",
+    "test": "TestRunnerMetadataFailurePathsKeepFirstUnderlyingError/pipe",
+    "assertion": "ASSERTION:metadata-diagnostic-pipe"
+  },
+  {
+    "name": "diagnostic-metadata-terminal",
+    "file": "runner_controller_darwin_test.go",
+    "old": "d.Record(\"metadata.terminal\",problem)",
+    "new": "_ = 0",
+    "test": "TestRunnerMetadataFailurePathsKeepFirstUnderlyingError/terminal",
+    "assertion": "ASSERTION:metadata-diagnostic-terminal"
+  },
+  {
+    "name": "diagnostic-metadata-problem",
+    "file": "runner_controller_darwin_test.go",
+    "old": "d.Record(\"metadata.problem\",problem)",
+    "new": "_ = 0",
+    "test": "TestRunnerMetadataFailurePathsKeepFirstUnderlyingError/problem",
+    "assertion": "ASSERTION:metadata-diagnostic-problem"
+  },
+  {
+    "name": "diagnostic-metadata-wait",
+    "file": "runner_controller_darwin_test.go",
+    "old": "d.Record(\"metadata.wait\",runErr)",
+    "new": "_ = 0",
+    "test": "TestRunnerMetadataFailurePathsKeepFirstUnderlyingError/wait",
+    "assertion": "ASSERTION:metadata-diagnostic-wait"
+  },
+  {
+    "name": "diagnostic-protocol-worker",
+    "file": "runner_page_darwin_test.go",
+    "old": "p.Diagnostics.Record(\"protocol.worker\",e)\n\t\tp.fail(\"invalid effective screen-state\")",
+    "new": "p.fail(\"invalid effective screen-state\")",
+    "test": "TestRunnerProtocolFailureRetainsUnderlyingPageAndLinkDiagnostics",
+    "assertion": "ASSERTION:protocol-diagnostic-protocol.worker"
+  },
+  {
+    "name": "diagnostic-protocol-page",
+    "file": "runner_page_darwin_test.go",
+    "old": "p.Diagnostics.Record(\"page.problem\",errors.New(reason))",
+    "new": "_ = 0",
+    "test": "TestRunnerProtocolFailureRetainsUnderlyingPageAndLinkDiagnostics",
+    "assertion": "ASSERTION:protocol-diagnostic-page.problem"
+  },
+  {
+    "name": "diagnostic-protocol-link",
+    "file": "runner_page_darwin_test.go",
+    "old": "p.Diagnostics.Record(\"link.lost\",cause)",
+    "new": "_ = 0",
+    "test": "TestRunnerProtocolFailureRetainsUnderlyingPageAndLinkDiagnostics",
+    "assertion": "ASSERTION:protocol-diagnostic-link.lost"
+  },
+  {
+    "name": "diagnostic-app-tail",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "return text,b.total",
+    "new": "return \"\",b.total",
+    "test": "TestRunnerAppOutputTailAndSignalFactsAreRetained",
+    "assertion": "ASSERTION:app-output-tail"
+  },
+  {
+    "name": "diagnostic-app-signal",
+    "file": "runner_diagnostics_darwin_test.go",
+    "old": "r.Signal=int(status.Signal())",
+    "new": "r.Signal=0",
+    "test": "TestRunnerAppOutputTailAndSignalFactsAreRetained",
+    "assertion": "ASSERTION:app-exit-signal"
+  },
+  {
+    "name": "diagnostic-spawn-record",
+    "file": "runner_spawn_observation_darwin_test.go",
+    "old": "records[observation.Original.PID]=observation",
+    "new": "_ = records",
+    "test": "TestRunnerActualSpawnRecordAndSettlementStorageCannotDisappear",
+    "assertion": "ASSERTION:spawn-original-retained"
+  },
+  {
+    "name": "diagnostic-spawn-settlement",
+    "file": "runner_spawn_observation_darwin_test.go",
+    "old": "records[pid]=observation",
+    "new": "_ = records",
+    "test": "TestRunnerActualSpawnRecordAndSettlementStorageCannotDisappear",
+    "assertion": "ASSERTION:spawn-settlement-retained"
   }
 ]
