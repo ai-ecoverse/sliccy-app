@@ -1,5 +1,5 @@
 {
-  "stage": "V82_BSD_DIAGNOSTIC_SERIALIZATION_AND_DRAFT_SURFACE_REFUSAL_DECODER",
+  "stage": "V82_BUILD15_EXACT_PINS_AND_DIAGNOSTICS_FINAL_COMPONENT_VALIDATION",
   "files": {
     "code_status_darwin_test.go": "96339768f8a2a658bb1374f941cb6a6ea783d2239696718f24e76f1b7b36b41c",
     "fakehub_test.go": "b9d5ce98a94949544e8ec20317678494213e9a16a1170a2ca807260fbcc2b711",
@@ -26,16 +26,16 @@
     "runner_case_evidence_fixture_darwin_test.go": "757944441f736b51fe3367be73bcc855fb8d06190dbf39d2d6e2a93225eea1d8",
     "runner_clock_darwin_test.go": "ce5414fd3296edcbf3aa88eb8e5fbc52436925c7545e58cbf404d1371d6958cb",
     "runner_code_receipt_darwin_test.go": "a9250ba73dbde3b6a1fdc7717db943dd611d178c60765eb770db1e9bb0efe0c1",
-    "runner_controller_darwin_test.go": "6c184542f0a276461620c416d464672e87f6ac76d4f50c6c19ce567b2574f131",
+    "runner_controller_darwin_test.go": "449077c99d56354a9f3f53bf6d9c704ace6b29018f2fb72984e32fce8a137fa5",
     "runner_controller_observer_darwin_test.go": "142f7773eee7a89e374c5d8b495a2aaeeb2b762eb15d67be8507241a33323d18",
     "runner_controller_observer_fixture_darwin_test.go": "87c15aead7dd950ab6cf8ee8a08d01d142c519ddeb7d8af80a8815314fd34b6e",
     "runner_darwin_signal_fixture_darwin_test.go": "ab5954417e94f68e39717f30371646c6a4c904bda311e01251c8f0a77e8202ce",
     "runner_diagnostics_darwin_test.go": "234550e185a50acfdec9fc852308217d3172f78b9fe70f8f119085d1f324747b",
     "runner_diagnostics_fixture_darwin_test.go": "295fa0ff7e220c280c6665fc2a63e733dce89b6ced653692c1468d343c2d4811",
     "runner_discovery_fixture_darwin_test.go": "1ee01d544ee768886a40e5d0b6e5f4f9d504435f6ef98f7b1c044e79f226cb04",
-    "runner_entry_darwin_test.go": "bcda42f0304b5ce733a0bdfe6f572082ce76a77d5f40b4d2f324b41cc6a60596",
+    "runner_entry_darwin_test.go": "0db5ad164dc4d88d37416da4f1f22838df744aaf4106648ca842a242a37d28e3",
     "runner_file_snapshot_darwin_test.go": "8196cb02a6b262c252d696798f00991f2b43e9cc6198609ac02a00fc783913e2",
-    "runner_identity_boundary_darwin_test.go": "746d3fe22b22de05af66edc8ff7607e76289f8fe42582e3e0e6ca9699aa38665",
+    "runner_identity_boundary_darwin_test.go": "6b7880888e7e1c08a23f4e3336540fc9c664056ea8aac6e24dbb3cc493a49864",
     "runner_identity_boundary_fixture_darwin_test.go": "69bbfd195b491c44290621d234975d1fcb52d63799e5119a4eb69f503c153641",
     "runner_independent_binding_darwin_test.go": "8346eb7ffd8e70dd6f7020fdc2115a69094ffad2f74ffac150d0180c235d2719",
     "runner_independent_binding_fixture_darwin_test.go": "164706bf27a545750904ec7779c64c8b46eeb8e0e78dee3957e3beb364d91415",
@@ -89,7 +89,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "1d0e8c2999850c285d35925c6a2811af29b2f9b82d36b2995f3ae1c45449cdf6",
+    "inputs/driver-source.tar.gz": "1e060aec26d96c751ff7e2daba5a929d853a409c8a1a6fc0a5f7dd377fe46eeb",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
   },
   "fixtureSHA256": "30454bdbe417a34a07d3ae68702e2c9e816e7b58397c928165cc07473780b21b",
@@ -98,7 +98,7 @@
     "Sources/Sliccy/Screen/ScreenRunnerReceiptLedger.swift": "2c39093785f4e6c05fc211be25756a83f61ac2a8bdf90e97675b49d588668b4b",
     "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6"
   },
-  "scope": "incomplete driver components: real CoreFoundation constructors with ALL Security callbacks substituted; BSD/kernel/file hooks fabricated; no real process/Security query or subject",
+  "scope": "Synthetic components only, exact build15 pins; static trust receipt separate; final source/evidence review and wrapper gate pending",
   "collectorTestSHA256": "c7bbd7d7b1707b1c3b6b5dfed6418eb99242113ab8ec4d4547c2afd7efa156d0",
   "clockFixtureSHA256": "4bf2c94f9f530fcbc020356f132c0d6a412b5866a7647975b4af966979afb089",
   "refusalFixtureSources": {
@@ -109,5 +109,15 @@
     "SurfaceDiagnostics.swift": "4a619c0d8f13721a6e11d0b154a3fc8413c5a79d4c4f8baa60a4f8d83464cf57",
     "SurfaceFixture.swift": "25cac3f937bf343e9bcc4ae11902924d6a6cffa21a642bc6b88341ed379e76ba",
     "surface-producer-contract.json": "3eea007233fbb1b72e526c1d05a6d92969ee057573dcbcc4b975ce9b28c35947"
+  },
+  "targetSignedArtifact": {
+    "source": "0cd76ac0f064f52aaa5a24bb17490e8cf9ccb4a4",
+    "run": 42018680351,
+    "artifact": 13409549848,
+    "build": "15",
+    "manifestSHA256": "ce8c707f5a514ec689b2fa4d7b912bdbbd197d3926ee1bff3fb8fadcb39dd6e9",
+    "contractSHA256": "71b6314f3be1d30dd90dc50900c909ff06850f994fa80d83d97f3d72ba2ce2c4",
+    "staticRun": 42020701172,
+    "helperBuild": "12"
   }
 }
