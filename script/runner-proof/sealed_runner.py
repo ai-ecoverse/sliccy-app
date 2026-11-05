@@ -25,19 +25,19 @@ import capture_diagnostics as diagnostics
 
 RECIPIENT = 'age1n5hhvvjf65g96xjksnk2j7aqld83ae2mt3vfdymuxqsh0ex5qqxsarh2nk'
 AGE_SHA = 'e2020b073c44f692685a24d6abc378817eb81ffaaf49fd0531ef8565f767f2f5'
-APP_RUN = '42018680351'
-APP_ARTIFACT = 13409549848
-APP_OUTER_SHA = '63ac50560441a7fe2809d2477d43e5e8c9b67e06b3ee2362928998a18743527c'
-APP_SOURCE = '0cd76ac0f064f52aaa5a24bb17490e8cf9ccb4a4'
-APP_ZIP_SHA = '1286e835984c09c942f3f4687ad975106398a0447164312462e473c9041f2643'
-APP_MANIFEST_SHA = 'ce8c707f5a514ec689b2fa4d7b912bdbbd197d3926ee1bff3fb8fadcb39dd6e9'
+APP_RUN = '42069097054'
+APP_ARTIFACT = 13435980723
+APP_OUTER_SHA = '08d71a606b21083a162d31690ed026024f67591e07a95e490cb66d9c39474c39'
+APP_SOURCE = '261b1e3592f4bacafb810bd76480b68b54ca3f55'
+APP_ZIP_SHA = '6bc970253574ad281e6acecfa08ca97bc95a5bba656366a44cd7b612b766656a'
+APP_MANIFEST_SHA = '69fd7986228a0e258c57724989bd747a56d7401f029048de8ad6ac2e4ec47167'
 INPUTS = {
-    'capture-build15-contract.json': '71b6314f3be1d30dd90dc50900c909ff06850f994fa80d83d97f3d72ba2ce2c4',
+    'capture-build16-contract.json': '3c73a4b6e9d729151e37826a0b81d35aafcd7cd3f0ec19c9086fba3c5ccfbe62',
     'capture-app-schema6.txt': '2d47a525425c3e5cbb23acec0f413b111b3f03f5219c81c9befe3f41837f4ffc',
     'capture-schema6-emitter-addendum.json': '5bac184af0533eae474726a09ec74a3aab2698817cc98277ae3931a6b255fde1',
-    'capture-driver-handoff.json': '8980f362a78cf2bed6dd5db7d68945da31f055a6c9a56d55d0b1cb7d405e9694',
-    'capture-driver.tar.gz': 'd51d13c6e0b8b27cc5afbc740c00e9c13b9d9a11f806511148bb999a7c57b1da',
-    'capture-driver-files.json': 'da69abaf49c222ce838e087a503847f83a24493160d913bf0625a25e4ffb99ee',
+    'capture-driver-handoff.json': '3be3183dee48cd1afb9645770fb8f817f027fed2542f320349e50369de1272c3',
+    'capture-driver.tar.gz': '44fd9ba2bd9f4adab4edf3cd52fc11dde67982c60debe60e50e54833a7763a50',
+    'capture-driver-files.json': '3a5ca3e2b94d61ac94517053153fad2672741483f565aa044432d3dc0c176077',
     'slicc-v1.59.0.tar.gz': '8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9',
 }
 PREFIX = 'ai-ecoverse-slicc-cli-cea8ec1'
@@ -85,13 +85,13 @@ def extract_sources(inputs, destination):
         'entryTests': ['TestSignedRunnerCapture'],
         'entryCommand': ['go', 'test', '-mod=readonly', './test/nativeproof', '-run', '^TestSignedRunnerCapture$', '-count=1', '-timeout=980s'],
         'fixtureSource': APP_SOURCE, 'signedRun': int(APP_RUN), 'artifactID': APP_ARTIFACT,
-        'appBuild': '15', 'driverTimeoutSeconds': 960, 'goTestTimeoutSeconds': 980,
+        'appBuild': '16', 'driverTimeoutSeconds': 960, 'goTestTimeoutSeconds': 980,
         'caseTotalSeconds': 150, 'caseExecutionSeconds': 120, 'caseCaptureSeconds': 10,
         'helperBuild': '12', 'goCommandTimeoutSeconds': 990,
         'chromeStaticIdentitySeconds': 30, 'baselineIdentityAndWindowsTotalSeconds': 2}:
         raise ValueError('driver contract')
     expected = metadata['files']
-    if len(expected) != 86 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
+    if len(expected) != 94 or any(len(safe_parts(name)) != 1 or not name.endswith('.go') for name in expected):
         raise ValueError('driver file set')
     package = destination / 'test/nativeproof'
     package.mkdir(mode=0o700)

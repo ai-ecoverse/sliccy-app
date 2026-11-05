@@ -20,7 +20,7 @@ sys.path.insert(0, str(BASE / 'script/runner-proof'))
 import sealed_runner as subject
 import capture_tcc as tcc
 import capture_evidence as evidence_module
-SIGNED = Path('/Users/trieloff/.bb/thread-storage/thr_desfnajij8/signed/42018680351-capture-proof')
+SIGNED = Path('/Users/trieloff/.bb/thread-storage/thr_desfnajij8/signed/42069097054-capture-proof')
 
 
 class WrapperTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class WrapperTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             target = Path(root) / 'source'
             m = subject.extract_sources(BASE / 'script/runner-proof/inputs', target)
-            self.assertEqual(len(m['files']), 86)
+            self.assertEqual(len(m['files']), 94)
             self.assertEqual({p.name for p in (target / 'test/nativeproof').iterdir()}, set(m['files']))
             self.assertIn('go 1.26.5', (target / 'go.mod').read_text())
 

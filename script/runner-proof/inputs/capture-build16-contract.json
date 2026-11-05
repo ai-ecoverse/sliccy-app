@@ -1,10 +1,10 @@
 {
-  "status": "DRAFT_FOR_SOURCE_AND_HOSTED_TEST_REVIEW_NOT_FOR_DISPATCH",
-  "baseSource": "0d98f937d1ba576665ffba64c66ec6a51c65e285",
-  "build": 15,
+  "status": "DRAFT_SOURCE_NOT_FROZEN_NOT_FOR_EXECUTION",
+  "baseSource": "0cd76ac0f064f52aaa5a24bb17490e8cf9ccb4a4",
+  "build": 16,
   "helperBuild": 12,
   "schema": 6,
-  "authority": "Diagnostics have no acceptance, selection, cleanup or signal authority. Original inventory predicates/order and thrown issues remain unchanged.",
+  "authority": "Display diagnostics have no decision authority; immediate notification stop is unchanged. Option C admits only an exactly witnessed empty-bundle WindowServer to the proof inventory and reduces the proof claim; product filter and capture selection are byte-identical.",
   "clock": {
     "stage": "clock-anchor",
     "fields": {
@@ -178,8 +178,8 @@
     "source": "reviewer read-only-analysis.txt SHA256 a744779f8094701a8ba692546f33598e20b4525bfea792f22fd97ee18d44c07d"
   },
   "baselineChange": "App runner-baseline remains 5 seconds after the 10-second capture limit is armed. The withdrawn 45-second proposal is not implemented. V8 moves full static Chrome9/25 before capture and uses a shared bounded2-second dynamic/kernel/BSD/executable-stat baseline; its source requires both reads.",
-  "limits": "Task watchdog cannot interrupt synchronous Security calls; final app150-second check is post-cleanup, not an independently measured teardown maximum. Driver hard case bound remains external. Issue4 orderly abort is separate. No new allowlist role or acceptance change.",
-  "pins": "Build15 app signing and artifact pins are pending both source reads and coordinator signing authorization. Helper12 is the exact independently verified artifact13392888076 from run41978928697/source4c873bab. Current driver/wrapper build14 app pins are not valid for build15 and must be replaced and cross-checked against the actual signed artifact before any dispatch.",
+  "limits": "Existing synchronous Security/cleanup/MainActor physical latency limits remain unmeasured. Display sampling is after notification stop, sequential and non-atomic; equal samples cannot exclude an intervening change or establish its cause. First early notifications before the existing indicator observer remain outside notification coverage. Issue4 remains separate.",
+  "pins": "Build16 signed artifact/driver/wrapper pins pending. Helper12 immutable artifact13392888076 and Swift full SHA85ef7c16e6542d94b26051ba1e04e6df12da7317923726943e4ff292c75a1e89 unchanged; no dispatch until cross-artifact table and both reads.",
   "surfaceRefusal": {
     "stage": "surface-refusal",
     "schema": 6,
@@ -215,5 +215,105 @@
     "privacy": "fixed enum strings and nullable status only; no path/title/content/exception strings",
     "boundsUnchanged": true
   },
-  "changeScope": "Helper12 executable SHA corrected in app source, fixed surface-refusal diagnostics before existing generic failure; no native query count/order/return/status or identity predicate change. Build number15 and cross-chain consistency gate; all limits unchanged."
+  "changeScope": "Build16 bounded display diagnostics, exactly witnessed WindowServer structural-refusal category and claim reduction, build number16. No stop suppression, filter modification, other owner exception or bound extension.",
+  "structuralRefusal": {
+    "stage": "protected-structural-refused",
+    "designSHA256": "8e629dbbf03e27c3aebcbc31283b0e2d03284af38d4b99d5b6fbbc63ea8cd979",
+    "fields": {
+      "reason": "verified-windowserver-empty-sck-bundle",
+      "role": "com.apple.WindowServer",
+      "label": "window-server",
+      "type": [
+        "display",
+        "window"
+      ],
+      "pid": "positive Int32",
+      "startSeconds": "canonical positive UInt64 decimal string",
+      "startMicroseconds": "integer 0..999999",
+      "predicateEvidence": false,
+      "rawSCKBundleEmpty": true,
+      "pairedWindowIDs": "display only: sorted unique nonzero UInt32 array1..64",
+      "windowID": "window only: nonzero UInt32"
+    },
+    "witness": "file-restricted creation by actual boundary after existing verified/apple/platform/slice/fullcredential binding and exact CG/SCK pairs; complete current genuine target set only; raw empty bundle included in fingerprint without diagnostic titles",
+    "claim": "Every actual protected target must refuse before construction under one disjoint category. Structural WindowServer gives no protected-owner-predicate evidence; allOwnerProtectedPredicatesDemonstrated false and that stronger claim FAILED_TO_DEMONSTRATE. No ownership, selection, signaling or cleanup authority. Other system corner cases are limitations, not new exceptions."
+  },
+  "displayDiagnostics": {
+    "producer": "ScreenRunnerDisplayDiagnostics.swift",
+    "sampler": "ScreenRunnerDisplaySampler.swift",
+    "stages": [
+      "display-diagnostic-origin",
+      "display-observation",
+      "display-observation-screen",
+      "display-diagnostic-closed"
+    ],
+    "maximumMilestones": 8,
+    "maximumNotifications": 16,
+    "maximumDisplaysPerObservation": 8,
+    "maximumRows": 218,
+    "milestones": [
+      "before-activation-policy",
+      "after-activation-policy",
+      "did-finish-launching",
+      "preflight",
+      "helper-spawned",
+      "before-indicator",
+      "indicator-ordered",
+      "indicator-placed"
+    ],
+    "stop": "Exact existing invoke(sourceChanged,displayChange) runs to completion before observation admission or sampling; each notification always stops; no debounce or suppression. Existing observer registration order stays. Sampler task admitted boundedly after stop.",
+    "origin": "originBeforeJournalMs maps one ContinuousClock origin preceding activation to journal.began; row eventElapsedMs is emission, not historical observation. requestedMs/startedMs/finishedMs are actual offsets from this origin; never exact cross-process equality. Existing causal clock-anchor contract remains.",
+    "observationFields": {
+      "ordinal": "positive sequential1..24",
+      "trigger": "one of eight milestones or notification",
+      "requestedMs": "finite nonnegative",
+      "startedMs": "finite >=requestedMs or null if unfinished",
+      "finishedMs": "finite >=startedMs (or >=requestedMs if unfinished)",
+      "status": [
+        "complete",
+        "unavailable",
+        "too-many-displays",
+        "unfinished"
+      ],
+      "reportedCount": "actual nonnegative screen count or null if unfinished",
+      "retainedCount": "0..8; complete requires exact reported count"
+    },
+    "screenFields": {
+      "ordinal": "parent observation",
+      "index": "zero-based ordered0..7",
+      "displayID": "UInt32 or null",
+      "frame": "raw x/y/width/height; nonfinite -> null",
+      "visibleFrame": "same rect codec",
+      "cgBounds": "same rect codec or null",
+      "scale": "finite number or null",
+      "color": [
+        "srgb",
+        "display-p3",
+        "linear-srgb",
+        "other",
+        "unavailable"
+      ],
+      "colorModel": "Int32 or null",
+      "colorComponents": "nonnegative int or null",
+      "colorNameBytes": "UTF8 length only, no raw unknown name; null if absent",
+      "mode": "null or exact id(Int32),flags(UInt32),width/height/pixelWidth/pixelHeight(nonnegative ints),refreshRate(finite or null)"
+    },
+    "closedFields": {
+      "admitted": "0..24",
+      "completed": "completed observations",
+      "unfinished": "actual admitted not completed",
+      "overflow": "boolean, never reset"
+    },
+    "loss": "Admission duplicate/notification excess, display count above8, malformed completion or unfinished at finish fail journal evidence closed; no fake complete; pending tasks do not query after closure. All rows use unchanged4096/1MiB journal limits.",
+    "privacy": "No title/path/window content, monitor serial/UUID, profile path/name, EDID or arbitrary error. Only fixed color labels/model/component count and unknown name byte length; this does not establish exact profile identity.",
+    "limitations": "No initiator attribution, no atomic display snapshot, no physical timeout on SDK/MainActor calls. Late samples can miss transient changes. Diagnostic next-run exception may observe recurrence; it cannot alone establish why notification fired or authorize stop weakening.",
+    "volume": "218rows maximum:24*(one header+8screens)+origin+closed. Actual encoder max-row and full app journal envelope budget still to be measured in hosted synthetic fixture; no fit claim yet.",
+    "milestoneMeaning": "before/after-activation-policy bracket the setActivationPolicy call, not didBecomeActive. helper-spawned is post-constructor/recorded-identity, not a ready-message or on-screen witness. indicator-ordered requests a sample after panel ordering and observer registration, not the exact ordering-call timestamp. All request/start/end times are observations only.",
+    "originFields": {
+      "originBeforeJournalMs": "finite nonnegative duration from recorder origin to journal.began",
+      "maximumDisplays": 8,
+      "maximumNotifications": 16,
+      "maximumMilestones": 8
+    }
+  }
 }
