@@ -35,9 +35,9 @@ INPUTS = {
     'capture-build14-contract.json': '0aebf7134d2ec4e02e45a9a82e6d8acb4657f9d0890805d255b5af57592af669',
     'capture-app-schema6.txt': '2d47a525425c3e5cbb23acec0f413b111b3f03f5219c81c9befe3f41837f4ffc',
     'capture-schema6-emitter-addendum.json': '5bac184af0533eae474726a09ec74a3aab2698817cc98277ae3931a6b255fde1',
-    'capture-driver-handoff.json': 'f3c187671c658f82483ce1517d3ec685b4ce0ccdc84278b28a829735ef2a62e1',
-    'capture-driver.tar.gz': 'd40f05f8207ee4898237535d1749ca1c3b2abee220d2ebf815bfe7f8a915dddc',
-    'capture-driver-files.json': '6b9c02f6116132ca8aa57e4f1f18ee3f1b68838193e65930b954adda3f4d0e7a',
+    'capture-driver-handoff.json': 'eb4725d5739945aeedb8ecb272dae363627e55e02c1a9fc9a9463854cb8a02f4',
+    'capture-driver.tar.gz': '222e06681ec7674ef3cd0d9f85b902b5df26c4ba54ae7ccccdc8db124af4ff97',
+    'capture-driver-files.json': '0cbe970db496a888f1759e8096067b385233ea5f7baf9828b6af3889798ebbfb',
     'slicc-v1.59.0.tar.gz': '8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9',
 }
 PREFIX = 'ai-ecoverse-slicc-cli-cea8ec1'

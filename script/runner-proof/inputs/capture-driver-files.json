@@ -108,7 +108,7 @@
     "runner_budgets_darwin_test.go": "81af340547fee9108e489d1bc4ff588bc36c54c04cdb64259c6e7e3c62728929",
     "kernel_image_darwin_test.go": "ab15063ab0793764d44f9f75f8a838d6458bdcd4447031f0539840ea9e6048d4",
     "observer_self_test.go": "d2260bf2bcae8a41db0af506dc8dfe9938e35ddf957debba08106d77bf7c8f73",
-    "runner_v8_fixture_darwin_test.go": "ca7900f89bdf4782770a162ed989fa1b87c4a3f12d9a845035b2fb2c5f6cb08c",
+    "runner_v8_fixture_darwin_test.go": "5e07083663bef5c96f2c944cdf3cecdc7a5709073c53ffd7e633e3b2b8777772",
     "runner_spawn_observation_darwin_test.go": "214963631278fb4205c1c1fb0271abb7b56e04444429c714b9f7b5c712294f88",
     "runner_diagnostics_fixture_darwin_test.go": "e6e557394311120e438cc52e77eaf072bc53e8b36ac51b5645b312893feeb374",
     "runner_metadata_ledger_fixture_darwin_test.go": "19e00f0080052ac8802296c282e4f7d5c4ce2d7fbdb0cb07d5677ef1b6bef6e1",

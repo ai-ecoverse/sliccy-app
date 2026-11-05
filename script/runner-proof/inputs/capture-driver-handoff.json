@@ -2,20 +2,20 @@
   "schema": 1,
   "status": "IMPLEMENTATION_FROZEN_FOR_FINAL_REVIEW",
   "dispatchCleared": false,
-  "archive": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8/driver-source.tar.gz",
-  "archiveSHA256": "d40f05f8207ee4898237535d1749ca1c3b2abee220d2ebf815bfe7f8a915dddc",
-  "sourceMap": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8/source-files.json",
-  "sourceMapSHA256": "6b9c02f6116132ca8aa57e4f1f18ee3f1b68838193e65930b954adda3f4d0e7a",
+  "archive": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-1/driver-source.tar.gz",
+  "archiveSHA256": "222e06681ec7674ef3cd0d9f85b902b5df26c4ba54ae7ccccdc8db124af4ff97",
+  "sourceMap": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-1/source-files.json",
+  "sourceMapSHA256": "0cbe970db496a888f1759e8096067b385233ea5f7baf9828b6af3889798ebbfb",
   "flatGoFiles": 86,
-  "sourceReadDirectory": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8/files",
+  "sourceReadDirectory": "/Users/trieloff/.bb/thread-storage/thr_a786gumpnn/runner-proof/frozen-capture-driver-schema6-v8-1/files",
   "validation": {
-    "source": "ebfb4dd2d3024b1e40c2c8b6bad5ba159b51db06",
-    "run": 41985629816,
+    "source": "ebb11083a893db801901b7ff7e83759916949a88",
+    "run": 41987812337,
     "shards": [
       {
         "index": 0,
-        "artifact": 13396435971,
-        "archiveSHA256": "5bedb7f8919ee41ac03230045da852d85feb9d48193a644e15521ead0c8961da",
+        "artifact": 13396768179,
+        "archiveSHA256": "8e287695345634f1f2c6f3b957a8e2ba012e757816914201d47e2395e97b8d5a",
         "mutantIds": [
           "bsd-raw-fraction-bound",
           "capture-duration-bound",
@@ -66,17 +66,18 @@
           "v8-refusal-enum-unapproved",
           "v8-refusal-owner-presence-drop",
           "v8-snapshot-refusal-drop",
-          "v8-window-approval-drop"
+          "v8-window-approval-drop",
+          "v81-baseline-after-only-kernel"
         ],
-        "mutants": 50,
-        "streams": 596,
-        "rawTests": 80,
-        "formattedTests": 80
+        "mutants": 51,
+        "streams": 604,
+        "rawTests": 82,
+        "formattedTests": 82
       },
       {
         "index": 1,
-        "artifact": 13396500421,
-        "archiveSHA256": "7c5dfd482159cc5e4d62166b60e76a1dd33a9a6099b5f0b99fe425fc547bf660",
+        "artifact": 13396968071,
+        "archiveSHA256": "e2b7725b1cb1d0a652746cdf1f75d96c4621f8fa84f7af81fcaddde7ea6e8e5a",
         "mutantIds": [
           "bsd-raw-parent-bound",
           "capture-duration-prestart",
@@ -126,28 +127,29 @@
           "v8-refusal-duplicate-attempt",
           "v8-refusal-identifier-newline",
           "v8-refusal-provenance-drop",
-          "v8-snapshot-window-drop"
+          "v8-snapshot-window-drop",
+          "v81-baseline-after-only-bsd"
         ],
-        "mutants": 49,
-        "streams": 588,
-        "rawTests": 80,
-        "formattedTests": 80
+        "mutants": 50,
+        "streams": 596,
+        "rawTests": 82,
+        "formattedTests": 82
       }
     ],
-    "disjointExhaustiveMutants": 99,
+    "disjointExhaustiveMutants": 101,
     "allNamedRuntimeRedAndRestoredPass": true,
     "allFormattedInputsEqual": true,
     "rawInputs": 86,
-    "totalStreamHashes": 1184,
-    "driverArchiveUnchangedFrom31b8ca9": true,
+    "totalStreamHashes": 1200,
+    "onlyTestFixtureChangedFromV8": true,
     "nativeLocal": false,
     "dispatchCleared": false,
     "scope": "Synthetic fabricated Foundation/CF encoder, fake Security/BSD/kernel/window/process callbacks, owned files and loopback only; no live query/subject/root/TCC/capture"
   },
-  "rawMutantInputHash": "452105a7739afe03b9e53ce5c222fb70119eb2f641b48b2f572767ff2edf6727",
+  "rawMutantInputHash": "ba804654f69a5add8e85a9940842756b58a4c500cb628a44a8f4961e89d5e212",
   "formatting": "Exact pinned Go1.26.5 gofmt output separately compiled and full-suite tested; raw mutant inputs and final formatted hashes remain distinct",
   "previousDrivers": "all preserved unchanged",
-  "supersedes": "V8 authorized refusal/cadence diagnostics, causal early clock, setup/static budgets, cheap baseline checks, exact build14/helper12 pins; all prior outcomes preserved",
+  "supersedes": "V8.1 test-only coverage delta over clean reviewedV8; implementation, artifact pins, budgets and all decision/cleanup/signal rules byte-identical. Adds after-only BSD and kernel mismatch regressions plus two runtime rollback faults.",
   "entry": [
     "go",
     "test",
