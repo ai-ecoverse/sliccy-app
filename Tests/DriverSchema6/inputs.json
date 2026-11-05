@@ -103,7 +103,7 @@
   "clockFixtureSHA256": "4bf2c94f9f530fcbc020356f132c0d6a412b5866a7647975b4af966979afb089",
   "refusalFixtureSources": {
     "RefusalDiagnostics.swift": "c52c79ac8f38e14ee74f658ea6de2b465a60d82090b84796c46a7c81ecfb210b",
-    "RefusalFixture.swift": "4bb4d3ae245b466dfaa1c7d29fd48dea1f0b32279760d2d22143fb277d5affa5",
+    "RefusalFixture.swift": "13cfbd6860ae08d8dc5e9f299e1bcda11760b2a0abe20a7c3b855b2dd79f8361",
     "refusal-producer-origin.json": "c958fb1526809ab9a0a169fcb5cadf690e7029a23fe44fe0cf66d51e5007c31d",
     "build14-producer-files.json": "2a6184f933eaa87c81aacacdfa9cd8dec6f4d80b01e4a5bfc225cf55b147d7cf"
   }

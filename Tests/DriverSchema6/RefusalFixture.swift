@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import Darwin
 
 enum ScreenFailure: Error { case incompatible, resourceLimit, stalled }
