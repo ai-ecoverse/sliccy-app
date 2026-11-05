@@ -106,7 +106,7 @@
   {
     "name": "identity-parent-after",
     "file": "runner_identity_boundary_darwin_test.go",
-    "old": "!runnerBSDEqual(parentAfter.Selected,parentBefore.Selected)||!runnerBSDEqual(parentAfter.Selected,spec.ParentIdentity)",
+    "old": "!runnerBSDEqual(parentAfter.Selected, parentBefore.Selected) || !runnerBSDEqual(parentAfter.Selected, spec.ParentIdentity)",
     "new": "false",
     "test": "TestRunnerIdentityBoundaryRefusesLostOwnershipAndIncompleteBinding",
     "assertion": "ASSERTION:identity-refuse-parent-after"
@@ -114,7 +114,7 @@
   {
     "name": "identity-credential",
     "file": "runner_identity_boundary_darwin_test.go",
-    "old": "||bound.BSD.Real!=uint32(os.Getuid())",
+    "old": " || bound.BSD.Real != uint32(os.Getuid())",
     "new": "",
     "test": "TestRunnerIdentityBoundaryRefusesLostOwnershipAndIncompleteBinding",
     "assertion": "ASSERTION:identity-refuse-child-real"
@@ -122,17 +122,49 @@
   {
     "name": "trace-native-return",
     "file": "runner_native_trace_darwin_test.go",
-    "old": "copy:=*value;row.ReturnValue=&copy",
-    "new": "copy:=int32(0);row.ReturnValue=&copy",
+    "old": "copy := *value\n\t\trow.ReturnValue = &copy",
+    "new": "copy := int32(0)\n\t\trow.ReturnValue = &copy",
     "test": "TestRunnerNativeTraceKeepsEnteredCallWithoutInventingCompletion",
     "assertion": "ASSERTION:trace-exact-native-result"
   },
   {
     "name": "pool-inflight-settlement",
     "file": "runner_observation_pool_darwin_test.go",
-    "old": "if p.active!=0||p.lost{return false}",
-    "new": "if p.active!=0{return true};if p.lost{return false}",
+    "old": "if p.active != 0 || p.lost {\n\t\treturn false\n\t}",
+    "new": "if p.active != 0 { return true }; if p.lost { return false }",
     "test": "TestRunnerObservationPoolDoesNotInferSettlementFromDeadline",
     "assertion": "ASSERTION:native-worker-unsettled"
+  },
+  {
+    "name": "controller-native-unsettled",
+    "file": "runner_loop_darwin_test.go",
+    "old": "!result.NativeObservationSettled && len(result.NativeEvidence.Observations)>0",
+    "new": "false",
+    "test": "TestRunnerControllerObserverReturnsWithHeldNativeCallAndNoInferredCleanup",
+    "assertion": "ASSERTION:controller-unsettled-blocks-later-cases"
+  },
+  {
+    "name": "controller-window-pid",
+    "file": "runner_controller_observer_darwin_test.go",
+    "old": "old.PID!=window.PID||",
+    "new": "",
+    "test": "TestRunnerControllerWindowRecheckIgnoresDiagnosticTitleButNoIdentityField",
+    "assertion": "ASSERTION:controller-window-set-pid"
+  },
+  {
+    "name": "controller-owned-start",
+    "file": "runner_controller_observer_darwin_test.go",
+    "old": "seconds!=b.Seconds",
+    "new": "false",
+    "test": "TestRunnerControllerOriginalOwnedRecordBindsStartRoleAndHash",
+    "assertion": "ASSERTION:controller-original-startSeconds"
+  },
+  {
+    "name": "controller-cli-stream",
+    "file": "runner_controller_observer_darwin_test.go",
+    "old": "[]string{\"initial-live\",\"signal\",\"child-initial\",\"child-signal\"}",
+    "new": "[]string{\"initial-live\",\"signal\",\"child-initial\"}",
+    "test": "TestRunnerControllerReceiptCoverageRequiresEveryCLIStream",
+    "assertion": "ASSERTION:controller-cli-coverage-child-signal"
   }
 ]
