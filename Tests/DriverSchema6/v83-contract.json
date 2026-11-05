@@ -121,7 +121,15 @@
     "envelopeBytes": 134217728,
     "minimumMarginBytes": 8388608,
     "status": "UNPROVEN_ACTUAL_HOSTED_GATE",
-    "actualPacker": "exact accepted aadb79ef package_evidence body, isolated AST fixture; no wrapper runtime mutation"
+    "actualPacker": "exact accepted aadb79ef package_evidence body, isolated AST fixture; no wrapper runtime mutation",
+    "actualEncodedProducerInputs": [
+      "receipt",
+      "clock",
+      "inventory refusal",
+      "surface refusal",
+      "build16 C/display max rows"
+    ],
+    "actualEncodedProducerRetention": "Actual five Foundation output files copied into the charged other bucket; exact hashes checked in Go and retained in test output."
   },
   "maxFixture": {
     "owners": 128,

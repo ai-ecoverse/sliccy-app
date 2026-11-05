@@ -52,7 +52,7 @@
     "runner_native_trace_fixture_darwin_test.go": "2302805bd2411cfbcdbac3ffd7442b796c9a78b403f74c26f84db3f8375c9e3b",
     "runner_normalized_case_darwin_test.go": "07454887b815e7e9551d2392e1e44679bd1e81bd777f7dac87e93021319404da",
     "runner_normalized_codec_darwin_test.go": "780bf7cdc6a2508a2231eb914df1fe103cfdf267156456c5bc1e8277d7ccf4b3",
-    "runner_normalized_fixture_darwin_test.go": "8e56cc0f26e5351934d6b818d04e5c80a2de4e0a3a87c011f0291579a28b40e1",
+    "runner_normalized_fixture_darwin_test.go": "b70f8c704c3b768b4ad5f01b1abdb3ffd6c439a8ab893517049ee28edf2f9a0a",
     "runner_normalized_reader_darwin_test.go": "00f367cf223dcf270f64a72703ede8570106732e085af0767a5fc4c30ec4e70b",
     "runner_normalized_writer_darwin_test.go": "01bd61040876e9613846d4d61372207ed517435e95d233f4d91b95b42223b80a",
     "runner_observation_pool_darwin_test.go": "3050e870dcdd9af4bb7106b3f2355146eeafb7714335a2e65db86818d0cf8ba3",
@@ -97,7 +97,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "7bac3c05b39e15c5b0f1f53a79b07e8b1899fdeebe579a1f3724c09ae1ed73bd",
+    "inputs/driver-source.tar.gz": "c0575429b7db6ef294bbd6bf293cc956ac2ddeb771f747ea84e4bbad6332f856",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
   },
   "fixtureSHA256": "30454bdbe417a34a07d3ae68702e2c9e816e7b58397c928165cc07473780b21b",
@@ -140,9 +140,9 @@
     "build16-producer-origin.json": "87a61e3c94d77f77ba40d203f8040ebbbd52179e93172c1799698bc54c399349"
   },
   "normalizationFixtureSources": {
-    "VolumePacker.py": "60ceea172392f71d9fa3c104802dc1cdb7f9ee731627ddf40e7f56cb3ea04b8d",
+    "VolumePacker.py": "a2785beade7cc31f9fa6fc14ca6b4d5200b5ddf35e911a05df69e69baf402cd2",
     "inputs/accepted-sealed-runner.py": "27e11c5a63ae7a0cfee62a00ef9c0b13cc83df320a02beb6fcf3b0f4a6aea6c4",
-    "v83-contract.json": "e18377cf4baaa087540f8fefceb26a2eeb2e07cf77188398d4dbc7e285617c82"
+    "v83-contract.json": "b746a8c84c0c17a44a32b0673ffd93eb05cbe620c9bde8e1d07cc23d69d68e6a"
   },
   "scheduleSources": {
     "hosted.py": "8ac36159492bcfcd62311083456af09e324fb57bd6c53e823d4b6feb4c0d6065",

@@ -16,6 +16,15 @@ exec(compile(ast.Module(body=[function], type_ignores=[]), 'accepted-sealed-runn
 package = namespace['package_evidence']
 other = root / 'charged-other'
 other.mkdir()
+assert len(sys.argv) == 7
+fixture_hashes = {}
+for index, name in enumerate(sys.argv[2:]):
+    path = Path(name)
+    assert path.is_file() and not path.is_symlink() and path.stat().st_nlink == 1
+    assert 0 < path.stat().st_size <= 1048576
+    data = path.read_bytes()
+    fixture_hashes[str(index)] = hashlib.sha256(data).hexdigest()
+    (other / f'actual-foundation-{index}.ndjson').write_bytes(data)
 source_dir = Path.cwd() / 'test/nativeproof'
 if not source_dir.is_dir():
     source_dir = Path.cwd()
@@ -51,4 +60,4 @@ except ValueError as error:
 assert refused
 print(json.dumps({'tarBytes': size, 'files': files, 'imageBytes': 64 * 1024 * 1024,
                   'otherBytes': 16 * 1024 * 1024, 'overflowRefused': refused,
-                  'packerSourceSHA256': hashlib.sha256(source.encode()).hexdigest()}))
+                  'packerSourceSHA256': hashlib.sha256(source.encode()).hexdigest(), 'actualEncoderFixtureSHA256': fixture_hashes}))
