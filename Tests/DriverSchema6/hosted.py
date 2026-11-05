@@ -9,6 +9,7 @@ import tarfile
 import tempfile
 import time
 import urllib.request
+from partition import select_mutations
 
 root = Path('Tests/DriverSchema6')
 results = Path('driver-schema6-results').resolve()
@@ -23,6 +24,12 @@ for name in ['home', 'tmp']:
     (private / name).mkdir()
 sha = lambda data: hashlib.sha256(data).hexdigest()
 manifest = json.loads((root / 'inputs.json').read_text())
+shard_index = int(os.environ['DRIVER_COMPONENT_SHARD_INDEX'])
+assert os.environ['DRIVER_COMPONENT_SHARD_COUNT'] == '2' and str(shard_index) == os.environ['DRIVER_COMPONENT_SHARD_INDEX']
+all_mutations = json.loads((root / 'mutants.json').read_text())
+selected_mutations, selected_ids, universe_ids = select_mutations(all_mutations, shard_index, 2)
+(results / 'shard-binding.json').write_text(json.dumps({'sourceSHA':os.environ['GITHUB_SHA'],'shardIndex':shard_index,'shardCount':2,'mutantIds':selected_ids,'allMutantIds':universe_ids,'partitionRule':'sorted-name-index-mod2','driverArchiveSHA256':sha((root / 'inputs/driver-source.tar.gz').read_bytes()),'partitionSHA256':sha((root / 'partition.py').read_bytes())},indent=2))
+
 for name, digest in manifest['inputs'].items():
     assert sha((root / name).read_bytes()) == digest
 assert sha((root / 'ReceiptFixture.swift').read_bytes()) == manifest['fixtureSHA256']
@@ -115,7 +122,7 @@ try:
     baseline = command('go-baseline-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', selected], 45)
     assert baseline.returncode == 0 and b'--- SKIP:' not in baseline.stdout
     mutation_results = []
-    for mutation in json.loads((Path(os.environ['GITHUB_WORKSPACE']) / 'Tests/DriverSchema6/mutants.json').read_text()):
+    for mutation in selected_mutations:
         path = target / mutation['file']
         original = path.read_bytes()
         needle = mutation['old'].encode()

@@ -7,6 +7,10 @@ permissions:
 jobs:
   synthetic-components:
     if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'push' && github.ref == 'refs/heads/proof/independent-driver-schema6-v1'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
     runs-on: xcode-27
     timeout-minutes: 15
     steps:
@@ -14,12 +18,15 @@ jobs:
         with:
           persist-credentials: false
       - name: Compile synthetic encoder and selected pure Go component tests
+        env:
+          DRIVER_COMPONENT_SHARD_INDEX: ${{ matrix.shard }}
+          DRIVER_COMPONENT_SHARD_COUNT: '2'
         run: python3 -B Tests/DriverSchema6/hosted.py > "$RUNNER_TEMP/driver-component-bootstrap.log" 2>&1
       - name: Retain fabricated component evidence only
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: driver-schema6-component-results
+          name: driver-schema6-component-results-${{ matrix.shard }}
           path: driver-schema6-results/
           if-no-files-found: error
           retention-days: 1

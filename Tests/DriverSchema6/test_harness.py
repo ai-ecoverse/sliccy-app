@@ -48,7 +48,7 @@ class CollectorTests(unittest.TestCase):
                     return SimpleNamespace(returncode=status, stdout=stdout, stderr=stderr)
 
                 sha = lambda raw: hashlib.sha256(raw).hexdigest()
-                namespace = {'Path': Path, 'json': json, 'os': SimpleNamespace(environ={'GITHUB_WORKSPACE': str(workspace)}), 'target': source, 'go': 'never-executed-go', 'binary': 'never-executed-binary', 'selected': '^TestFake$', 'command': command, 'mutation_results': [], 'sha': sha, 'manifest': {'files': {'fixture.go': sha(original)}}}
+                namespace = {'Path': Path, 'json': json, 'os': SimpleNamespace(environ={'GITHUB_WORKSPACE': str(workspace)}), 'target': source, 'go': 'never-executed-go', 'binary': 'never-executed-binary', 'selected': '^TestFake$', 'command': command, 'selected_mutations': mutations, 'mutation_results': [], 'sha': sha, 'manifest': {'files': {'fixture.go': sha(original)}}}
                 exec(code, namespace)
                 results = namespace['mutation_results']
                 self.assertEqual([item['validRed'] for item in results], [mode == 'valid', True])
@@ -57,6 +57,25 @@ class CollectorTests(unittest.TestCase):
                 if mode == 'compile':
                     self.assertNotIn('first-runtime', calls)
 
+
+class PartitionTests(unittest.TestCase):
+    def test_actual_partition_is_disjoint_exhaustive_and_fixed(self):
+        from partition import select_mutations
+        rows = json.loads((Path(__file__).parent / 'mutants.json').read_text())
+        first, a, universe = select_mutations(rows,0,2)
+        second, b, same = select_mutations(rows,1,2)
+        self.assertEqual(universe,same)
+        self.assertEqual(set(a)|set(b),set(universe))
+        self.assertFalse(set(a)&set(b))
+        self.assertEqual(len(a)+len(b),99)
+        self.assertEqual(a,sorted(a))
+        self.assertEqual(b,sorted(b))
+        self.assertEqual({r['name'] for r in first},set(a))
+        self.assertEqual({r['name'] for r in second},set(b))
+        for index,count in [(-1,2),(2,2),(0,1),(0,3),(True,2),(0,True)]:
+            with self.assertRaises(ValueError): select_mutations(rows,index,count)
+        with self.assertRaises(ValueError): select_mutations(rows[:-1],0,2)
+        with self.assertRaises(ValueError): select_mutations(rows[:-1]+[rows[0]],0,2)
 
 if __name__ == '__main__':
     unittest.main()

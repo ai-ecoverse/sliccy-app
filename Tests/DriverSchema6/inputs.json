@@ -99,7 +99,7 @@
     "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6"
   },
   "scope": "incomplete driver components: real CoreFoundation constructors with ALL Security callbacks substituted; BSD/kernel/file hooks fabricated; no real process/Security query or subject",
-  "collectorTestSHA256": "05477fc8a3c0eb3a742afe58e9666c65070ec442aa26a47666936e3af5b5137a",
+  "collectorTestSHA256": "50206c547a8a6c8ec3e5cd1e3b0aeaaa84a55adf132cbdc85069653b738aad92",
   "clockFixtureSHA256": "4bf2c94f9f530fcbc020356f132c0d6a412b5866a7647975b4af966979afb089",
   "refusalFixtureSources": {
     "RefusalDiagnostics.swift": "eaba60e4477811a928afb3d0e6c6dfad040441c3e424e68734f54474456590fb",
