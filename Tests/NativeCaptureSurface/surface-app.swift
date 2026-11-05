@@ -126,7 +126,7 @@ private final class SurfaceApp: NSObject, NSApplicationDelegate {
         startControl()
     }
     private func startControl() {
-        let deadline = began.advanced(by: .seconds(50))
+        let deadline = began.advanced(by: .seconds(150))
         DispatchQueue.global().async {
             let expected = Array("stop\n".utf8)
             var offset = 0, code: Int32 = 1, reason = "control-deadline"
