@@ -598,5 +598,109 @@
     "new": "_ = ino",
     "test": "TestRunnerRootObservationDistinguishesPresentAbsentAndStatError",
     "assertion": "ASSERTION:root-present-record"
+  },
+  {
+    "name": "v8-chrome-budget-old-five",
+    "file": "runner_budgets_darwin_test.go",
+    "old": "runnerChromeStaticIdentityBudget = 30*time.Second",
+    "new": "runnerChromeStaticIdentityBudget = 5*time.Second",
+    "test": "TestRunnerV8IdentityBudgetsAndHardClip",
+    "assertion": "ASSERTION:v8-role-scoped-budgets"
+  },
+  {
+    "name": "v8-clock-write-after",
+    "file": "runner_clock_darwin_test.go",
+    "old": "boundRunnerClock(e.Before,e.Received,e.EventMS)",
+    "new": "boundRunnerClock(e.After,e.Received,e.EventMS)",
+    "test": "TestRunnerV8EarlyClockAndBaselineIntersection",
+    "assertion": "ASSERTION:v8-write-before-clock"
+  },
+  {
+    "name": "v8-clock-disjoint-accepted",
+    "file": "runner_clock_darwin_test.go",
+    "old": "if upper.Before(lower){return runnerClockBound{},fmt.Errorf(\"causal clock intervals disagree\")}",
+    "new": "if false{return runnerClockBound{},fmt.Errorf(\"causal clock intervals disagree\")}",
+    "test": "TestRunnerV8EarlyClockAndBaselineIntersection",
+    "assertion": "ASSERTION:v8-clock-inconsistent-refused"
+  },
+  {
+    "name": "v8-snapshot-window-drop",
+    "file": "runner_refusal_snapshot_darwin_test.go",
+    "old": "r.Windows=append([]independentWindow(nil),actual...)",
+    "new": "r.Windows=nil",
+    "test": "TestRunnerV8SnapshotPreservesWindowsBeforeHeldOwner",
+    "assertion": "ASSERTION:v8-partial-snapshot-retained"
+  },
+  {
+    "name": "v8-snapshot-refusal-drop",
+    "file": "runner_refusal_snapshot_darwin_test.go",
+    "old": "if trigger==\"refusal\" {if s.refusal{return 0,false};s.refusal=true}",
+    "new": "if trigger==\"refusal\" {return 0,false}",
+    "test": "TestRunnerV8SnapshotPreservesWindowsBeforeHeldOwner",
+    "assertion": "ASSERTION:v8-refusal-priority"
+  },
+  {
+    "name": "v8-owner-status-drop",
+    "file": "runner_refusal_snapshot_darwin_test.go",
+    "old": "out.Kernel,out.Information,out.AppleAnchorStatus,err=ops.Code(ctx,trace,pid)",
+    "new": "out.Kernel,out.Information,out.AppleAnchorStatus,err=ops.Code(ctx,trace,pid);out.AppleAnchorStatus=nil",
+    "test": "TestRunnerV8DiagnosticOwnerRetainsFailuresWithoutAuthority",
+    "assertion": "ASSERTION:v8-owner-failure-facts"
+  },
+  {
+    "name": "v8-baseline-file-check-drop",
+    "file": "runner_baseline_identity_darwin_test.go",
+    "old": "err!=nil||!reflect.DeepEqual(out.FileMetadata,old.Code.Binding.FileMetadata)",
+    "new": "err!=nil||!reflect.DeepEqual(out.FileMetadata,out.FileMetadata)",
+    "test": "TestRunnerV8BaselineCheapBoundaryAndBudget",
+    "assertion": "ASSERTION:v8-baseline-file-refused"
+  },
+  {
+    "name": "v8-baseline-kernel-check-drop",
+    "file": "runner_baseline_identity_darwin_test.go",
+    "old": "err!=nil||out.KernelBefore!=old.Code.Binding.Kernel",
+    "new": "err!=nil||out.KernelBefore!=out.KernelBefore",
+    "test": "TestRunnerV8BaselineCheapBoundaryAndBudget",
+    "assertion": "ASSERTION:v8-baseline-kernel-refused"
+  },
+  {
+    "name": "v8-baseline-ignore-budget",
+    "file": "runner_baseline_identity_darwin_test.go",
+    "old": "if ctx.Err()!=nil||lost||pending!=0",
+    "new": "if lost||pending!=0",
+    "test": "TestRunnerV8BaselineCheapBoundaryAndBudget",
+    "assertion": "ASSERTION:v8-baseline-budget-refused"
+  },
+  {
+    "name": "v8-baseline-widen-budget",
+    "file": "runner_baseline_identity_darwin_test.go",
+    "old": "deadline:=now.Add(2*time.Second)",
+    "new": "deadline:=now.Add(3*time.Second)",
+    "test": "TestRunnerV8BaselineCheapBoundaryAndBudget",
+    "assertion": "ASSERTION:v8-baseline-total-two-seconds"
+  },
+  {
+    "name": "v8-baseline-static-slow-path",
+    "file": "runner_baseline_identity_darwin_test.go",
+    "old": "return c.operations(role,path).GuestValidity",
+    "new": "return c.operations(role,path).ChromeBundleValidity",
+    "test": "TestRunnerV8BaselineNativeRoutingAvoidsStaticValidation",
+    "assertion": "ASSERTION:v8-baseline-no-static-slow-path"
+  },
+  {
+    "name": "v8-clock-marker-accept-any",
+    "file": "runner_schema_darwin_test.go",
+    "old": "err!=nil||value!=\"runner-clock-anchor\"",
+    "new": "err!=nil||value==\"\"",
+    "test": "TestRunnerV8EarlyClockFoundationEncoder",
+    "assertion": "ASSERTION:v8-clock-fixed-marker"
+  },
+  {
+    "name": "v8-window-approval-drop",
+    "file": "runner_refusal_snapshot_darwin_test.go",
+    "old": "rows,err:=read(true)",
+    "new": "rows,err:=read(false)",
+    "test": "TestRunnerV8DiagnosticWindowRouteKeepsApprovalAndDropsTitles",
+    "assertion": "ASSERTION:v8-window-approved-route"
   }
 ]

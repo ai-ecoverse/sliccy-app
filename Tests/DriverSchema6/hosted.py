@@ -27,6 +27,7 @@ for name, digest in manifest['inputs'].items():
     assert sha((root / name).read_bytes()) == digest
 assert sha((root / 'ReceiptFixture.swift').read_bytes()) == manifest['fixtureSHA256']
 assert sha((root / 'test_harness.py').read_bytes()) == manifest['collectorTestSHA256']
+assert sha((root / 'ClockFixture.swift').read_bytes()) == manifest['clockFixtureSHA256']
 for name, digest in manifest['actualEncoderSources'].items():
     assert sha(Path(name).read_bytes()) == digest
 
@@ -93,6 +94,12 @@ try:
     assert encoded.returncode == 0 and 0 < len(encoded.stdout) <= 32768 and encoded.stderr == b''
     fixture_path = results.resolve() / 'foundation-encode.stdout'
     env['SLICCY_RECEIPT_FIXTURE'] = str(fixture_path)
+    clock_fixture = str(private / 'clock-fixture')
+    clock_compile = command('clock-foundation-compile', ['/usr/bin/xcrun', 'swiftc', '-D', 'SLICCY_CAPTURE_RUNNER_PROOF', 'Sources/Sliccy/Screen/ScreenRunnerJournal.swift', str(root / 'ClockFixture.swift'), '-o', clock_fixture], 120)
+    assert clock_compile.returncode == 0
+    clock_encoded = command('clock-foundation-encode', [clock_fixture], 10)
+    assert clock_encoded.returncode == 0 and 0 < len(clock_encoded.stdout) <= 4096 and clock_encoded.stderr == b''
+    env['SLICCY_CLOCK_FIXTURE'] = str(results.resolve() / 'clock-foundation-encode.stdout')
     os.chdir(source)
     selected = '^(TestRunner.*|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission)$'
     binary = str(private / 'driver-components')
