@@ -14,10 +14,11 @@
   ],
   "assumptions": [
     "Observed per-overlay compile and restore compile durations from accepted V8.2, multiplied by 1.25; new compile pairs charged 7 seconds each.",
-    "Every full suite charged 28 seconds against the unchanged 30-second test timeout. New nominal and max tests each estimated at 10 seconds; this is unmeasured and must be reported if exceeded.",
+    "Every full suite charged 29 seconds against the unchanged 30-second test timeout. New nominal and max tests each estimated at 10 seconds; this is unmeasured and must be reported if exceeded.",
     "Heavy overlays each execute their actual heavy test twice (RED, restored GREEN); each has a separate shard.",
     "Exact-test restored runtime estimated from prior negative runtime, with 0.05-second minimum, twice and multiplied by 1.25. New light tests charged 0.5 seconds per execution.",
-    "600-second work and 15-minute job limits unchanged. No runtime failure, timeout, missing test or assertion may count RED. No automatic retry."
+    "600-second work and 15-minute job limits unchanged. No runtime failure, timeout, missing test or assertion may count RED. No automatic retry.",
+    "Post-index deadline regression uses injected time, real small file writes, and no sleep; new light overlay is placed on shard2 and charged7seconds compile plus1second red/restored runtime. Full suites each charged one extra second for this added test; unmeasured until hosted."
   ],
   "shards": [
     {
@@ -31,7 +32,7 @@
         "toolchainDownloadExtractAndFilesystem": 35,
         "fiveFoundationEncoders": 35,
         "coldBaselineCompile": 45,
-        "threeFullSuites": 84,
+        "threeFullSuites": 87,
         "fullRestoredAndFormattedCompile": 12,
         "formatter": 5,
         "otherHarnessAndHashing": 20,
@@ -40,8 +41,8 @@
         "oldExactTestRedGreenEstimate": 8.428,
         "newExactTestRedGreenEstimate": 26
       },
-      "estimatedSeconds": 429.33,
-      "marginTo600Seconds": 170.67
+      "estimatedSeconds": 432.33,
+      "marginTo600Seconds": 167.67
     },
     {
       "shard": 1,
@@ -54,7 +55,7 @@
         "toolchainDownloadExtractAndFilesystem": 35,
         "fiveFoundationEncoders": 35,
         "coldBaselineCompile": 45,
-        "threeFullSuites": 84,
+        "threeFullSuites": 87,
         "fullRestoredAndFormattedCompile": 12,
         "formatter": 5,
         "otherHarnessAndHashing": 20,
@@ -63,29 +64,29 @@
         "oldExactTestRedGreenEstimate": 10.835,
         "newExactTestRedGreenEstimate": 26
       },
-      "estimatedSeconds": 471.431,
-      "marginTo600Seconds": 128.569
+      "estimatedSeconds": 474.431,
+      "marginTo600Seconds": 125.569
     },
     {
       "shard": 2,
-      "mutants": 33,
-      "newMutants": 5,
+      "mutants": 34,
+      "newMutants": 6,
       "heavy": [],
       "seconds": {
         "toolchainDownloadExtractAndFilesystem": 35,
         "fiveFoundationEncoders": 35,
         "coldBaselineCompile": 45,
-        "threeFullSuites": 84,
+        "threeFullSuites": 87,
         "fullRestoredAndFormattedCompile": 12,
         "formatter": 5,
         "otherHarnessAndHashing": 20,
         "oldOverlayCompilePairsObservedTimes1_25": 115.769,
-        "newOverlayCompilePairsEstimate": 35,
+        "newOverlayCompilePairsEstimate": 42,
         "oldExactTestRedGreenEstimate": 3.551,
-        "newExactTestRedGreenEstimate": 5
+        "newExactTestRedGreenEstimate": 6
       },
-      "estimatedSeconds": 395.32,
-      "marginTo600Seconds": 204.68
+      "estimatedSeconds": 406.32,
+      "marginTo600Seconds": 193.68
     },
     {
       "shard": 3,
@@ -96,7 +97,7 @@
         "toolchainDownloadExtractAndFilesystem": 35,
         "fiveFoundationEncoders": 35,
         "coldBaselineCompile": 45,
-        "threeFullSuites": 84,
+        "threeFullSuites": 87,
         "fullRestoredAndFormattedCompile": 12,
         "formatter": 5,
         "otherHarnessAndHashing": 20,
@@ -105,8 +106,8 @@
         "oldExactTestRedGreenEstimate": 3.656,
         "newExactTestRedGreenEstimate": 5
       },
-      "estimatedSeconds": 438.353,
-      "marginTo600Seconds": 161.647
+      "estimatedSeconds": 441.353,
+      "marginTo600Seconds": 158.647
     }
   ]
 }

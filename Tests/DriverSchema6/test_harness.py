@@ -112,7 +112,7 @@ class PartitionTests(unittest.TestCase):
             self.assertTrue(all(not set(names) & previous for previous in sets))
             sets.append(set(names))
         self.assertEqual(set.union(*sets), set(universe))
-        self.assertEqual(sum(map(len, sets)), 134)
+        self.assertEqual(sum(map(len, sets)), 135)
         self.assertIn('v83-nominal-volume-gate-bypassed', sets[0])
         self.assertIn('v83-overflow-loss-blocker-removed', sets[1])
         for index, count in [(-1, 4), (4, 4), (0, 1), (0, 2), (0, 3), (True, 4), (0, True)]:

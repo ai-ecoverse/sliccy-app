@@ -1070,5 +1070,13 @@
     "new": "if false && row.Stage==\"terminal\" {if outcome",
     "test": "TestRunnerV83DisplayDiagnosticsNeverSupplyIdentityOrSuccess",
     "assertion": "ASSERTION:v83-display-terminal-needs-ledger"
+  },
+  {
+    "name": "v83-post-index-deadline-dropped",
+    "file": "runner_normalized_case_darwin_test.go",
+    "old": "if now().Sub(began)>runnerCaseAbsoluteBudget{refuse(\"private evidence index finalization exceeded absolute case deadline\")}",
+    "new": "if false{refuse(\"private evidence index finalization exceeded absolute case deadline\")}",
+    "test": "TestRunnerNormalizedIndexFinalizationDeadline/late-index",
+    "assertion": "ASSERTION:v83-index-finalization-refuses-late-or-error"
   }
 ]

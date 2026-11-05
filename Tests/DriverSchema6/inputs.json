@@ -27,7 +27,7 @@
     "runner_case_evidence_fixture_darwin_test.go": "757944441f736b51fe3367be73bcc855fb8d06190dbf39d2d6e2a93225eea1d8",
     "runner_clock_darwin_test.go": "ce5414fd3296edcbf3aa88eb8e5fbc52436925c7545e58cbf404d1371d6958cb",
     "runner_code_receipt_darwin_test.go": "a9250ba73dbde3b6a1fdc7717db943dd611d178c60765eb770db1e9bb0efe0c1",
-    "runner_controller_darwin_test.go": "488f09cdb9f97e9c6a7514e67f5d50439881997cc32c833159ab0bfb38d1899f",
+    "runner_controller_darwin_test.go": "0a1ff6f52f948d2233513e25deb7378382512ebff2e1105656be1278c38bc03a",
     "runner_controller_observer_darwin_test.go": "d0c5fe4e237a7879e2069dcf4e7b1f3ad0f87ccf181659db27a30cb84b116942",
     "runner_controller_observer_fixture_darwin_test.go": "87c15aead7dd950ab6cf8ee8a08d01d142c519ddeb7d8af80a8815314fd34b6e",
     "runner_darwin_signal_fixture_darwin_test.go": "ab5954417e94f68e39717f30371646c6a4c904bda311e01251c8f0a77e8202ce",
@@ -50,9 +50,9 @@
     "runner_native_darwin_test.go": "991f81129353c88e8a5e945a8bda4f8e4e32f427290081397cb8372f756a39bc",
     "runner_native_trace_darwin_test.go": "7a878dd3abfb06fc1fbdae12f1910d233a4f1cae71ac7e0940a9dcbefca6c267",
     "runner_native_trace_fixture_darwin_test.go": "2302805bd2411cfbcdbac3ffd7442b796c9a78b403f74c26f84db3f8375c9e3b",
-    "runner_normalized_case_darwin_test.go": "07454887b815e7e9551d2392e1e44679bd1e81bd777f7dac87e93021319404da",
+    "runner_normalized_case_darwin_test.go": "fe224332590efe35d2da947e419468141c251035e1f18b783b7ea39112e6217b",
     "runner_normalized_codec_darwin_test.go": "780bf7cdc6a2508a2231eb914df1fe103cfdf267156456c5bc1e8277d7ccf4b3",
-    "runner_normalized_fixture_darwin_test.go": "b70f8c704c3b768b4ad5f01b1abdb3ffd6c439a8ab893517049ee28edf2f9a0a",
+    "runner_normalized_fixture_darwin_test.go": "c8ac2c6de3679cbfde85a4f961412a288438c1989ece1f4ab0fd640595674670",
     "runner_normalized_reader_darwin_test.go": "00f367cf223dcf270f64a72703ede8570106732e085af0767a5fc4c30ec4e70b",
     "runner_normalized_writer_darwin_test.go": "01bd61040876e9613846d4d61372207ed517435e95d233f4d91b95b42223b80a",
     "runner_observation_pool_darwin_test.go": "3050e870dcdd9af4bb7106b3f2355146eeafb7714335a2e65db86818d0cf8ba3",
@@ -97,7 +97,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "c0575429b7db6ef294bbd6bf293cc956ac2ddeb771f747ea84e4bbad6332f856",
+    "inputs/driver-source.tar.gz": "db3d9154e5b067c7a41df54f82e9ba018dff9514183bb9eddd822555849ca75f",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
   },
   "fixtureSHA256": "30454bdbe417a34a07d3ae68702e2c9e816e7b58397c928165cc07473780b21b",
@@ -107,7 +107,7 @@
     "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6"
   },
   "scope": "Synthetic only; build16 producer draft and approved inline normalization; current build15 artifact pins are provisional and not dispatchable. Build16 signing/static and final artifact pin validation remain separate.",
-  "collectorTestSHA256": "867c18a19dae67d32563d7a28f976494bb9a9dd1d06eebbc38f7ff7a74847d39",
+  "collectorTestSHA256": "6d81b32511bb11f4fb0d06cb0e50952aded91fc2457c55d4e3af2a525baa77fb",
   "clockFixtureSHA256": "4bf2c94f9f530fcbc020356f132c0d6a412b5866a7647975b4af966979afb089",
   "refusalFixtureSources": {
     "RefusalDiagnostics.swift": "eaba60e4477811a928afb3d0e6c6dfad040441c3e424e68734f54474456590fb",
@@ -146,11 +146,11 @@
   },
   "scheduleSources": {
     "hosted.py": "8ac36159492bcfcd62311083456af09e324fb57bd6c53e823d4b6feb4c0d6065",
-    "partition.py": "9fabd19125d4fe45478c59a42df00e9410bcb28b5761328988bd02800abce28b",
+    "partition.py": "754f689fb05515955843d38df81fd214e24ee27dca953abd61420e4c135b12ff",
     "runtime_result.py": "ad9f88f2871ec253748a9f0dcc447eb33bf23e9cdd1929dce26d1a69a94e49be",
-    "shards.json": "f8b772f1ebe8c637110e41b85d5d6170d2d5a0fc6cced6232df154aa001111dd",
-    "schedule-estimate.json": "696310bf0ca6f9754791bc4a515126548656e75bf4b214a66a20c3444c3682d6",
-    "mutants.json": "9e96769dc8c9b70f84d4f1d4ac23f8d19948c34cb016487d3f3ba2591297aefd",
-    "test_harness.py": "867c18a19dae67d32563d7a28f976494bb9a9dd1d06eebbc38f7ff7a74847d39"
+    "shards.json": "739d853b86bac7a094c3b094b2ec6d3962262b97eea269aa42d08e053bc945ff",
+    "schedule-estimate.json": "e3f859ca5cbe7370d39e138869aae55d45bfcf199e27011f784492bd8d50bfdd",
+    "mutants.json": "a2b49ed00fb82ca7b549b71a14bf64e3b77e9c64dbcb6040bb4e0557b02db6a4",
+    "test_harness.py": "6d81b32511bb11f4fb0d06cb0e50952aded91fc2457c55d4e3af2a525baa77fb"
   }
 }

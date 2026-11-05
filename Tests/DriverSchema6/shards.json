@@ -1,8 +1,8 @@
 {
   "version": 1,
   "shardCount": 4,
-  "mutationCount": 134,
-  "baselineTestCount": 100,
+  "mutationCount": 135,
+  "baselineTestCount": 101,
   "assignment": [
     [
       "capture-duration-bound",
@@ -109,7 +109,8 @@
       "v83-C-predicate-true-accepted",
       "v83-display-parent-dropped",
       "v83-display-trigger-enum-dropped",
-      "v83-ordinary-class-widened"
+      "v83-ordinary-class-widened",
+      "v83-post-index-deadline-dropped"
     ],
     [
       "bsd-raw-parent-bound",
@@ -204,6 +205,7 @@
     "TestRunnerNativeKernelAdapterRetainsActualReturnsErrnoAndCallOrder",
     "TestRunnerNativeTraceKeepsEnteredCallWithoutInventingCompletion",
     "TestRunnerNativeTraceOverflowCannotResumeAfterDrain",
+    "TestRunnerNormalizedIndexFinalizationDeadline",
     "TestRunnerObservationPoolBoundsConcurrencyAndReportsEveryResult",
     "TestRunnerObservationPoolDoesNotInferSettlementFromDeadline",
     "TestRunnerOwnerBoundsDoNotDependOnTitleVisibilityOrText",
