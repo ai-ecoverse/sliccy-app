@@ -254,5 +254,53 @@
     "new": "",
     "test": "TestRunnerLivePionUnsettledWorkerBlocksLaterCases",
     "assertion": "ASSERTION:pion-unsettled-blocks-later-cases"
+  },
+  {
+    "name": "unavailable-pass-guard",
+    "file": "runner_case_evidence_darwin_test.go",
+    "old": " && !result.EvidenceUnavailable",
+    "new": "",
+    "test": "TestRunnerUnavailableEvidenceCannotBecomePassFromContradictoryComplete",
+    "assertion": "ASSERTION:unavailable-complete-refused-screen-refused"
+  },
+  {
+    "name": "unavailable-latch-set",
+    "file": "runner_case_evidence_darwin_test.go",
+    "old": "result.EvidenceUnavailable = true",
+    "new": "result.EvidenceUnavailable = false",
+    "test": "TestRunnerUnavailableEvidenceCannotBecomePassFromContradictoryComplete",
+    "assertion": "ASSERTION:unavailable-complete-refused-screen-refused"
+  },
+  {
+    "name": "prelaunch-protocol-blocker",
+    "file": "runner_loop_darwin_test.go",
+    "old": "result.ProtocolPageCreated && !result.ProtocolWorkersSettled",
+    "new": "result.AppPID > 0 && !result.ProtocolWorkersSettled",
+    "test": "TestRunnerPrelaunchPageSettlementIsRecordedAndBlocksWithoutAppPID",
+    "assertion": "ASSERTION:prelaunch-protocol-blocks-without-app"
+  },
+  {
+    "name": "prelaunch-protocol-skip",
+    "file": "runner_loop_darwin_test.go",
+    "old": "if l.result.ProtocolSettlementAttempted{return}",
+    "new": "if l.result.ProtocolSettlementAttempted || l.result.AppPID==0{return}",
+    "test": "TestRunnerPrelaunchPageSettlementIsRecordedAndBlocksWithoutAppPID",
+    "assertion": "ASSERTION:prelaunch-protocol-settlement-recorded"
+  },
+  {
+    "name": "capture-duration-bound",
+    "file": "runner_timing_darwin_test.go",
+    "old": "if e.UpperMS > 10000",
+    "new": "if false",
+    "test": "TestRunnerCaptureDurationIncludesPreStreamStartAndRejectsOverLimit/over-limit",
+    "assertion": "ASSERTION:capture-span-refuse-over-limit"
+  },
+  {
+    "name": "capture-duration-prestart",
+    "file": "runner_timing_darwin_test.go",
+    "old": "UpperMS:stopped.Event-grant.Event",
+    "new": "UpperMS:stopped.Event-started.Event",
+    "test": "TestRunnerCaptureDurationIncludesPreStreamStartAndRejectsOverLimit/prestart-delay",
+    "assertion": "ASSERTION:capture-span-refuse-prestart-delay"
   }
 ]
