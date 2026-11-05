@@ -58,32 +58,32 @@
   {
     "name": "cf-subtype",
     "file": "runner_security_native_darwin_test.go",
-    "old": "cpu,sub:=slice.CPU,slice.Subtype",
-    "new": "cpu,sub:=slice.CPU,int32(0)",
+    "old": "cpu, sub := slice.CPU, slice.Subtype",
+    "new": "cpu, sub := slice.CPU, int32(0)",
     "test": "TestRunnerNativeCFConstructorsUseExactAttributesAndTypedInformation",
     "assertion": "ASSERTION:native-constructor-routing"
   },
   {
     "name": "cf-info-flags",
     "file": "runner_security_native_darwin_test.go",
-    "old": "c.information(code,3,&information)",
-    "new": "c.information(code,2,&information)",
+    "old": "c.information(code, 3, &information)",
+    "new": "c.information(code, 2, &information)",
     "test": "TestRunnerNativeCFConstructorsUseExactAttributesAndTypedInformation",
     "assertion": "ASSERTION:native-information-flags"
   },
   {
     "name": "cf-selected-flags",
     "file": "runner_security_native_darwin_test.go",
-    "old": "validity(\"SecStaticCodeCheckValidity-selected\",flags,rule,",
-    "new": "validity(\"SecStaticCodeCheckValidity-selected\",16,rule,",
+    "old": "validity(\"SecStaticCodeCheckValidity-selected\", flags, rule,",
+    "new": "validity(\"SecStaticCodeCheckValidity-selected\", 16, rule,",
     "test": "TestRunnerNativeCFConstructorsUseExactAttributesAndTypedInformation",
     "assertion": "ASSERTION:native-actual-validity-flags"
   },
   {
     "name": "cf-float-type",
     "file": "runner_security_native_darwin_test.go",
-    "old": "||c.numberFloat(value)||",
-    "new": "||",
+    "old": " || c.numberFloat(value) ||",
+    "new": " ||",
     "test": "TestRunnerNativeCFConstructorsUseExactAttributesAndTypedInformation",
     "assertion": "ASSERTION:native-typed-information-floating-type"
   },
@@ -102,5 +102,37 @@
     "new": "\"app allowed cli authorization authorization-requester chrome-a-1 chrome-a-2 chrome-b-1 chrome-b-2\"",
     "test": "TestRunnerCleanupDoesNotClaimProtectedSystemWindowsAreOwned",
     "assertion": "ASSERTION:protected-window-not-owned-cleanup"
+  },
+  {
+    "name": "identity-parent-after",
+    "file": "runner_identity_boundary_darwin_test.go",
+    "old": "!runnerBSDEqual(parentAfter.Selected,parentBefore.Selected)||!runnerBSDEqual(parentAfter.Selected,spec.ParentIdentity)",
+    "new": "false",
+    "test": "TestRunnerIdentityBoundaryRefusesLostOwnershipAndIncompleteBinding",
+    "assertion": "ASSERTION:identity-refuse-parent-after"
+  },
+  {
+    "name": "identity-credential",
+    "file": "runner_identity_boundary_darwin_test.go",
+    "old": "||bound.BSD.Real!=uint32(os.Getuid())",
+    "new": "",
+    "test": "TestRunnerIdentityBoundaryRefusesLostOwnershipAndIncompleteBinding",
+    "assertion": "ASSERTION:identity-refuse-child-real"
+  },
+  {
+    "name": "trace-native-return",
+    "file": "runner_native_trace_darwin_test.go",
+    "old": "copy:=*value;row.ReturnValue=&copy",
+    "new": "copy:=int32(0);row.ReturnValue=&copy",
+    "test": "TestRunnerNativeTraceKeepsEnteredCallWithoutInventingCompletion",
+    "assertion": "ASSERTION:trace-exact-native-result"
+  },
+  {
+    "name": "pool-inflight-settlement",
+    "file": "runner_observation_pool_darwin_test.go",
+    "old": "if p.active!=0||p.lost{return false}",
+    "new": "if p.active!=0{return true};if p.lost{return false}",
+    "test": "TestRunnerObservationPoolDoesNotInferSettlementFromDeadline",
+    "assertion": "ASSERTION:native-worker-unsettled"
   }
 ]
