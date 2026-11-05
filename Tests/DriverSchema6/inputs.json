@@ -1,5 +1,5 @@
 {
-  "stage": "V8_PROVISIONAL_COMPONENTS_ONLY_BUILD14_REFUSAL_CONTRACT_AND_PINS_PENDING",
+  "stage": "V8_LOGIC_AND_IMMUTABLE_BUILD14_PRODUCER_INTEROP_ONLY_FINAL_ARTIFACT_PINS_PENDING",
   "files": {
     "code_status_darwin_test.go": "96339768f8a2a658bb1374f941cb6a6ea783d2239696718f24e76f1b7b36b41c",
     "fakehub_test.go": "b9d5ce98a94949544e8ec20317678494213e9a16a1170a2ca807260fbcc2b711",
@@ -24,9 +24,9 @@
     "runner_budgets_darwin_test.go": "b8a067f49fe43a1d023232446c92abf95c3cc3dfff676068307596f7e6d876cf",
     "runner_case_evidence_darwin_test.go": "9a102584a6698adecf66ecb6de5f272057d242d35b79c9fde96ac4a701f48f99",
     "runner_case_evidence_fixture_darwin_test.go": "757944441f736b51fe3367be73bcc855fb8d06190dbf39d2d6e2a93225eea1d8",
-    "runner_clock_darwin_test.go": "e28851bd6851722dff4b1ea14c43544802fea1887f5c9eebc9b5f00fe4b14476",
+    "runner_clock_darwin_test.go": "ce5414fd3296edcbf3aa88eb8e5fbc52436925c7545e58cbf404d1371d6958cb",
     "runner_code_receipt_darwin_test.go": "a9250ba73dbde3b6a1fdc7717db943dd611d178c60765eb770db1e9bb0efe0c1",
-    "runner_controller_darwin_test.go": "262d67cee473365ba3422fb3812537958f190619e94b9a75915ba6d8275f53f0",
+    "runner_controller_darwin_test.go": "8bb0df5e1d1adba7f86ef65bcb9c1325cbacf5d6f2f1f2f1a716621ab5c68bbd",
     "runner_controller_observer_darwin_test.go": "142f7773eee7a89e374c5d8b495a2aaeeb2b762eb15d67be8507241a33323d18",
     "runner_controller_observer_fixture_darwin_test.go": "87c15aead7dd950ab6cf8ee8a08d01d142c519ddeb7d8af80a8815314fd34b6e",
     "runner_darwin_signal_fixture_darwin_test.go": "ab5954417e94f68e39717f30371646c6a4c904bda311e01251c8f0a77e8202ce",
@@ -43,7 +43,7 @@
     "runner_io_fixture_darwin_test.go": "8421f60cba0f5573c17f87aaaf45d8265bcb4a9177fa429e6ae5d821b6b0255a",
     "runner_kernel_adapter_fixture_darwin_test.go": "dbe00641b9672daee0c390a243bf2230136b6951745c2e6f7a63b0af837d4dff",
     "runner_loop_darwin_test.go": "840a39bc8749195ec458faf2e37b5ab23995cd940267bb8db20a9e93f1e0b29f",
-    "runner_metadata_ledger_darwin_test.go": "f28a0b4b6d861a29630c9fe588b9b8b4dba22da17ba890e292f1880474a748e5",
+    "runner_metadata_ledger_darwin_test.go": "25515721f4b9fadd155fbd7ec5508f389fee63aa410280c9894b297604f76431",
     "runner_metadata_ledger_fixture_darwin_test.go": "19e00f0080052ac8802296c282e4f7d5c4ce2d7fbdb0cb07d5677ef1b6bef6e1",
     "runner_native_darwin_test.go": "991f81129353c88e8a5e945a8bda4f8e4e32f427290081397cb8372f756a39bc",
     "runner_native_trace_darwin_test.go": "b6a33e26907fce8626125821e1d9bb82969fa963a66d20d04dbc589435853614",
@@ -58,10 +58,12 @@
     "runner_receipts_darwin_test.go": "002b5712ab41b194666dd6e76dcfe3dfa59c5a1a9eacb37ea691d811887b9ae3",
     "runner_receiver_darwin_test.go": "366bbe77ace708a4fc324a7b9c3f7d9be4208f34f07f9afc78e8c0eeb54d4858",
     "runner_record_darwin_test.go": "b9c38e82f621e4ca1c833db130ffe3fb20b8bed2755bce0af022435c5f1856fe",
+    "runner_refusal_schema_darwin_test.go": "6822b99049fb1c78b26f737b01569cb382f51534416f3ecf8cb0e64326f18220",
+    "runner_refusal_schema_fixture_darwin_test.go": "237274a58f57f464a803bd596a92e57a549b602aff29b389816565e570c470e0",
     "runner_refusal_snapshot_darwin_test.go": "ca0c9ebbd16af96abe63e0a4e94168e3a55a7ea29436088e9d0c0dad0c6e7439",
     "runner_root_observation_darwin_test.go": "5aa1830622c38c93f18aab19768107e64a2e110c5a6cf51e18211b7def1509ca",
     "runner_root_observation_fixture_darwin_test.go": "2233c89fb5ec46d466494c928d25ec295c03fdc5ac82424e2071e1f7cb455351",
-    "runner_schema_darwin_test.go": "057e3bfcd9ea68d955f1d656bac10e036d7268b6b47ba5c026b4d1b7c0219a8a",
+    "runner_schema_darwin_test.go": "9e4620d97600d944b4dfdbed52a1097a1ff16ca11f6bacff20c5c9976b932f68",
     "runner_scope_darwin_test.go": "f7e2e300734bd99e30a6ec9e8f1541d9fa94045d6a395ee5f72c7fc05c36fcf0",
     "runner_security_constructor_darwin_test.go": "cf95096eac7fca47666c812e9075fd7c877a67083a25ab9676c4d6f3815d8df1",
     "runner_security_native_darwin_test.go": "4fbcf18fc9bc6b71c78739df3f3cd3b2fefb8f51580b1272c6adf2878ebeb4b4",
@@ -71,7 +73,7 @@
     "runner_timing_darwin_test.go": "ed1d1372b81a12a279dbe44b7a319db8b890657210b13b8ae73b72fda34ae180",
     "runner_union_darwin_test.go": "562cd33a4b2aa89802a82d13d8f0ee6abaf3f4a967e78efb36268c09d7925e4a",
     "runner_union_fixture_darwin_test.go": "2fdac0af150db7709ccbd55733885eaba13ce65f575d6ec577f88ae87b71e169",
-    "runner_v8_fixture_darwin_test.go": "5a2ede3519f93ed59e65f1f383f296c0d35f3e7ffd0a1f445883ab056874a8f0",
+    "runner_v8_fixture_darwin_test.go": "19f8a1cc893132038c304cbf97659fa644f804e090570a755eaf465bfdab792b",
     "runner_windows_darwin_test.go": "70e66d44da17bf99beed038f0d13596fdd957d9197cfbaba20bd0df7a5a1b878",
     "runner_wire_decode_darwin_test.go": "68efb087cdcc02575d3665b2754a030c95bcd549830a7abbe0faf46d0bd61d2d",
     "safety_handoff_darwin_test.go": "680ff5cae19825aa39288dfa7df162d4ffbf29d83be1e6c2e10ee49ecf260be0",
@@ -87,7 +89,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "e3c8404771e848addd1d41b7345988a917d6753ca68b8db0230f0f3fb7c0b895",
+    "inputs/driver-source.tar.gz": "5bdb4098a56d82ec7a5b58bb608fbaf042640b5654e6c2c0cb52522c1ca27fb0",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
   },
   "fixtureSHA256": "30454bdbe417a34a07d3ae68702e2c9e816e7b58397c928165cc07473780b21b",
@@ -98,5 +100,11 @@
   },
   "scope": "incomplete driver components: real CoreFoundation constructors with ALL Security callbacks substituted; BSD/kernel/file hooks fabricated; no real process/Security query or subject",
   "collectorTestSHA256": "05477fc8a3c0eb3a742afe58e9666c65070ec442aa26a47666936e3af5b5137a",
-  "clockFixtureSHA256": "4bf2c94f9f530fcbc020356f132c0d6a412b5866a7647975b4af966979afb089"
+  "clockFixtureSHA256": "4bf2c94f9f530fcbc020356f132c0d6a412b5866a7647975b4af966979afb089",
+  "refusalFixtureSources": {
+    "RefusalDiagnostics.swift": "c52c79ac8f38e14ee74f658ea6de2b465a60d82090b84796c46a7c81ecfb210b",
+    "RefusalFixture.swift": "4bb4d3ae245b466dfaa1c7d29fd48dea1f0b32279760d2d22143fb277d5affa5",
+    "refusal-producer-origin.json": "c958fb1526809ab9a0a169fcb5cadf690e7029a23fe44fe0cf66d51e5007c31d",
+    "build14-producer-files.json": "2a6184f933eaa87c81aacacdfa9cd8dec6f4d80b01e4a5bfc225cf55b147d7cf"
+  }
 }

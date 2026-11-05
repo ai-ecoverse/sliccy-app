@@ -702,5 +702,77 @@
     "new": "rows,err:=read(false)",
     "test": "TestRunnerV8DiagnosticWindowRouteKeepsApprovalAndDropsTitles",
     "assertion": "ASSERTION:v8-window-approved-route"
+  },
+  {
+    "name": "v8-clock-write-dropped",
+    "file": "runner_clock_darwin_test.go",
+    "old": "n,err:=io.WriteString(w,\"runner-clock-anchor\\n\")",
+    "new": "n,err:=len(\"runner-clock-anchor\\n\"),error(nil);_ = w",
+    "test": "TestRunnerV8ActualClockMarkerWrite",
+    "assertion": "ASSERTION:v8-actual-clock-write"
+  },
+  {
+    "name": "v8-refusal-decode-dropped",
+    "file": "runner_schema_darwin_test.go",
+    "old": "row.Refusal=&value",
+    "new": "_ = value",
+    "test": "TestRunnerV8ActualRefusalEncoderAndNoAuthority",
+    "assertion": "ASSERTION:v8-refusal-actual-encoder"
+  },
+  {
+    "name": "v8-refusal-enum-unapproved",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "!runnerOneOf(text,entry.allowed)",
+    "new": "!runnerOneOf(text,entry.allowed+\" __unapproved__\")",
+    "test": "TestRunnerV8RefusalStrictTypesAndEnums",
+    "assertion": "ASSERTION:v8-refusal-enum-site"
+  },
+  {
+    "name": "v8-refusal-count-truncation-drop",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "int64(len(items))!=min(count,2)",
+    "new": "int64(len(items))!=int64(len(items))",
+    "test": "TestRunnerV8RefusalStrictTypesAndEnums",
+    "assertion": "ASSERTION:v8-refusal-truncation"
+  },
+  {
+    "name": "v8-refusal-owner-presence-drop",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "*row.OwnerPresent!=(row.PID!=nil)",
+    "new": "false",
+    "test": "TestRunnerV8RefusalStrictTypesAndEnums",
+    "assertion": "ASSERTION:v8-refusal-owner-presence"
+  },
+  {
+    "name": "v8-refusal-provenance-drop",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "if value.SigningIdentifierSource==\"verified\"&&(value.Owner==nil||!value.Owner.Verified)",
+    "new": "if false",
+    "test": "TestRunnerV8RefusalStrictTypesAndEnums",
+    "assertion": "ASSERTION:v8-refusal-provenance"
+  },
+  {
+    "name": "v8-refusal-identifier-newline",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "||b=='-'||b=='.')",
+    "new": "||b=='-'||b=='.'||b=='\\n')",
+    "test": "TestRunnerV8RefusalStrictTypesAndEnums",
+    "assertion": "ASSERTION:v8-refusal-identifier-value"
+  },
+  {
+    "name": "v8-refusal-duplicate-attempt",
+    "file": "runner_metadata_ledger_darwin_test.go",
+    "old": "if l.RefusalAttempts[row.Refusal.Attempt]",
+    "new": "if false",
+    "test": "TestRunnerV8RefusalAttemptLedgerAllowsGapsButNotDuplicates",
+    "assertion": "ASSERTION:v8-refusal-duplicate-attempt"
+  },
+  {
+    "name": "v8-refusal-changes-verdict",
+    "file": "runner_case_evidence_darwin_test.go",
+    "old": "case \"surface-unavailable\":",
+    "new": "case \"surface-unavailable\", \"inventory-refusal\":",
+    "test": "TestRunnerV8ActualRefusalEncoderAndNoAuthority",
+    "assertion": "ASSERTION:v8-refusal-no-verdict-authority"
   }
 ]

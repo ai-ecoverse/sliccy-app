@@ -28,6 +28,7 @@ for name, digest in manifest['inputs'].items():
 assert sha((root / 'ReceiptFixture.swift').read_bytes()) == manifest['fixtureSHA256']
 assert sha((root / 'test_harness.py').read_bytes()) == manifest['collectorTestSHA256']
 assert sha((root / 'ClockFixture.swift').read_bytes()) == manifest['clockFixtureSHA256']
+for name,digest in manifest['refusalFixtureSources'].items(): assert sha((root / name).read_bytes()) == digest
 for name, digest in manifest['actualEncoderSources'].items():
     assert sha(Path(name).read_bytes()) == digest
 
@@ -100,6 +101,12 @@ try:
     clock_encoded = command('clock-foundation-encode', [clock_fixture], 10)
     assert clock_encoded.returncode == 0 and 0 < len(clock_encoded.stdout) <= 4096 and clock_encoded.stderr == b''
     env['SLICCY_CLOCK_FIXTURE'] = str(results.resolve() / 'clock-foundation-encode.stdout')
+    refusal_fixture = str(private / 'refusal-fixture')
+    refusal_compile = command('refusal-foundation-compile', ['/usr/bin/xcrun', 'swiftc', '-D', 'SLICCY_CAPTURE_RUNNER_PROOF', 'Sources/Sliccy/Screen/ScreenRunnerJournal.swift', str(root / 'RefusalDiagnostics.swift'), str(root / 'RefusalFixture.swift'), '-o', refusal_fixture], 120)
+    assert refusal_compile.returncode == 0
+    refusal_encoded = command('refusal-foundation-encode', [refusal_fixture], 10)
+    assert refusal_encoded.returncode == 0 and 0 < len(refusal_encoded.stdout) <= 32768 and refusal_encoded.stderr == b''
+    env['SLICCY_REFUSAL_FIXTURE'] = str(results.resolve() / 'refusal-foundation-encode.stdout')
     os.chdir(source)
     selected = '^(TestRunner.*|TestCaptureTimingRejectsLossAndDistinguishesEventFromEmission)$'
     binary = str(private / 'driver-components')

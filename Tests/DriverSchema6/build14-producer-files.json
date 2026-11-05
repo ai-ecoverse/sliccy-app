@@ -1,0 +1,15 @@
+{
+  "source": "303f46ea052167a3f07b20fea38501716000e9c2",
+  "status": "HOSTED_VALIDATION_PENDING_NOT_SOURCE_ACCEPTANCE",
+  "files": {
+    "Sources/Sliccy/Screen/ScreenRunnerInventoryDiagnostics.swift": "c52c79ac8f38e14ee74f658ea6de2b465a60d82090b84796c46a7c81ecfb210b",
+    "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6",
+    "Sources/Sliccy/Screen/ScreenRunnerSetupAllowance.swift": "051f023599cef16cb5ac5b5c14f91eb96115cf19c69ca8e81dd5850abf3649e5",
+    "Sources/Sliccy/Screen/ScreenRunnerCause.swift": "cc7928f90d001057f4de273a7a3b90beede7b7110f328121d8a9c15dc42c9cbe",
+    "Sources/Sliccy/Screen/ScreenRunnerInventoryBoundary.swift": "8bbd1c3bc9c4dc401ecac9cd0f307765f762470c4be7c5e609c7d944cc23b57f",
+    "Sources/Sliccy/Screen/ScreenRunnerProofApp.swift": "722c8adffd69b0dd268ce761fa448a02306b75607bb1ae8386909e05d0fd6459",
+    "Tests/SliccyTests/ScreenRunnerInventoryDiagnosticsTests.swift": "01cf44520d6b6798e2d6846c600973592e0e0f119be7f8a30f3fedeb8e3b335c",
+    "docs/runner-build14-contract.json": "8ddac494738b71bfba73e683981b57be175fdca522f5c0afb340b2f4bb949fdc",
+    "docs/runner-build14-volume.json": "fdac090591fa60236233e14e54d444e6e9bf70af0082dcdd9f27fed3ce00057d"
+  }
+}
