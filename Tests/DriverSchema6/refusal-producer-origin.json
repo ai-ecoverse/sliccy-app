@@ -1,10 +1,11 @@
 {
   "status": "IMMUTABLE_ACTUAL_PRODUCER_SOURCE_WITH_FABRICATED_INPUTS_NOT_SOURCE_ACCEPTANCE",
-  "source": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/capture-no-root-worktree/Sources/Sliccy/Screen/ScreenRunnerInventoryDiagnostics.swift",
-  "producerSHA256": "c52c79ac8f38e14ee74f658ea6de2b465a60d82090b84796c46a7c81ecfb210b",
+  "source": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/build14-producer-b38031ce/files/Sources/Sliccy/Screen/ScreenRunnerInventoryDiagnostics.swift",
+  "producerSHA256": "eaba60e4477811a928afb3d0e6c6dfad040441c3e424e68734f54474456590fb",
   "contractSHA256": "8ddac494738b71bfba73e683981b57be175fdca522f5c0afb340b2f4bb949fdc",
   "boundaryTypes": "fabricated shapes only; actual Notice.fields/identifier/ownerFields/rect and Journal encoder",
   "nativeQueries": false,
-  "sourceCommit": "303f46ea052167a3f07b20fea38501716000e9c2",
-  "producerPacketMapSHA256": "2a6184f933eaa87c81aacacdfa9cd8dec6f4d80b01e4a5bfc225cf55b147d7cf"
+  "sourceCommit": "b38031ce927bcc007ed5e1de7dfc027a88492952",
+  "producerPacketMapSHA256": "149afeb9fcbb97650823b1b055cefdff13e5917843254d57510ecea81402bce2",
+  "correction": "raw CGSize width/height; parser expectation unchanged"
 }

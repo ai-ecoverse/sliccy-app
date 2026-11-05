@@ -102,9 +102,9 @@
   "collectorTestSHA256": "05477fc8a3c0eb3a742afe58e9666c65070ec442aa26a47666936e3af5b5137a",
   "clockFixtureSHA256": "4bf2c94f9f530fcbc020356f132c0d6a412b5866a7647975b4af966979afb089",
   "refusalFixtureSources": {
-    "RefusalDiagnostics.swift": "c52c79ac8f38e14ee74f658ea6de2b465a60d82090b84796c46a7c81ecfb210b",
+    "RefusalDiagnostics.swift": "eaba60e4477811a928afb3d0e6c6dfad040441c3e424e68734f54474456590fb",
     "RefusalFixture.swift": "13cfbd6860ae08d8dc5e9f299e1bcda11760b2a0abe20a7c3b855b2dd79f8361",
-    "refusal-producer-origin.json": "c958fb1526809ab9a0a169fcb5cadf690e7029a23fe44fe0cf66d51e5007c31d",
-    "build14-producer-files.json": "2a6184f933eaa87c81aacacdfa9cd8dec6f4d80b01e4a5bfc225cf55b147d7cf"
+    "refusal-producer-origin.json": "898dfc3ebe35c133cf4bf3a6ffc6a0fbb24722ae5548f7c32c2cc35bcf2c502e",
+    "build14-producer-files.json": "149afeb9fcbb97650823b1b055cefdff13e5917843254d57510ecea81402bce2"
   }
 }

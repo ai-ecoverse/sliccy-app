@@ -62,7 +62,7 @@ final class ScreenRunnerInventoryDiagnostics: @unchecked Sendable {
         }
         static func rect(_ value: CGRect) -> [String: Any] {
             func number(_ x: CGFloat) -> Any { x.isFinite ? Double(x) as Any : NSNull() }
-            return ["x": number(value.origin.x), "y": number(value.origin.y), "width": number(value.width), "height": number(value.height)]
+            return ["x": number(value.origin.x), "y": number(value.origin.y), "width": number(value.size.width), "height": number(value.size.height)]
         }
     }
     final class Attempt: @unchecked Sendable {
