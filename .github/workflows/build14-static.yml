@@ -1,0 +1,30 @@
+name: Independent build14 static artifact verification
+on:
+  push:
+    branches: [proof/independent-build14-static-v1]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  static-artifact:
+    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'push' && github.ref == 'refs/heads/proof/independent-build14-static-v1'
+    runs-on: xcode-27
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Fixed immutable artifact static checks and sealing
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -B Tests/Build14Static/hosted.py > "$RUNNER_TEMP/build14-static-bootstrap.log" 2>&1
+      - name: Retain ciphertext only
+        if: always() && steps.verify.outputs.sealed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: build14-static-sealed
+          path: ${{ runner.temp }}/build14-static-evidence.age
+          if-no-files-found: error
+          retention-days: 1
