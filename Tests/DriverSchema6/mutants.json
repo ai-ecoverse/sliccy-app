@@ -722,8 +722,8 @@
   {
     "name": "v8-refusal-enum-unapproved",
     "file": "runner_refusal_schema_darwin_test.go",
-    "old": "!runnerOneOf(text,entry.allowed)",
-    "new": "!runnerOneOf(text,entry.allowed+\" __unapproved__\")",
+    "old": "!runnerDiagnosticEnum(text,entry.allowed)",
+    "new": "!runnerDiagnosticEnum(text,entry.allowed+\" __unapproved__\")",
     "test": "TestRunnerV8RefusalStrictTypesAndEnums",
     "assertion": "ASSERTION:v8-refusal-enum-site"
   },
@@ -826,7 +826,7 @@
   {
     "name": "v82-surface-predicate-guard",
     "file": "runner_refusal_schema_darwin_test.go",
-    "old": "!runnerOneOf(value.Predicate,\"host identifier team hash role path operation\")",
+    "old": "!runnerDiagnosticEnum(value.Predicate,\"host identifier team hash role path operation\")",
     "new": "false",
     "test": "TestRunnerV82ActualSurfaceRefusalEncoderStrictFields",
     "assertion": "ASSERTION:v82-surface-invalid-field"
@@ -850,7 +850,7 @@
   {
     "name": "v82-surface-operation-guard",
     "file": "runner_refusal_schema_darwin_test.go",
-    "old": "!runnerOneOf(value.Operation,\"host executable-read executable-hash policy static-code requirement static-validity signing-information catalogue launch\")",
+    "old": "!runnerDiagnosticEnum(value.Operation,\"host executable-read executable-hash policy static-code requirement static-validity signing-information catalogue launch\")",
     "new": "false",
     "test": "TestRunnerV82ActualSurfaceRefusalEncoderStrictFields",
     "assertion": "ASSERTION:v82-surface-invalid-field"
@@ -862,5 +862,21 @@
     "new": "if false{return value,fmt.Errorf(\"disabled field guard\")}",
     "test": "TestRunnerV82ActualSurfaceRefusalEncoderStrictFields",
     "assertion": "ASSERTION:v82-surface-invalid-field"
+  },
+  {
+    "name": "v82-surface-composite-enum",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "runnerDiagnosticEnum(value.Predicate,",
+    "new": "runnerOneOf(value.Predicate,",
+    "test": "TestRunnerV82SurfaceExactDiagnosticEnums",
+    "assertion": "ASSERTION:v82-surface-exact-enum"
+  },
+  {
+    "name": "v82-inventory-composite-enum",
+    "file": "runner_refusal_schema_darwin_test.go",
+    "old": "runnerDiagnosticEnum(text,entry.allowed)",
+    "new": "runnerOneOf(text,entry.allowed)",
+    "test": "TestRunnerV82InventoryExactDiagnosticEnums",
+    "assertion": "ASSERTION:v82-inventory-exact-enum"
   }
 ]

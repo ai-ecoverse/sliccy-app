@@ -1,5 +1,5 @@
 {
-  "stage": "V82_BUILD15_EXACT_PINS_AND_DIAGNOSTICS_FINAL_COMPONENT_VALIDATION",
+  "stage": "V82_EXACT_DIAGNOSTIC_ENUM_MEMBERSHIP_CORRECTION",
   "files": {
     "code_status_darwin_test.go": "96339768f8a2a658bb1374f941cb6a6ea783d2239696718f24e76f1b7b36b41c",
     "fakehub_test.go": "b9d5ce98a94949544e8ec20317678494213e9a16a1170a2ca807260fbcc2b711",
@@ -58,8 +58,8 @@
     "runner_receipts_darwin_test.go": "002b5712ab41b194666dd6e76dcfe3dfa59c5a1a9eacb37ea691d811887b9ae3",
     "runner_receiver_darwin_test.go": "366bbe77ace708a4fc324a7b9c3f7d9be4208f34f07f9afc78e8c0eeb54d4858",
     "runner_record_darwin_test.go": "b9c38e82f621e4ca1c833db130ffe3fb20b8bed2755bce0af022435c5f1856fe",
-    "runner_refusal_schema_darwin_test.go": "3cc389bd9b19a656ffcac0d153e1e4e11513fb5598fa9b622ad8195e570a19b2",
-    "runner_refusal_schema_fixture_darwin_test.go": "21dc948cffa396a13301ff8352030ddc744ef38c3fb6a58a9b906366df320b2a",
+    "runner_refusal_schema_darwin_test.go": "d367946b3cb94f163e5ef8b4fdd719e953c660959255729014484502a654447c",
+    "runner_refusal_schema_fixture_darwin_test.go": "abedbf09db27b7d0d957a998d89fda34cfd17d5d2c1f02e83650dc2f73c05a6f",
     "runner_refusal_snapshot_darwin_test.go": "46fbec28d6d33d472a778d43e799685c32f56a43565457850343c4caf383adc6",
     "runner_root_observation_darwin_test.go": "5aa1830622c38c93f18aab19768107e64a2e110c5a6cf51e18211b7def1509ca",
     "runner_root_observation_fixture_darwin_test.go": "2233c89fb5ec46d466494c928d25ec295c03fdc5ac82424e2071e1f7cb455351",
@@ -89,7 +89,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "1e060aec26d96c751ff7e2daba5a929d853a409c8a1a6fc0a5f7dd377fe46eeb",
+    "inputs/driver-source.tar.gz": "5d92c702343ac487771e6fb2d7b567dcba71f4d9f6ebe03a3d6b1fa9206d18f4",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9"
   },
   "fixtureSHA256": "30454bdbe417a34a07d3ae68702e2c9e816e7b58397c928165cc07473780b21b",
@@ -99,7 +99,7 @@
     "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6"
   },
   "scope": "Synthetic components only, exact build15 pins; static trust receipt separate; final source/evidence review and wrapper gate pending",
-  "collectorTestSHA256": "c7bbd7d7b1707b1c3b6b5dfed6418eb99242113ab8ec4d4547c2afd7efa156d0",
+  "collectorTestSHA256": "01c42b5ec019f68eaa16a85bbeaab71c2419a250d951ded3973182118df4ea35",
   "clockFixtureSHA256": "4bf2c94f9f530fcbc020356f132c0d6a412b5866a7647975b4af966979afb089",
   "refusalFixtureSources": {
     "RefusalDiagnostics.swift": "eaba60e4477811a928afb3d0e6c6dfad040441c3e424e68734f54474456590fb",

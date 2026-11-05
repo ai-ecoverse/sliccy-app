@@ -67,7 +67,7 @@ class PartitionTests(unittest.TestCase):
         self.assertEqual(universe,same)
         self.assertEqual(set(a)|set(b),set(universe))
         self.assertFalse(set(a)&set(b))
-        self.assertEqual(len(a)+len(b),108)
+        self.assertEqual(len(a)+len(b),110)
         self.assertEqual(a,sorted(a))
         self.assertEqual(b,sorted(b))
         self.assertEqual({r['name'] for r in first},set(a))
