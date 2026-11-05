@@ -126,10 +126,26 @@ try:
     formatted = results / 'formatted'
     formatted.mkdir()
     for name in manifest['files']:
-        result = subprocess.run([str(private / 'go/bin/gofmt'), str(target / name)], stdin=subprocess.DEVNULL, capture_output=True, env=env, timeout=10)
+        result = command('format-'+name, [str(private / 'go/bin/gofmt'), str(target / name)], 10)
         assert result.returncode == 0 and result.stderr == b'' and len(result.stdout) <= 1048576
         (formatted / name).write_bytes(result.stdout)
     (results / 'formatted-source-map.json').write_text(json.dumps({p.name: sha(p.read_bytes()) for p in formatted.iterdir()}, indent=2))
+    originals = {name: (target / name).read_bytes() for name in manifest['files']}
+    formatted_hashes = {p.name: sha(p.read_bytes()) for p in formatted.iterdir()}
+    try:
+        for name in manifest['files']:
+            (target / name).write_bytes((formatted / name).read_bytes())
+        assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == formatted_hashes
+        final_compile = command('formatted-final-compile', [go, 'test', '-c', '-o', binary, './test/nativeproof'], 120)
+        assert final_compile.returncode == 0
+        final_runtime = command('formatted-final-runtime', [binary, '-test.count=1', '-test.timeout=30s', '-test.v', '-test.run', selected], 45)
+        assert final_runtime.returncode == 0 and b'--- SKIP:' not in final_runtime.stdout
+        (results / 'formatted-tested-source-map.json').write_text(json.dumps(formatted_hashes, indent=2))
+    finally:
+        for name, raw in originals.items():
+            (target / name).write_bytes(raw)
+        assert {p.name: sha(p.read_bytes()) for p in target.iterdir()} == manifest['files']
+        (results / 'final-restored-source-map.json').write_text(json.dumps(manifest['files'], indent=2))
     assert all(item['validRed'] for item in mutation_results)
 finally:
     output = Path(os.environ['GITHUB_WORKSPACE']) / 'driver-schema6-results'
