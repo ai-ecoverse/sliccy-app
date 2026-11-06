@@ -1,5 +1,5 @@
 {
-  "stage": "V84_ROUND7_DRAFT_UNFROZEN",
+  "stage": "V84_ROUND7_LAUNCH_BSD_FIXTURE_FIX",
   "files": {
     "code_status_darwin_test.go": "96339768f8a2a658bb1374f941cb6a6ea783d2239696718f24e76f1b7b36b41c",
     "fakehub_test.go": "b9d5ce98a94949544e8ec20317678494213e9a16a1170a2ca807260fbcc2b711",
@@ -48,7 +48,7 @@
     "runner_inventory_darwin_test.go": "34793dce224368aa355e36f2b2eaf6386037be1a7d5b5d97463b7686c7771c07",
     "runner_io_fixture_darwin_test.go": "8421f60cba0f5573c17f87aaaf45d8265bcb4a9177fa429e6ae5d821b6b0255a",
     "runner_kernel_adapter_fixture_darwin_test.go": "dbe00641b9672daee0c390a243bf2230136b6951745c2e6f7a63b0af837d4dff",
-    "runner_launch_schema_darwin_test.go": "a17786da3eb973b878b3aadf724c0601c9ee14aba244e0043c64332aeba7bb50",
+    "runner_launch_schema_darwin_test.go": "5e9dd59c59b3834d8382e0618647a89357005e9e3cc1e233dc66720de7f90863",
     "runner_loop_darwin_test.go": "fe1a60464bd1cbeb49e2038a7a992f1eb9b9c87d0737abe96b4551783e0309ea",
     "runner_metadata_ledger_darwin_test.go": "ec7298c69055cd8869dd1ea9b8baf648e59c99fb18ad49e1b8a72d361363e445",
     "runner_metadata_ledger_fixture_darwin_test.go": "19e00f0080052ac8802296c282e4f7d5c4ce2d7fbdb0cb07d5677ef1b6bef6e1",
@@ -102,7 +102,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "70b932622717fc65595aa864731cfc5fbcc43fb20b6e3e3693127c795ef066a5",
+    "inputs/driver-source.tar.gz": "8799a8f15737df23723f90b8fbfd3ddd51e4fce2b183c8f500567a57c3472fc2",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9",
     "v84-contract.json": "a0e054330c5a49abf5acd3a0386aad73623c5eeff5d701c839db496fb9c3b777",
     "schedule-estimate.json": "143df380273706017f48ff927fadbbf5f0f25442a9f373dc0167d774e5948fc5"
@@ -114,7 +114,7 @@
     "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6"
   },
   "scope": "Synthetic only: corrected schedule and authenticated final build16 pins. Combined workflow2b/finalpin5; no provisional build15 identity acceptance. No capture or native local.",
-  "collectorTestSHA256": "10530be85d354b8fcf0f39c5c8182c05f83d85d93ba291aa8c57f7a9489f2bb3",
+  "collectorTestSHA256": "aad54e0c30bb8b41242693c0d2404f8d2c2fbb16223444e638c7836c00658a62",
   "clockFixtureSHA256": "4bf2c94f9f530fcbc020356f132c0d6a412b5866a7647975b4af966979afb089",
   "refusalFixtureSources": {
     "RefusalDiagnostics.swift": "eaba60e4477811a928afb3d0e6c6dfad040441c3e424e68734f54474456590fb",

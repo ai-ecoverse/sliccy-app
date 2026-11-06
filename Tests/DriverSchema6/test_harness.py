@@ -100,6 +100,27 @@ class CollectorTests(unittest.TestCase):
         green.stdout += b'=== RUN   TestA\n--- PASS: TestA (0.01s)\n'
         self.assertFalse(suite_result(green, ['TestA', 'TestB']))
 
+    def test_driver_mutant_plan_old_strings_once(self):
+        """Pure dry-run of the hosted mutation plan: no Go compile/subprocess."""
+        import ast
+        import tarfile
+        root = Path(__file__).parent
+        hosted = (root / 'hosted.py').read_text()
+        self.assertIn('mutants.json', hosted)
+        self.assertTrue(any(isinstance(n, ast.Call) and getattr(getattr(n, 'func', None), 'attr', None) == 'loads' for n in ast.walk(ast.parse(hosted))))
+        mutants = json.loads((root / 'mutants.json').read_text())
+        self.assertGreaterEqual(len(mutants), 146)
+        texts = {}
+        with tarfile.open(root / 'inputs' / 'driver-source.tar.gz') as tar:
+            for member in tar.getmembers():
+                if member.isfile() and member.name.endswith('.go'):
+                    texts[member.name] = tar.extractfile(member).read().decode()
+        names = set()
+        for mutant in mutants:
+            self.assertNotIn(mutant['name'], names)
+            names.add(mutant['name'])
+            self.assertEqual(texts[mutant['file']].count(mutant['old']), 1, mutant['name'])
+
 
 class PartitionTests(unittest.TestCase):
     def test_actual_partition_is_disjoint_exhaustive_and_fixed(self):
