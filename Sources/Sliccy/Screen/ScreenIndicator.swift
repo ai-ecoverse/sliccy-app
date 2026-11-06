@@ -20,6 +20,14 @@ final class ScreenStopRelay: @unchecked Sendable {
          cause: @escaping @Sendable (ScreenFailure, Origin, ContinuousClock.Instant) -> Void = { _, _, _ in },
          stop: @escaping @Sendable (ScreenFailure) -> Void) { self.gate = gate; self.stop = stop; self.observed = observed; self.entered = entered; self.cause = cause }
 #if SLICCY_CAPTURE_RUNNER_PROOF
+    var proofLaunchCoordinator: ScreenRunnerLaunchCoordinator?
+    var proofWorkspaceDiagnostics: ScreenRunnerWorkspaceDiagnostics?
+    func proofWorkspaceChange(_ notification: Notification, origin: Origin) {
+        let before = ContinuousClock.now
+        invoke(.sourceChanged, origin: origin)
+        let after = ContinuousClock.now
+        proofWorkspaceDiagnostics?.record(notification, origin: origin, before: before, after: after)
+    }
     func proofDisplayChange(observe: @Sendable () -> Void) {
         invoke(.sourceChanged, origin: .displayChange)
         observe()
@@ -111,7 +119,19 @@ final class ScreenIndicator: NSObject, NSWindowDelegate {
             (NSWorkspace.activeSpaceDidChangeNotification, .spaceChange), (NSWorkspace.didLaunchApplicationNotification, .workspaceLaunch),
             (NSWorkspace.didTerminateApplicationNotification, .workspaceTerminate)]
         for (name, origin) in changes {
+#if SLICCY_CAPTURE_RUNNER_PROOF
+            if origin == .workspaceLaunch, let coordinator = relay.proofLaunchCoordinator {
+                do { try coordinator.arm(relay) }
+                catch { dismiss(); throw error }
+                continue
+            }
+            observers.append(center.addObserver(forName: name, object: nil, queue: nil) { [relay] notification in
+                if origin == .workspaceLaunch || origin == .workspaceTerminate { relay.proofWorkspaceChange(notification, origin: origin) }
+                else { relay.invoke(.sourceChanged, origin: origin) }
+            })
+#else
             observers.append(center.addObserver(forName: name, object: nil, queue: nil) { [relay] _ in relay.invoke(.sourceChanged, origin: origin) })
+#endif
         }
         observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: nil) { [relay] _ in
 #if SLICCY_CAPTURE_RUNNER_PROOF
@@ -154,5 +174,8 @@ final class ScreenIndicator: NSObject, NSWindowDelegate {
         observers.removeAll()
         if let status { NSStatusBar.system.removeStatusItem(status); self.status = nil }
         panel.orderOut(nil)
+#if SLICCY_CAPTURE_RUNNER_PROOF
+        relay.proofLaunchCoordinator?.close()
+#endif
     }
 }

@@ -1,0 +1,386 @@
+{
+  "basis": "261b1e3592f4bacafb810bd76480b68b54ca3f55",
+  "files": {
+    "Sources/Sliccy/App/SliccyApp.swift": {
+      "productSHA256": "c1086edbcf1f77358873274e3be113a2ef03eb1cfec5e7dc25099a9024b32484",
+      "sourceSHA256": "c1086edbcf1f77358873274e3be113a2ef03eb1cfec5e7dc25099a9024b32484"
+    },
+    "Sources/Sliccy/App/SliccyMain.swift": {
+      "productSHA256": "ae37c2b8c66825f4882f664ac48c634983ee62c63eb0a9089b4fe23e9841065a",
+      "sourceSHA256": "4c35637e7fbb6ba0c5f70dfef976ff3155b93f026360f73ae5eea6adf3871d8a"
+    },
+    "Sources/Sliccy/Models/AgentInventory.swift": {
+      "productSHA256": "626f101463589c375601d78a982413f90d25d245adeda838c62cef8383926fa1",
+      "sourceSHA256": "626f101463589c375601d78a982413f90d25d245adeda838c62cef8383926fa1"
+    },
+    "Sources/Sliccy/Models/CredentialAccess.swift": {
+      "productSHA256": "89a74a58d58e4e6069f0beb3e03a42370439a175822dbdf70d75d13e99ef5897",
+      "sourceSHA256": "89a74a58d58e4e6069f0beb3e03a42370439a175822dbdf70d75d13e99ef5897"
+    },
+    "Sources/Sliccy/Models/InstanceManagement.swift": {
+      "productSHA256": "53fc757bcbb3729e69c250839a2e5e656814293dca94995a76009d92be312247",
+      "sourceSHA256": "53fc757bcbb3729e69c250839a2e5e656814293dca94995a76009d92be312247"
+    },
+    "Sources/Sliccy/Models/LiveFeed.swift": {
+      "productSHA256": "278986a3d1d6d5bdc79ce27f410d2b564e82b00c3712dc1bd8543097867ef614",
+      "sourceSHA256": "278986a3d1d6d5bdc79ce27f410d2b564e82b00c3712dc1bd8543097867ef614"
+    },
+    "Sources/Sliccy/Models/Session.swift": {
+      "productSHA256": "2e1ab567aeab0cdd6bc43f8f2345ea9e1ce8e4819cd6f3a1f2bf1b2cad80fd8f",
+      "sourceSHA256": "2e1ab567aeab0cdd6bc43f8f2345ea9e1ce8e4819cd6f3a1f2bf1b2cad80fd8f"
+    },
+    "Sources/Sliccy/Screen/ScreenAudit.swift": {
+      "productSHA256": "5ba072644682cc5659033798ef0a74718260e06626f1b1cbb55bb7d2abd27dc4",
+      "sourceSHA256": "5ba072644682cc5659033798ef0a74718260e06626f1b1cbb55bb7d2abd27dc4"
+    },
+    "Sources/Sliccy/Screen/ScreenAuditMaintenance.swift": {
+      "productSHA256": "f2c499f965fb3aaa2250a6eb9d3f11d841e7e233006ebb598fb48721a7701c91",
+      "sourceSHA256": "f2c499f965fb3aaa2250a6eb9d3f11d841e7e233006ebb598fb48721a7701c91"
+    },
+    "Sources/Sliccy/Screen/ScreenCapture.swift": {
+      "productSHA256": "65d17c1deb5d6ba30e77ea3b00898f62234541fc246ce0592a64cbcd01a2fdd3",
+      "sourceSHA256": "b5be2d48e8b5bf82cb99f8a17f75683bf9703dc0f3dd2d6b21f265fdf4ee186a"
+    },
+    "Sources/Sliccy/Screen/ScreenChild.swift": {
+      "productSHA256": "060215888ba9736ca52b05801db04ad530775e955ddcb6d698cd6926ffb8705f",
+      "sourceSHA256": "7a980ed731d5827a95d81fe86852dc35fa12f44ece949b30fde6be8b7b0e6e41"
+    },
+    "Sources/Sliccy/Screen/ScreenFailure.swift": {
+      "productSHA256": "c28243933cd780055e30ce8e08eb7ff7c1e3533512f292d89da27e0484fa0e92",
+      "sourceSHA256": "c28243933cd780055e30ce8e08eb7ff7c1e3533512f292d89da27e0484fa0e92"
+    },
+    "Sources/Sliccy/Screen/ScreenFilterBuilder.swift": {
+      "productSHA256": "e137b5be8fcdacc5da120f492da5793e2e9bcfa7330cc3054f227b9c1bf0fe3f",
+      "sourceSHA256": "0d002683992a2ff244b51b176c873969939e0b3c9b8c1c4d837460ccd5f0e1a4"
+    },
+    "Sources/Sliccy/Screen/ScreenHandshake.swift": {
+      "productSHA256": "5769d42c693dcf22643d47bfc8e6bf8d80b42c5f29d4038475e97a24cfecd3e3",
+      "sourceSHA256": "5769d42c693dcf22643d47bfc8e6bf8d80b42c5f29d4038475e97a24cfecd3e3"
+    },
+    "Sources/Sliccy/Screen/ScreenHostedPIDBudget.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "c81380f345d94b3f4d0fb8cf07cc0e41f2976c1daab9531764e275403a98d19a"
+    },
+    "Sources/Sliccy/Screen/ScreenHostedPIDProof.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "6c1a6cccb876fa3e9f5226af51b303dfbefdc38138a4458af7a75eefaee4349f"
+    },
+    "Sources/Sliccy/Screen/ScreenHostedPIDSpawn.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "d30533d80c77a5d30934ab4156b51563890f6046ffee005da7a3d2b653615dbe"
+    },
+    "Sources/Sliccy/Screen/ScreenHostedPIDSubject.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "f7be257532028d2a338ecfc9f3ef3503238d6eadfd9b575ecb1f16216a4e7238"
+    },
+    "Sources/Sliccy/Screen/ScreenIndicator.swift": {
+      "productSHA256": "c5a8ed5c5014bebf3b4e4657076e07bfb8db6b4b7b30098c96de0f6da59afa99",
+      "sourceSHA256": "5d2111192bbec76fdc284bc535e054edfc557bff67ccb9ed9604b9f48040596e"
+    },
+    "Sources/Sliccy/Screen/ScreenJSON.swift": {
+      "productSHA256": "09c9e20206d37b55b156ebd47d2839f882d3908a19a2584c273d17251416630b",
+      "sourceSHA256": "09c9e20206d37b55b156ebd47d2839f882d3908a19a2584c273d17251416630b"
+    },
+    "Sources/Sliccy/Screen/ScreenLaunchPolicy.swift": {
+      "productSHA256": "555d38bbb95cac88490094762ae986c08d156b9d6e64f2efe52aad5485265044",
+      "sourceSHA256": "7cbe9fd2f1d9110809a40b64c7529df1e977758836f6441c0f219b5f625e1d19"
+    },
+    "Sources/Sliccy/Screen/ScreenOutputGate.swift": {
+      "productSHA256": "26c87cf2c81daab9df2ab3e81b346780dae283efd589d70cb1e783048085e92e",
+      "sourceSHA256": "26c87cf2c81daab9df2ab3e81b346780dae283efd589d70cb1e783048085e92e"
+    },
+    "Sources/Sliccy/Screen/ScreenPeerVerifier.swift": {
+      "productSHA256": "439f7d392f3f5fd99fe360b23a557571497646e98e76087dd5627c749adc751c",
+      "sourceSHA256": "439f7d392f3f5fd99fe360b23a557571497646e98e76087dd5627c749adc751c"
+    },
+    "Sources/Sliccy/Screen/ScreenProofApp.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "c729b82e3b4602e7f38b0b2dbeec8b919df9810a9a0846447d5a324996dccaf2"
+    },
+    "Sources/Sliccy/Screen/ScreenProofCase.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "24e063cd0d727cfe6d6f4e006b82b8cf70fdd204891209ce8fe5ebb91af91945"
+    },
+    "Sources/Sliccy/Screen/ScreenProofHelper.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "1831f1fa62cde1970b867fdeb401e7b697bd9b2ea44a6e4e6b3df6b791a99339"
+    },
+    "Sources/Sliccy/Screen/ScreenProofObserver.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "4d586198feca5b88821ac45adfab017412cc27e67d8d3be0f63874bc79a49cb0"
+    },
+    "Sources/Sliccy/Screen/ScreenProofPIDReuse.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "3b91792cb730168fbbe026acec7b171098383b3b3c35d825c2a9921a0bd66a03"
+    },
+    "Sources/Sliccy/Screen/ScreenProofProtectedProbe.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "be0d78dcf6ec8d3b0b1d34f396060dc5e12cf0b80ce41d8cfaddfb0a66f51382"
+    },
+    "Sources/Sliccy/Screen/ScreenProofReverseReplies.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "bd7deb6951864ff3f4ede13d14691c32a62f86c2a0447f9050aadc3a76af64d4"
+    },
+    "Sources/Sliccy/Screen/ScreenProofSyntheticSource.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "03b6efcef0edfbf2352d7b621c6dd83dbded912a7ff4f3127c8227d84388dc76"
+    },
+    "Sources/Sliccy/Screen/ScreenProtocol.swift": {
+      "productSHA256": "ddc976c216addd827ddfab4cfdd2437f68965820b28d1de594ba39596cbff2bd",
+      "sourceSHA256": "ddc976c216addd827ddfab4cfdd2437f68965820b28d1de594ba39596cbff2bd"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerBSD.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "3dd7056568881133d64ee16f37ba1dcff6b8f8741e07b0399f1432f756088906"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerCaptureLimit.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "b9614d2a4ed499ea3ca217b35fbc0570c3eca98c7b9fb22e71ca14cd5fc8800a"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerCaptureSource.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "9b1636c0ceb3c128dc096c7e565f2a75aa0e87b8a6099d221ce927f54dbcb51f"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerCause.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "cc7928f90d001057f4de273a7a3b90beede7b7110f328121d8a9c15dc42c9cbe"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerChildReceipts.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "7bce6148a8e700047ba1f3a16722b499bf5ba3a88fd58686c5e19ccb99cc23e0"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerChromePolicy.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "0ab55dff64d21125e70c8816ec81b62faef76d1b49cb1592661500be0e90be71"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerCleanup.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "59f6cced691fb316c3dae3cb612377fcdea9db75a98918034aa43584876d24e5"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerConnection.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "e7a02c0433a3bda5282290bb07a60a4232f98efa68508065544aabff662cc409"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerContract.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "1f19ff54320d197beff3c0ff28e7bc5074b0a228b831896416529c75e3885272"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerDisplayDiagnostics.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "eba543b91ce1e2eabbc46d563d528f6012b06ad7c493fef33dbf981c26828dfa"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerDisplaySampler.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "d39748e3f97f7158ead177b8af67171fe711f8b4bd3189a048312ae8210f7d71"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerInventory.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "5a36720a28d6fd5bdff71af578abc92d5e4db795f7d1fb064e34b8886a534a22"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerInventoryBoundary.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "18dc6a91ec9ae642074c637686d381959b243b5fdc79fafeb4cfc8e726dc2e75"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerInventoryDiagnostics.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "eaba60e4477811a928afb3d0e6c6dfad040441c3e424e68734f54474456590fb"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerJournal.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "423b117bf0e01d3d4cd9c44fd6fbb64794ca0b32bc0199402a07cf173013e6c6"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerOwnedProcess.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "a30de26c8581a159581784c5a6e35d289db96ea000e65e118bad36f4d230ba9e"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerOwnerLock.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "2a67a7376c9a0bb4a7f6adf3c35bc557a49cb47de3ddece1880ce64b5e35119a"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerProcessIdentity.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "f309595bf61dc3c4d4ad11ad9ef73ff9f5beaa2076dfb98f7e2f48972a48d66d"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerProofApp.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "c5352171a206b6cbdee2e25ac5d051fc189491a3cd46155176548d796dc5d327"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerReceiptLedger.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "2c39093785f4e6c05fc211be25756a83f61ac2a8bdf90e97675b49d588668b4b"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerSecurityCalls.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "245f05068765e4d7736435a69c5b006ae4208fdad1c448f432fc6554be1ebf9b"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerSetupAllowance.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "051f023599cef16cb5ac5b5c14f91eb96115cf19c69ca8e81dd5850abf3649e5"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerSliceBinding.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "cf2c5d88f7b9b96006d4833b90fe86b5bea15e32e2ea6d3443e69d1356a188d7"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerSliceFile.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "22c5f30fed516b7c68270676b5e2afac4d182ff4779ea6dbf17a4f5e12bbd28a"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerStructuralRefusal.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "d64d43d5b99da7317bc7a3b0ce32ac126e26d83ca073158dc89cde5c8cb8bbfa"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerSurfaceDiagnostics.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "4a619c0d8f13721a6e11d0b154a3fc8413c5a79d4c4f8baa60a4f8d83464cf57"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerSystemOwner.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "48859f944f2fe0d20f0ac8a3fe4cf7f779dc9ac6a7f9e6f4281013c78d1ecb3d"
+    },
+    "Sources/Sliccy/Screen/ScreenRunnerWindowSets.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "b8f95f4ec2f018a5efef8333fa1bfd2a88aab8c39c0b3eec3ea32c8040a812a6"
+    },
+    "Sources/Sliccy/Screen/ScreenSafetyState.swift": {
+      "productSHA256": "03a18de36a2a43d676fa964742f5efa33f56af283b3af2e6d8ca0e61c1fa622f",
+      "sourceSHA256": "03a18de36a2a43d676fa964742f5efa33f56af283b3af2e6d8ca0e61c1fa622f"
+    },
+    "Sources/Sliccy/Screen/ScreenSnapshotCleanup.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "aa9e0afe55e16dac9ee4643eea8f1e615b61dc544921d9129ee903a22d07a0d0"
+    },
+    "Sources/Sliccy/Screen/ScreenSnapshotProof.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "dbb296a2378f568b788efcc82f0f04b2cf3b0236d30353ff5da86e6087dc876b"
+    },
+    "Sources/Sliccy/Screen/ScreenSnapshotRecipe.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "e5043fb6f27a65873cac0fb249aa1c77f2ed449527dc78c2c095cfe27ec146fc"
+    },
+    "Sources/Sliccy/Screen/ScreenSnapshotSubject.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "3d0976f8eeef2945fa7413ca49c3705a59348e6313affe4eb0959fa4ebf5a2ed"
+    },
+    "Sources/Sliccy/Screen/ScreenSocket.swift": {
+      "productSHA256": "f90bb813d15befa396dc64e7b843ef182c462fe44362f9cb141466af4a703865",
+      "sourceSHA256": "f90bb813d15befa396dc64e7b843ef182c462fe44362f9cb141466af4a703865"
+    },
+    "Sources/Sliccy/Screen/ScreenTransport.swift": {
+      "productSHA256": "9d79b4af9ab36e6e67165543ea7b5a7d2b9edd2e7cc48db56e408e18648fa32e",
+      "sourceSHA256": "51c151f6888ebdbb0ba327a3d99a6a57d2445f966fd24ef94d7e519cfb933615"
+    },
+    "Sources/Sliccy/Screen/ScreenUniversalProof.swift": {
+      "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceSHA256": "962b358baf26af53e2b0f4b3210f203e91b3e033929ac87d9775c02aceacb01e"
+    },
+    "Sources/Sliccy/Services/CLIClient.swift": {
+      "productSHA256": "9e3f015f4955f36cfaeadb0886e27dc5853448c392137f82e2d4e7d339fc045f",
+      "sourceSHA256": "9e3f015f4955f36cfaeadb0886e27dc5853448c392137f82e2d4e7d339fc045f"
+    },
+    "Sources/Sliccy/Services/CLIControlClient.swift": {
+      "productSHA256": "919a6ed4d8ed255c2b5a38a42c7728929e074108a00e7cdbfddb47f70f985299",
+      "sourceSHA256": "919a6ed4d8ed255c2b5a38a42c7728929e074108a00e7cdbfddb47f70f985299"
+    },
+    "Sources/Sliccy/Services/CLIEvent.swift": {
+      "productSHA256": "43e35a26c55d0a0a7bc3547313e596c87697243cf95f879b6db8dcb5ca6dcc0c",
+      "sourceSHA256": "43e35a26c55d0a0a7bc3547313e596c87697243cf95f879b6db8dcb5ca6dcc0c"
+    },
+    "Sources/Sliccy/Services/SessionRuntime.swift": {
+      "productSHA256": "0bf323c1af0cc0c3eab0bda1b1bc7575baca4f90817886076de848c781cf764b",
+      "sourceSHA256": "0bf323c1af0cc0c3eab0bda1b1bc7575baca4f90817886076de848c781cf764b"
+    },
+    "Sources/Sliccy/Stores/AccessManagement.swift": {
+      "productSHA256": "4f8f6b6965d0f1d72a15b1b7de83f5b23b48e464cea7411593ad866616499807",
+      "sourceSHA256": "4f8f6b6965d0f1d72a15b1b7de83f5b23b48e464cea7411593ad866616499807"
+    },
+    "Sources/Sliccy/Stores/DemoData.swift": {
+      "productSHA256": "5f1b171e56f9358855b552be7f5b210a79b1f2c47a473248a0d67f1c1fac28c3",
+      "sourceSHA256": "5f1b171e56f9358855b552be7f5b210a79b1f2c47a473248a0d67f1c1fac28c3"
+    },
+    "Sources/Sliccy/Stores/LiveCredentials.swift": {
+      "productSHA256": "53ce128d86855f11ef1d7ca3e780961f0ad4129997dc216e79794bc99b2f7e48",
+      "sourceSHA256": "53ce128d86855f11ef1d7ca3e780961f0ad4129997dc216e79794bc99b2f7e48"
+    },
+    "Sources/Sliccy/Stores/LiveInventory.swift": {
+      "productSHA256": "5c9a55af9e9edeec8ac575960eeb4d37eeac7de1d1b9b4aedafefa1ffa1023b3",
+      "sourceSHA256": "5c9a55af9e9edeec8ac575960eeb4d37eeac7de1d1b9b4aedafefa1ffa1023b3"
+    },
+    "Sources/Sliccy/Stores/LiveWatching.swift": {
+      "productSHA256": "41466d01b4cba3291d1e0d94da5f89fe8186fa391c6a697ec1cf2e0c08bb8cd1",
+      "sourceSHA256": "41466d01b4cba3291d1e0d94da5f89fe8186fa391c6a697ec1cf2e0c08bb8cd1"
+    },
+    "Sources/Sliccy/Stores/LiveWorkspace.swift": {
+      "productSHA256": "20753aa2fa5c5fd0cb3c541d2ff9af59dee2ebf8dabdd831dc578f42a4196e95",
+      "sourceSHA256": "20753aa2fa5c5fd0cb3c541d2ff9af59dee2ebf8dabdd831dc578f42a4196e95"
+    },
+    "Sources/Sliccy/Stores/WorkspaceStore.swift": {
+      "productSHA256": "e4207b805deba322b05829abecdd7e17531e5753ed6a29a828e26178d23be1a0",
+      "sourceSHA256": "e4207b805deba322b05829abecdd7e17531e5753ed6a29a828e26178d23be1a0"
+    },
+    "Sources/Sliccy/Support/FolderPicker.swift": {
+      "productSHA256": "cb699e4f0c70a013db8fa3463ed298ecb4aaaa8a6761dbfaf1f5e116a904e338",
+      "sourceSHA256": "cb699e4f0c70a013db8fa3463ed298ecb4aaaa8a6761dbfaf1f5e116a904e338"
+    },
+    "Sources/Sliccy/Views/ActivityView.swift": {
+      "productSHA256": "dc0bd401139ef7ac28a1afb6b109314620e7de2f837eb65321594cd5d084fc51",
+      "sourceSHA256": "dc0bd401139ef7ac28a1afb6b109314620e7de2f837eb65321594cd5d084fc51"
+    },
+    "Sources/Sliccy/Views/AgentInventoryView.swift": {
+      "productSHA256": "5dad454afa8fd9c18f2b2a94b1ecf8e6bab48ba9fd65d98178d73fe9062f0fe1",
+      "sourceSHA256": "5dad454afa8fd9c18f2b2a94b1ecf8e6bab48ba9fd65d98178d73fe9062f0fe1"
+    },
+    "Sources/Sliccy/Views/BrowsersView.swift": {
+      "productSHA256": "232d87b3328cd8865215f0396a4d4b7ce764baed2987bdbc86780140428d3045",
+      "sourceSHA256": "232d87b3328cd8865215f0396a4d4b7ce764baed2987bdbc86780140428d3045"
+    },
+    "Sources/Sliccy/Views/ComposerView.swift": {
+      "productSHA256": "552d78d85f7dfb0eef70a6e0da9a8b124660795d470b2bfffc3ffdf52dae3a16",
+      "sourceSHA256": "552d78d85f7dfb0eef70a6e0da9a8b124660795d470b2bfffc3ffdf52dae3a16"
+    },
+    "Sources/Sliccy/Views/ContentView.swift": {
+      "productSHA256": "d160a90c64b139dd0272d3e5e090feac39e2e1a63038cccd6acbcc8e818f65d3",
+      "sourceSHA256": "d160a90c64b139dd0272d3e5e090feac39e2e1a63038cccd6acbcc8e818f65d3"
+    },
+    "Sources/Sliccy/Views/CredentialAccessView.swift": {
+      "productSHA256": "b2e4ff7738d10fbf871789ea976703850e1a9902687e1b4f602e7a96a5a15af3",
+      "sourceSHA256": "b2e4ff7738d10fbf871789ea976703850e1a9902687e1b4f602e7a96a5a15af3"
+    },
+    "Sources/Sliccy/Views/FoldersView.swift": {
+      "productSHA256": "a30b78a1ad5f2ec2f75f45cae8aedc90b170ba9401f5e2e2c0d97f802763ffd7",
+      "sourceSHA256": "a30b78a1ad5f2ec2f75f45cae8aedc90b170ba9401f5e2e2c0d97f802763ffd7"
+    },
+    "Sources/Sliccy/Views/InstanceOverviewView.swift": {
+      "productSHA256": "b0d4f9165f3e78440dfe2bf2be2b5cbec552245baef3ab33efc39ad382d27f2d",
+      "sourceSHA256": "b0d4f9165f3e78440dfe2bf2be2b5cbec552245baef3ab33efc39ad382d27f2d"
+    },
+    "Sources/Sliccy/Views/LiveFeedView.swift": {
+      "productSHA256": "3d7417dc122d7be4208e8b8bb76b5323908413083b26bc08ce8aa5b1e4b4c2d2",
+      "sourceSHA256": "3d7417dc122d7be4208e8b8bb76b5323908413083b26bc08ce8aa5b1e4b4c2d2"
+    },
+    "Sources/Sliccy/Views/NewSessionView.swift": {
+      "productSHA256": "167539679cd78b4a505e61c22d993e5539b310b37792b766fd8f7cef6453dadd",
+      "sourceSHA256": "167539679cd78b4a505e61c22d993e5539b310b37792b766fd8f7cef6453dadd"
+    },
+    "Sources/Sliccy/Views/SessionDetailView.swift": {
+      "productSHA256": "de0e0189237b8f523907629ec872c4f5cacf7ff64fdcfa22510e81f75c497fce",
+      "sourceSHA256": "de0e0189237b8f523907629ec872c4f5cacf7ff64fdcfa22510e81f75c497fce"
+    },
+    "Sources/Sliccy/Views/SettingsView.swift": {
+      "productSHA256": "2acea76ed33044c46a32f453df28ff0b59f93f8788827c6af8559c89d1c6b112",
+      "sourceSHA256": "2acea76ed33044c46a32f453df28ff0b59f93f8788827c6af8559c89d1c6b112"
+    },
+    "Sources/Sliccy/Views/SidebarView.swift": {
+      "productSHA256": "0ad781ddba852ddca005a9ff2bb3f5fa764aa4f35db39995f23299d5f42ac046",
+      "sourceSHA256": "0ad781ddba852ddca005a9ff2bb3f5fa764aa4f35db39995f23299d5f42ac046"
+    }
+  },
+  "proofOnlyMustProjectEmpty": [
+    "Sources/Sliccy/Screen/ScreenRunnerLaunchBarrier.swift",
+    "Sources/Sliccy/Screen/ScreenRunnerLaunchCompletion.swift",
+    "Sources/Sliccy/Screen/ScreenRunnerLaunchCoordinator.swift",
+    "Sources/Sliccy/Screen/ScreenRunnerLaunchDiagnostics.swift",
+    "Sources/Sliccy/Screen/ScreenRunnerLaunchInstance.swift",
+    "Sources/Sliccy/Screen/ScreenRunnerLaunchSampling.swift",
+    "Sources/Sliccy/Screen/ScreenRunnerWorkspaceDiagnostics.swift"
+  ]
+}

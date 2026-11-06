@@ -38,6 +38,7 @@ final class ScreenRunnerSession {
     private let causes: ScreenRunnerCauseLedger
     private var connection: ScreenRunnerConnection?
     private var indicator: ScreenIndicator?
+    private var launchCoordinator: ScreenRunnerLaunchCoordinator?
     private var relay: ScreenStopRelay?
     private var capture: ScreenCapture?
     private var captureLimit: ScreenRunnerCaptureLimit?
@@ -110,6 +111,7 @@ final class ScreenRunnerSession {
             let sliceRecord: @Sendable (ScreenRunnerSliceBinding.Evidence) -> Void = { [receipts] evidence in
                 receipts.record("code-binding", fields: evidence.fields, at: evidence.at)
             }
+            if selected.needsBrowser { launchCoordinator = try ScreenRunnerLaunchCoordinator(journal: journal) }
             let surface = try ScreenRunnerOwnedProcess.surface(home: home, sliceEvidence: sliceRecord, refusal: { [journal] notice in
                 journal.emit("surface-refusal", notice.fields, at: notice.at)
             }, ended: surfaceEnded("allowed"))
@@ -127,6 +129,8 @@ final class ScreenRunnerSession {
                     }, evidenceLost: { [journal] in journal.rejectEvidence() }, sliceEvidence: sliceRecord, ended: surfaceEnded(label))
                     owned.append((label, child))
                     try reportOwned(child.recordedIdentity)
+                    guard let original = child.recordedIdentity else { throw ScreenFailure.peerUntrusted }
+                    launchCoordinator?.register(label: window.profile, identity: original)
                     journal.emit("surface-launcher-started", ["label": label, "pid": child.pid])
                     browsers.append(child); primaries.append(child)
                     journal.emit("surface-process", ["label": label, "pid": child.pid, "bundleIdentifier": "com.google.Chrome"])
@@ -168,6 +172,15 @@ final class ScreenRunnerSession {
                 causes.record(.stop, reason: .screen(reason), origin: origin, at: at)
             }, stop: { reason in transport.stop(reason) })
             self.relay = relay
+            relay.proofWorkspaceDiagnostics = ScreenRunnerWorkspaceDiagnostics(journal: journal)
+            if let launchCoordinator {
+                let candidate = try await launchCoordinator.ready()
+                let remaining = ContinuousClock.now.duration(to: journal.began.advanced(by: .seconds(ScreenRunnerSetupAllowance.watchdogSeconds)))
+                guard remaining > .zero else { throw ScreenRunnerLaunchBarrier.Failure.deadline }
+                try await marker("runner-launches-observed", timeout: remaining)
+                try await launchCoordinator.verify(candidate)
+                relay.proofLaunchCoordinator = launchCoordinator
+            }
             ScreenRunnerDisplaySampler.record(.beforeIndicator)
             indicator = try ScreenIndicator(recipient: "Synthetic runner peer", scope: "Owned synthetic surface", relay: relay)
             guard let indicator else { throw ScreenFailure.indicator }
@@ -280,7 +293,7 @@ final class ScreenRunnerSession {
         causes.advance(.cleanup)
         cleaning = true; sourceMonitor?.cancel(); captureLimit?.cancel(); connection?.health.invalidate(); capture?.stop(.stopped)
         indicator?.dismiss()
-        var cleaned = true
+        var cleaned = launchCoordinator?.close() ?? true
         if let transport = connection?.transport {
             let starts = [stopAt, causes.firstStopAt].compactMap { $0 }
             let deadline = starts.min()?.advanced(by: .milliseconds(1500)) ?? .now
