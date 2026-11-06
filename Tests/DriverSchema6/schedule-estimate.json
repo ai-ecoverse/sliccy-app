@@ -1,5 +1,5 @@
 {
-  "status": "MEASUREMENT_BASED_ESTIMATE_NOT_NEW_RUNTIME_PROOF",
+  "status": "PROVISIONAL_V84_ROUND7_UNMEASURED_ADDITIONS_ON_V83_BASE",
   "measurementRun": 42066496638,
   "priorOverlayMeasurementRun": 42022850390,
   "provenance": [
@@ -882,7 +882,8 @@
       },
       "overlaySeconds": 221.527,
       "estimatedSeconds": 530.235,
-      "marginTo600Seconds": 69.765
+      "marginTo600Seconds": 69.765,
+      "v84ProvisionalAddSeconds": 7.75
     },
     {
       "shard": 1,
@@ -900,7 +901,8 @@
       },
       "overlaySeconds": 218.212,
       "estimatedSeconds": 526.92,
-      "marginTo600Seconds": 73.08
+      "marginTo600Seconds": 73.08,
+      "v84ProvisionalAddSeconds": 7.75
     },
     {
       "shard": 2,
@@ -916,7 +918,8 @@
       },
       "overlaySeconds": 224.026,
       "estimatedSeconds": 532.734,
-      "marginTo600Seconds": 67.266
+      "marginTo600Seconds": 67.266,
+      "v84ProvisionalAddSeconds": 7.75
     },
     {
       "shard": 3,
@@ -932,7 +935,8 @@
       },
       "overlaySeconds": 224.684,
       "estimatedSeconds": 533.392,
-      "marginTo600Seconds": 66.608
+      "marginTo600Seconds": 66.608,
+      "v84ProvisionalAddSeconds": 7.75
     },
     {
       "shard": 4,
@@ -948,7 +952,8 @@
       },
       "overlaySeconds": 224.698,
       "estimatedSeconds": 533.406,
-      "marginTo600Seconds": 66.594
+      "marginTo600Seconds": 66.594,
+      "v84ProvisionalAddSeconds": 7.75
     },
     {
       "shard": 5,
@@ -964,7 +969,18 @@
       },
       "overlaySeconds": 218.218,
       "estimatedSeconds": 526.926,
-      "marginTo600Seconds": 73.074
+      "marginTo600Seconds": 73.074,
+      "v84ProvisionalAddSeconds": 7.75
     }
-  ]
+  ],
+  "v84Additions": {
+    "newMutants": 11,
+    "newBaselineTests": 9,
+    "driverSourceFiles": 99,
+    "priorMutants": 135,
+    "priorBaselineTests": 101,
+    "provisionalPerLightOverlayPairSeconds": 3.0,
+    "provisionalPerNewNonHeavyTestSeconds": 1.5,
+    "note": "Additions are charged conservatively from prior light-test assumptions; not new hosted measurements. Re-estimate required after first hosted V84 synthetic."
+  }
 }

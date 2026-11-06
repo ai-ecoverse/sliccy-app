@@ -7,7 +7,7 @@ OVERFLOW = 'TestRunnerV83MaxFixtureOverflowAndLossBlockers'
 
 def checked_suite_groups(ledger):
     names = ledger['baselineTests']
-    if len(names) != 101 or len(set(names)) != 101 or names != sorted(names) or any(not re.fullmatch(r'Test[A-Za-z0-9_]+', n) for n in names):
+    if len(names) != 110 or len(set(names)) != 110 or names != sorted(names) or any(not re.fullmatch(r'Test[A-Za-z0-9_]+', n) for n in names):
         raise ValueError('full-suite-universe')
     groups = ledger['suiteInvocations']
     expected = [

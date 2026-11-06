@@ -1,8 +1,8 @@
 {
   "version": 1,
   "shardCount": 6,
-  "mutationCount": 135,
-  "baselineTestCount": 101,
+  "mutationCount": 146,
+  "baselineTestCount": 110,
   "assignment": [
     [
       "controller-native-unsettled",
@@ -21,7 +21,15 @@
       "v83-C-stronger-claim-promoted",
       "v83-display-terminal-gate-dropped",
       "v83-nominal-volume-gate-bypassed",
-      "v83-phase-float-rounded"
+      "v83-phase-float-rounded",
+      "v84-busy-sink-writes",
+      "v84-controller-operand-overwrite",
+      "v84-critical-exit-dropped",
+      "v84-failure-terminal-promoted",
+      "v84-indicator-duplicate-accepted",
+      "v84-indicator-hardcoded-size",
+      "v84-indicator-layer0-fallback",
+      "v84-launch-instance-not-required"
     ],
     [
       "bsd-raw-parent-bound",
@@ -46,7 +54,9 @@
       "v83-C-owner-role-dropped",
       "v83-display-screen-count-dropped",
       "v83-operation-ref-accepted",
-      "v83-overflow-loss-blocker-removed"
+      "v83-overflow-loss-blocker-removed",
+      "v84-emergency-overflow-silent",
+      "v84-launch-revision-accepted"
     ],
     [
       "cf-subtype",
@@ -149,7 +159,8 @@
       "v82-surface-stage-drop",
       "v83-C-predicate-true-accepted",
       "v83-display-screen-fields-dropped",
-      "v83-ordinary-class-widened"
+      "v83-ordinary-class-widened",
+      "v84-finalizer-first-error-replaced"
     ]
   ],
   "heavyAssignments": {
@@ -187,6 +198,7 @@
     "TestRunnerControllerOriginalOwnedRecordBindsStartRoleAndHash",
     "TestRunnerControllerPartialIdentityBatchRetainsOnlyAcceptedRoots",
     "TestRunnerControllerReceiptCoverageRequiresEveryCLIStream",
+    "TestRunnerControllerRetainsFirstIndividualOperand",
     "TestRunnerControllerWindowRecheckIgnoresDiagnosticTitleButNoIdentityField",
     "TestRunnerDarwinStopSignalsAreNotContinueReceipts",
     "TestRunnerDiagnosticFirstOrderBoundsAndSanitization",
@@ -198,6 +210,10 @@
     "TestRunnerIdentityBoundaryRoutesFixedRolesAndBracketsParent",
     "TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries",
     "TestRunnerIndependentRecordBoundsApplyBeforePayloadRead",
+    "TestRunnerIndicatorRejectsMissingAmbiguousOrUnboundCandidate",
+    "TestRunnerIndicatorUsesIndependentFloatingGeometry",
+    "TestRunnerLaunchLedgerRejectsRevisionChangeAndIncompleteArm",
+    "TestRunnerLaunchSchemaRequiresInstanceEqualityAndOriginalBSD",
     "TestRunnerLivePionFixtureClearsWhileDecoderIsBlocked",
     "TestRunnerLivePionUnsettledWorkerBlocksLaterCases",
     "TestRunnerLoopDrainsBufferedRowsAfterReaderCompletion",
@@ -253,6 +269,10 @@
     "TestRunnerV83StructuralCoverageKeepsStrongerClaimUndemonstrated",
     "TestRunnerV83StructuralOwnerAndCGCorrelation",
     "TestRunnerV83TraceClassesAndActualCounts",
+    "TestRunnerV84BusyAndBrokenSinksNeverClaimFooter",
+    "TestRunnerV84EmergencyWorstEscapedBounds",
+    "TestRunnerV84FinalizerRetainsFirstErrorAndDeadline",
+    "TestRunnerV84ReservedFailedTerminalRoundTrip",
     "TestRunnerV8ActualClockMarkerWrite",
     "TestRunnerV8ActualRefusalEncoderAndNoAuthority",
     "TestRunnerV8BaselineActualDeadlineRefusesLateCallback",
@@ -293,6 +313,7 @@
         "TestRunnerControllerOriginalOwnedRecordBindsStartRoleAndHash",
         "TestRunnerControllerPartialIdentityBatchRetainsOnlyAcceptedRoots",
         "TestRunnerControllerReceiptCoverageRequiresEveryCLIStream",
+        "TestRunnerControllerRetainsFirstIndividualOperand",
         "TestRunnerControllerWindowRecheckIgnoresDiagnosticTitleButNoIdentityField",
         "TestRunnerDarwinStopSignalsAreNotContinueReceipts",
         "TestRunnerDiagnosticFirstOrderBoundsAndSanitization",
@@ -304,6 +325,10 @@
         "TestRunnerIdentityBoundaryRoutesFixedRolesAndBracketsParent",
         "TestRunnerIndependentCodeBindsUniqueTypeAndActualBoundaries",
         "TestRunnerIndependentRecordBoundsApplyBeforePayloadRead",
+        "TestRunnerIndicatorRejectsMissingAmbiguousOrUnboundCandidate",
+        "TestRunnerIndicatorUsesIndependentFloatingGeometry",
+        "TestRunnerLaunchLedgerRejectsRevisionChangeAndIncompleteArm",
+        "TestRunnerLaunchSchemaRequiresInstanceEqualityAndOriginalBSD",
         "TestRunnerLivePionFixtureClearsWhileDecoderIsBlocked",
         "TestRunnerLivePionUnsettledWorkerBlocksLaterCases",
         "TestRunnerLoopDrainsBufferedRowsAfterReaderCompletion",
@@ -357,6 +382,10 @@
         "TestRunnerV83StructuralCoverageKeepsStrongerClaimUndemonstrated",
         "TestRunnerV83StructuralOwnerAndCGCorrelation",
         "TestRunnerV83TraceClassesAndActualCounts",
+        "TestRunnerV84BusyAndBrokenSinksNeverClaimFooter",
+        "TestRunnerV84EmergencyWorstEscapedBounds",
+        "TestRunnerV84FinalizerRetainsFirstErrorAndDeadline",
+        "TestRunnerV84ReservedFailedTerminalRoundTrip",
         "TestRunnerV8ActualClockMarkerWrite",
         "TestRunnerV8ActualRefusalEncoderAndNoAuthority",
         "TestRunnerV8BaselineActualDeadlineRefusesLateCallback",

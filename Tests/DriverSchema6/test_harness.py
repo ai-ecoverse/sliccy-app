@@ -113,7 +113,7 @@ class PartitionTests(unittest.TestCase):
             self.assertTrue(all(not set(names) & previous for previous in sets))
             sets.append(set(names))
         self.assertEqual(set.union(*sets), set(universe))
-        self.assertEqual(sum(map(len, sets)), 135)
+        self.assertEqual(sum(map(len, sets)), 146)
         self.assertIn('v83-nominal-volume-gate-bypassed', sets[0])
         self.assertIn('v83-overflow-loss-blocker-removed', sets[1])
         for index, count in [(-1, 6), (6, 6), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (True, 6), (0, True)]:
@@ -131,7 +131,7 @@ class SuiteScheduleTests(unittest.TestCase):
 
     def test_fixed_invocation_partition_rejects_missing_duplicate_and_widened(self):
         ledger = self.ledger()
-        self.assertEqual([len(g['tests']) for g in checked_suite_groups(ledger)], [99, 1, 1])
+        self.assertEqual([len(g['tests']) for g in checked_suite_groups(ledger)], [108, 1, 1])
         for mode in ('missing', 'duplicate', 'unknown', 'nonheavy-limit', 'overflow-limit', 'nominal-limit', 'universe-duplicate'):
             with self.subTest(mode=mode):
                 changed = json.loads(json.dumps(ledger))
@@ -167,7 +167,7 @@ class SuiteScheduleTests(unittest.TestCase):
                 if mode == 'valid':
                     run_full_suite('fake', 'never-native', command, ledger, reports.append)
                     self.assertEqual(len(calls), 3)
-                    self.assertEqual(sum(len(r['tests']) for r in reports), 101)
+                    self.assertEqual(sum(len(r['tests']) for r in reports), 110)
                     self.assertTrue(all(r['exactTestsPassed'] for r in reports))
                 else:
                     with self.assertRaises(AssertionError): run_full_suite('fake', 'never-native', command, ledger, reports.append)

@@ -1074,9 +1074,97 @@
   {
     "name": "v83-post-index-deadline-dropped",
     "file": "runner_normalized_case_darwin_test.go",
-    "old": "if now().Sub(began)>runnerCaseAbsoluteBudget{refuse(\"private evidence index finalization exceeded absolute case deadline\")}",
-    "new": "if false{refuse(\"private evidence index finalization exceeded absolute case deadline\")}",
+    "old": "if elapsed>runnerCaseAbsoluteBudget{retain(runnerNormalizationError(\"index-write\",\"deadline\",nil,int64(elapsed),int64(runnerCaseAbsoluteBudget)));refuse(\"private evidence index finalization exceeded absolute case deadline\")}",
+    "new": "if false{retain(runnerNormalizationError(\"index-write\",\"deadline\",nil,int64(elapsed),int64(runnerCaseAbsoluteBudget)));refuse(\"private evidence index finalization exceeded absolute case deadline\")}",
     "test": "TestRunnerNormalizedIndexFinalizationDeadline/late-index",
     "assertion": "ASSERTION:v83-index-finalization-refuses-late-or-error"
+  },
+  {
+    "name": "v84-indicator-hardcoded-size",
+    "file": "runner_indicator_boundary_darwin_test.go",
+    "old": "if w.PID!=pid||!w.OnScreen||w.Layer!=contract.FloatingLevel||w.Rect.X!=runnerIndicatorX||w.Rect.Y!=runnerIndicatorY {continue}",
+    "new": "if w.PID!=pid||!w.OnScreen||w.Layer!=contract.FloatingLevel||w.Rect.X!=runnerIndicatorX||w.Rect.Y!=runnerIndicatorY||w.Rect.Width!=320 {continue}",
+    "test": "TestRunnerIndicatorUsesIndependentFloatingGeometry",
+    "assertion": "ASSERTION:indicator-independent-content-geometry"
+  },
+  {
+    "name": "v84-indicator-layer0-fallback",
+    "file": "runner_indicator_boundary_darwin_test.go",
+    "old": "if w.PID!=pid||!w.OnScreen||w.Layer!=contract.FloatingLevel||w.Rect.X!=runnerIndicatorX||w.Rect.Y!=runnerIndicatorY {continue}",
+    "new": "if w.PID!=pid||!w.OnScreen||(w.Layer!=contract.FloatingLevel&&w.Layer!=0)||w.Rect.X!=runnerIndicatorX||w.Rect.Y!=runnerIndicatorY {continue}",
+    "test": "TestRunnerIndicatorRejectsMissingAmbiguousOrUnboundCandidate",
+    "assertion": "ASSERTION:indicator-refuses-layer"
+  },
+  {
+    "name": "v84-indicator-duplicate-accepted",
+    "file": "runner_indicator_boundary_darwin_test.go",
+    "old": "if count!=1||candidate.ID==0 {return zero,fmt.Errorf(\"indicator independent floating candidate missing/ambiguous\")}",
+    "new": "if count<1||candidate.ID==0 {return zero,fmt.Errorf(\"indicator independent floating candidate missing/ambiguous\")}",
+    "test": "TestRunnerIndicatorRejectsMissingAmbiguousOrUnboundCandidate",
+    "assertion": "ASSERTION:indicator-refuses-duplicate"
+  },
+  {
+    "name": "v84-controller-operand-overwrite",
+    "file": "runner_indicator_boundary_darwin_test.go",
+    "old": "for _,check:=range checks {if err:=check.Check();err!=nil{return check.Name,err}}",
+    "new": "var stage string; var err error; for _,check:=range checks {if e:=check.Check();e!=nil{stage,err=check.Name,e}}; return stage,err",
+    "test": "TestRunnerControllerRetainsFirstIndividualOperand",
+    "assertion": "ASSERTION:controller-first-operand-error"
+  },
+  {
+    "name": "v84-failure-terminal-promoted",
+    "file": "runner_failure_terminal_darwin_test.go",
+    "old": "if e!=nil||complete{return fmt.Errorf(\"failed terminal complete claim\")}",
+    "new": "if e!=nil{return fmt.Errorf(\"failed terminal complete claim\")}",
+    "test": "TestRunnerV84ReservedFailedTerminalRoundTrip",
+    "assertion": "ASSERTION:v84-failure-terminal-integrity"
+  },
+  {
+    "name": "v84-critical-exit-dropped",
+    "file": "runner_failure_terminal_darwin_test.go",
+    "old": "c:=runnerCriticalEvidence{Version:1,Case:result.Case,AppPID:result.AppPID,Output:result.AppOutput,",
+    "new": "c:=runnerCriticalEvidence{Version:1,Case:result.Case,AppPID:result.AppPID,Output:runnerCaseOutput{},",
+    "test": "TestRunnerV84ReservedFailedTerminalRoundTrip",
+    "assertion": "ASSERTION:v84-critical-cleanup-exit-retained"
+  },
+  {
+    "name": "v84-busy-sink-writes",
+    "file": "runner_normalized_writer_darwin_test.go",
+    "old": "if !w.mu.TryLock(){\n  cause:=runnerNormalizationError(\"commit\",\"busy\",nil,0,0)\n  return runnerCaseEvidenceIndex{Schema:2,NormalizationVersion:3,Case:w.selected,Path:w.path,Result:\"FAIL\",BlockLaterCases:true,NormalizationFailure:cause,Critical:&critical},cause\n }",
+    "new": "if !w.mu.TryLock(){\n  cause:=runnerNormalizationError(\"commit\",\"busy\",nil,0,0)\n  _=w.writeFailedTerminal(result,&critical,cause)\n  return runnerCaseEvidenceIndex{Schema:2,NormalizationVersion:3,Case:w.selected,Path:w.path,Result:\"FAIL\",BlockLaterCases:true,NormalizationFailure:cause,Critical:&critical},cause\n }",
+    "test": "TestRunnerV84BusyAndBrokenSinksNeverClaimFooter",
+    "assertion": "ASSERTION:v84-no-concurrent-or-repair-write"
+  },
+  {
+    "name": "v84-emergency-overflow-silent",
+    "file": "runner_failure_terminal_darwin_test.go",
+    "old": "if len(c.Children)==8{c.Limited=true;break}",
+    "new": "if len(c.Children)==8{break}",
+    "test": "TestRunnerV84EmergencyWorstEscapedBounds",
+    "assertion": "ASSERTION:v84-critical-overflow-explicit"
+  },
+  {
+    "name": "v84-finalizer-first-error-replaced",
+    "file": "runner_normalized_case_darwin_test.go",
+    "old": "if index.NormalizationFailure==nil{index.NormalizationFailure=cause}else if index.SecondaryFailure==nil{index.SecondaryFailure=cause}",
+    "new": "index.NormalizationFailure=cause",
+    "test": "TestRunnerV84FinalizerRetainsFirstErrorAndDeadline",
+    "assertion": "ASSERTION:v84-finalizer-first-error-retained"
+  },
+  {
+    "name": "v84-launch-instance-not-required",
+    "file": "runner_launch_schema_darwin_test.go",
+    "old": "equal,e:=runnerBool(f,\"instanceEqual\");if e!=nil||!equal{return v,fmt.Errorf(\"launch instance not equal\")}",
+    "new": "equal,e:=runnerBool(f,\"instanceEqual\");if e!=nil{return v,fmt.Errorf(\"launch instance not equal\")};_ = equal",
+    "test": "TestRunnerLaunchSchemaRequiresInstanceEqualityAndOriginalBSD",
+    "assertion": "ASSERTION:launch-instance-required"
+  },
+  {
+    "name": "v84-launch-revision-accepted",
+    "file": "runner_launch_schema_darwin_test.go",
+    "old": "if l.Revision==0{l.Revision=v.Revision};if v.Revision!=l.Revision{return fmt.Errorf(\"launch candidate revision changed\")}",
+    "new": "if l.Revision==0{l.Revision=v.Revision}",
+    "test": "TestRunnerLaunchLedgerRejectsRevisionChangeAndIncompleteArm",
+    "assertion": "ASSERTION:launch-revision-immutable"
   }
 ]
