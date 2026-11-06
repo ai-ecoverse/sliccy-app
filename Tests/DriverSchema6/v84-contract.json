@@ -1,5 +1,5 @@
 {
-  "status": "DRAFT_SOURCE_NOT_FROZEN_NOT_FOR_EXECUTION",
+  "status": "FINAL_PIN_BOUND_BUILD17_BOTH_READS_REQUIRED_BEFORE_PUSH",
   "stage": "V84_ROUND7",
   "parentDriver": "3e66c9e",
   "driverSourceCount": 99,
@@ -32,5 +32,25 @@
     "nominalTestSeconds": 60
   },
   "deviation": "The frozen result remains FAIL (134 of 135 exact named REDs); overlay v83-snapshot-class-rollback512 was RED at the earlier fixture-reservation guard, and the Begin/End capacity refusal was not exercised by that overlay.",
-  "volume": "emergency 256KiB/case charged inside existing 32/48 MiB; nominal/overflow gates unchanged pending hosted measurement"
+  "volume": "emergency 256KiB/case charged inside existing 32/48 MiB; nominal/overflow gates unchanged pending hosted measurement",
+  "pins": "Exact authenticated build17/source849b605/run42217144755/artifact13502785375 outer814006a3 innere1a9f5eb manifest3f352821 static42220232825; helper12 85ef7c16 and CLI1.59 unchanged. Eight literal/label substitutions only on a7e6a24. Both exact pin reads required before push. Wrapper remains separate/pending; no capture clearance.",
+  "authenticatedArtifact": {
+    "source": "849b6057c522c932653c6b9fa84560879d7d4681",
+    "tree": "3fa23e124657dee16e4c10f9bf94f17b23554aab",
+    "run": 42217144755,
+    "artifact": 13502785375,
+    "build": "17",
+    "manifestSHA256": "3f352821c5876f7fc1afc262a9f98dcce912fa1018631a8c5d26b7a59ef5d8bb",
+    "contractSHA256": "3dff868d4147d2df4ab66bd89f0bacfa709a828b985451caf4aa316748c409a3",
+    "staticRun": 42220232825,
+    "helperBuild": "12",
+    "outerSHA256": "814006a3d902976cde108b4bde9f30713c783e4deddc621b2dc621e2192770ea",
+    "innerSHA256": "e1a9f5eb7e869befdcab7ca277af2e6cd893fbd3d4106b14b051c8b1bd84209d",
+    "appExeSHA256": "9d0e85c48c5976d8399a904f065984ae4b72163dba68c9196b7d0f9da5c31d28",
+    "infoPlistSHA256": "e4dd8efef295bac583bf74b19e75dc17eb7c89b67b57605956fad48cdd90af1f",
+    "appCDHash": "295b20120174387014aa1585b4ce373c5ae7da42",
+    "helperExeSHA256": "85ef7c16e6542d94b26051ba1e04e6df12da7317923726943e4ff292c75a1e89",
+    "helperCDHash": "37517f1a6e6a0085f9188f3723ab6209fd131dfd"
+  },
+  "acceptanceQualification": "build17 hosted synthetic: baseline compile and tests passed; 31 of 37 overlays RED/restored; six overlays not valid (list with causes: four defence-in-depth guards that also protect the property, one test failure the harness did not count, one malformed mutant); the launch handshake's own mutation sensitivity for those six is unproven."
 }
