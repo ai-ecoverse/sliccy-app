@@ -2,9 +2,12 @@ from pathlib import Path
 import importlib.util
 
 ROOT = Path(__file__).resolve().parents[2]
+# Build16 keeps PLAN/OUT/FILTER on the inner slice harness (Tests/RunnerSlice/hosted.py),
+# assigned as build16.harness — not as attributes of the Build16 module itself.
 spec = importlib.util.spec_from_file_location('build16_hosted', ROOT / 'Tests/RunnerBuild16/hosted.py')
-harness = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(harness)
+build16 = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(build16)
+harness = build16.harness
 harness.OUT = ROOT / 'build17-results'
 harness.FILTER = (
     'ScreenRunner(SliceTests|BSDTests|ChromeBoundaryTests|ReceiptTests|InventoryBoundaryTests|'
@@ -18,7 +21,7 @@ BARRIER = 'Sources/Sliccy/Screen/ScreenRunnerLaunchBarrier.swift'
 SAMPLING = 'Sources/Sliccy/Screen/ScreenRunnerLaunchSampling.swift'
 RELAY = 'Sources/Sliccy/Screen/ScreenIndicator.swift'
 
-# Build16 PLAN is retained; append only launch/handshake faults with exact named assertions.
+# Build16 PLAN is retained on the slice harness; append only launch/handshake faults.
 harness.PLAN += [
     ('launch-instance-equality', INSTANCE, 'current.isEqual(original)', 'true', 'actualFoundationSemanticEqualityNeverFallsBackToPIDOrPointer'),
     ('launch-instance-missing', INSTANCE, 'guard let current, let currentFacts, current.isEqual(original) else { return false }', 'guard let current, let currentFacts else { return false }', 'actualFoundationSemanticEqualityNeverFallsBackToPIDOrPointer'),

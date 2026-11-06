@@ -52,6 +52,8 @@ def main():
     restored, restored_log = run(suite())
     after = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in before}
     valid = len(mutant.failures) == 1 and not mutant.errors and 'current.isEqual(original)' in mutant_log
+    import plan_dry_run
+    dry = plan_dry_run.run(ROOT, require_driver=plan_dry_run.DRIVER_HARNESS.is_dir())
     report = {
         'baselineTests': baseline.testsRun,
         'baselinePass': baseline.wasSuccessful(),
@@ -61,6 +63,7 @@ def main():
         'restoredTests': restored.testsRun,
         'restoredPass': restored.wasSuccessful(),
         'sourceRestored': before == after,
+        'hostedPlanDryRun': {k: dry[k] for k in dry if k not in ('build17PlanNames', 'driverMutantNames')},
         'baselineLog': baseline_log,
         'mutantLog': mutant_log,
         'restoredLog': restored_log,
@@ -71,6 +74,7 @@ def main():
     }
     (ROOT / 'build17-pure-results.json').write_text(json.dumps(report, indent=2) + '\n')
     print(baseline_log + mutant_log + restored_log)
+    print('hostedPlanDryRun', json.dumps(report['hostedPlanDryRun']))
     return baseline.wasSuccessful() and valid and restored.wasSuccessful() and before == after
 
 

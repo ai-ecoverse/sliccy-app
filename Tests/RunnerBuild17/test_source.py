@@ -1,9 +1,11 @@
 from pathlib import Path
 import hashlib
+import importlib.util
 import json
 import unittest
 
 from product_projection import product_projection
+import plan_dry_run
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -17,8 +19,10 @@ class SourceTests(unittest.TestCase):
         self.assertEqual(indicator.split('    func invoke(', 1)[1].split('\n}\n', 1)[0], record['stopRelayBody'])
         accepted = json.loads((ROOT / 'Tests/RunnerBuild17/accepted-product-projection.json').read_text())
         for name, expected in accepted['files'].items():
-            actual = product_projection((ROOT / name).read_text() if (ROOT / name).exists() else '')
+            text = (ROOT / name).read_text() if (ROOT / name).exists() else ''
+            actual = product_projection(text)
             self.assertEqual(hashlib.sha256(actual.encode()).hexdigest(), expected['productSHA256'], name)
+            self.assertEqual(hashlib.sha256(text.encode()).hexdigest(), expected['sourceSHA256'], name)
         for name in accepted['proofOnlyMustProjectEmpty']:
             text = (ROOT / name).read_text()
             self.assertTrue(text.startswith('#if SLICCY_CAPTURE_RUNNER_PROOF\n'), name)
@@ -50,3 +54,24 @@ class SourceTests(unittest.TestCase):
         barrier = (ROOT / 'Sources/Sliccy/Screen/ScreenRunnerLaunchBarrier.swift').read_text()
         for value in ['launch-bsd-before', 'launch-bsd-after', 'launch-instance', 'launch-pending', 'launch-revision']:
             self.assertIn(value, barrier)
+
+    def test_build16_module_has_no_plan_attribute_like_7e8ad813(self):
+        # Exact named first cause of run 42208815999: build16_hosted.PLAN AttributeError.
+        with self.assertRaises(AttributeError):
+            plan_dry_run.broken_build17_module_plan_access(ROOT)
+
+    def test_hosted_plan_dry_run_assembles_without_subprocess(self):
+        report = plan_dry_run.run(ROOT, require_driver=plan_dry_run.DRIVER_HARNESS.is_dir())
+        self.assertTrue(report['brokenModulePlanRejected'])
+        self.assertGreaterEqual(report['build17PlanCount'], 37)  # 26 build16 + 11 launch
+        self.assertIn('launch-instance-equality', report['build17PlanNames'])
+        hosted = importlib.util.spec_from_file_location('check_build17_hosted', ROOT / 'Tests/RunnerBuild17/hosted.py')
+        module = importlib.util.module_from_spec(hosted)
+        hosted.loader.exec_module(module)
+        self.assertIs(module.harness, module.build16.harness)
+        self.assertTrue(hasattr(module.harness, 'PLAN'))
+        self.assertFalse(hasattr(module, 'PLAN'))
+        if report.get('driverSkipped'):
+            self.assertEqual(report['driverSkipped'], 'harness-absent')
+        else:
+            self.assertGreaterEqual(report['driverMutantCount'], 146)

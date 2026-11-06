@@ -75,7 +75,7 @@
     },
     "Sources/Sliccy/Screen/ScreenIndicator.swift": {
       "productSHA256": "c5a8ed5c5014bebf3b4e4657076e07bfb8db6b4b7b30098c96de0f6da59afa99",
-      "sourceSHA256": "5d2111192bbec76fdc284bc535e054edfc557bff67ccb9ed9604b9f48040596e"
+      "sourceSHA256": "0737e9a9d340c4ae557f6e45a73283feac11b13f2ef51aa07ed805f4a8007e94"
     },
     "Sources/Sliccy/Screen/ScreenJSON.swift": {
       "productSHA256": "09c9e20206d37b55b156ebd47d2839f882d3908a19a2584c273d17251416630b",
@@ -203,7 +203,7 @@
     },
     "Sources/Sliccy/Screen/ScreenRunnerProofApp.swift": {
       "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "sourceSHA256": "c5352171a206b6cbdee2e25ac5d051fc189491a3cd46155176548d796dc5d327"
+      "sourceSHA256": "7e232180e188cddb87c1d1a5b13738cea9312369dd8f882e5d9db90d07147865"
     },
     "Sources/Sliccy/Screen/ScreenRunnerReceiptLedger.swift": {
       "productSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
