@@ -107,7 +107,7 @@
     "v84-contract.json": "d93959e2a6ae0c324cf43d5c45e8d37374003a734a8f8e621e968f05261329a4",
     "schedule-estimate.json": "143df380273706017f48ff927fadbbf5f0f25442a9f373dc0167d774e5948fc5"
   },
-  "fixtureSHA256": "13ac8f37b6aa0c2b240de68e8f2c8d326071f9c355146fd05db3cd3e9f86420a",
+  "fixtureSHA256": "30454bdbe417a34a07d3ae68702e2c9e816e7b58397c928165cc07473780b21b",
   "driverReady": false,
   "actualEncoderSources": {
     "Sources/Sliccy/Screen/ScreenRunnerReceiptLedger.swift": "2c39093785f4e6c05fc211be25756a83f61ac2a8bdf90e97675b49d588668b4b",
@@ -160,10 +160,10 @@
     "shards.json": "25a9985e6608491ced35325c40a467ff6a816d093e648db3c076f9ef77840acd",
     "schedule-estimate.json": "143df380273706017f48ff927fadbbf5f0f25442a9f373dc0167d774e5948fc5",
     "mutants.json": "2e9c92015e6842dad8c2eeec17858f64d48fe547edc2eb98921c9a1030ee8a41",
-    "test_harness.py": "10530be85d354b8fcf0f39c5c8182c05f83d85d93ba291aa8c57f7a9489f2bb3",
+    "test_harness.py": "aad54e0c30bb8b41242693c0d2404f8d2c2fbb16223444e638c7836c00658a62",
     "suite_schedule.py": "154f9011506cf822d344970b0670ada7ef4f0d12c368597dc56e02bd1b60aa89",
     "workflow2b-cost-analysis.txt": "1baf67f33515d9617c8daeb8526047969818ddc9f132526fcd820ee6cabbfc3b",
-    "v84-contract.json": "a0e054330c5a49abf5acd3a0386aad73623c5eeff5d701c839db496fb9c3b777"
+    "v84-contract.json": "d93959e2a6ae0c324cf43d5c45e8d37374003a734a8f8e621e968f05261329a4"
   },
   "count": 99
 }
