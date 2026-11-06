@@ -19,6 +19,8 @@
     "process_observer_darwin_test.go": "3d1d45844092ac2080ae91ba8934c1041e85ea7b7759d8ca3c6356e356bc3846",
     "released_test.go": "c2f46f8abba78cc4d690ed568c0eddd1ab444a9623dc465414dcdb999dfcf8e0",
     "runner_baseline_identity_darwin_test.go": "365b9b5cc4d3aa327627ba7a83d93b162b485069c71bf5b9d897d09eaa1092b8",
+    "runner_baseline_stdin_diag_darwin_test.go": "f281b8619a616a4b3a90144fbf96bf0ddd4b060e71e5df5eb792ed643b7c3b92",
+    "runner_baseline_stdin_diag_fixture_darwin_test.go": "1cad14cb5c0c07b5dec4ff05253133de2b76fb561e1c96319884645609586756",
     "runner_bsd_native_darwin_test.go": "9c2dc796cd88bffb5e971b78825cf7dd1e1c9c8aec921edae748dc75337eed3d",
     "runner_bsd_receipt_darwin_test.go": "edbd3f29a37c426b7353fd8baf0bec4dab84f65707b3594dbedb445e21a98055",
     "runner_budgets_darwin_test.go": "b8a067f49fe43a1d023232446c92abf95c3cc3dfff676068307596f7e6d876cf",
@@ -27,7 +29,7 @@
     "runner_case_evidence_fixture_darwin_test.go": "757944441f736b51fe3367be73bcc855fb8d06190dbf39d2d6e2a93225eea1d8",
     "runner_clock_darwin_test.go": "ce5414fd3296edcbf3aa88eb8e5fbc52436925c7545e58cbf404d1371d6958cb",
     "runner_code_receipt_darwin_test.go": "a9250ba73dbde3b6a1fdc7717db943dd611d178c60765eb770db1e9bb0efe0c1",
-    "runner_controller_darwin_test.go": "0e4789814d6f0f0548d5ae6a37d1554300865d23b1af5a474bd5573e5baf343f",
+    "runner_controller_darwin_test.go": "e140219340015bb7cbe506972aef2164b7c82e00b3e8382adcb2105ddfd63b03",
     "runner_controller_observer_darwin_test.go": "43f357b3f7e3d86ed2b8f40ef076b98f258a9a0c11f682ded37192d496e77257",
     "runner_controller_observer_fixture_darwin_test.go": "17dc1ff9597c0a60d864e7d6f69eba3a9cb3f18498d1e763f65bc1b812f0d961",
     "runner_darwin_signal_fixture_darwin_test.go": "ab5954417e94f68e39717f30371646c6a4c904bda311e01251c8f0a77e8202ce",
@@ -35,7 +37,7 @@
     "runner_diagnostics_fixture_darwin_test.go": "295fa0ff7e220c280c6665fc2a63e733dce89b6ced653692c1468d343c2d4811",
     "runner_discovery_fixture_darwin_test.go": "1ee01d544ee768886a40e5d0b6e5f4f9d504435f6ef98f7b1c044e79f226cb04",
     "runner_display_schema_darwin_test.go": "524e82fae114ccd8752e16a5a603f2cb34326f8f940946447b1850f855eb1430",
-    "runner_entry_darwin_test.go": "1092169dc74b48c455b025b84840ced22ff26d21b0ee2a613cd7f7bd94f37a21",
+    "runner_entry_darwin_test.go": "dd28a569937a3c04a2d05666755f2b998e3f087411fd9657ccfdaac97bbf56c4",
     "runner_failure_terminal_darwin_test.go": "fda2462d486b9811070b7e694c0b407ec7399e262c86247d5a9d9e1564af0882",
     "runner_failure_terminal_fixture_darwin_test.go": "94b5cc93cc7002929893296b51b80f4168d0ba9197d0455fe6288b124672fb5c",
     "runner_file_snapshot_darwin_test.go": "8196cb02a6b262c252d696798f00991f2b43e9cc6198609ac02a00fc783913e2",
@@ -55,9 +57,9 @@
     "runner_native_darwin_test.go": "1893901c4fd4a85a70f8dd44a937ccc1e334e8f2f6d6821e15bec66e71317db1",
     "runner_native_trace_darwin_test.go": "7a878dd3abfb06fc1fbdae12f1910d233a4f1cae71ac7e0940a9dcbefca6c267",
     "runner_native_trace_fixture_darwin_test.go": "2302805bd2411cfbcdbac3ffd7442b796c9a78b403f74c26f84db3f8375c9e3b",
-    "runner_normalized_case_darwin_test.go": "0caf66723a847b3feaf541daf4614d8624de94786d315eb7a55275940b2fb109",
+    "runner_normalized_case_darwin_test.go": "7b1eac733fb26fc9d2b2904e63a5110afd3d2e58c746bc02856b587a4f83b7a7",
     "runner_normalized_codec_darwin_test.go": "76a4d9c543d27cf6fa1a3a554f092f7472173a3a29cf53883a67b67651c55b2a",
-    "runner_normalized_fixture_darwin_test.go": "8b922727c3b69ef9ab28e631973c08b0ceac941a046caeaf046fe2d0732f4fc8",
+    "runner_normalized_fixture_darwin_test.go": "94d2674d8aeccd450014f32be68139d679c140db1fb8b957112921be79a7ba5d",
     "runner_normalized_reader_darwin_test.go": "e692f7e73f5acaf7de75b7de8b73c50f89523a3b1c7e8199dffbcb6d5a689641",
     "runner_normalized_writer_darwin_test.go": "d4d83a6ca5cd385de4f2558634f8d307c2fc257fb17aa7e78644e451d8d5b886",
     "runner_observation_pool_darwin_test.go": "3050e870dcdd9af4bb7106b3f2355146eeafb7714335a2e65db86818d0cf8ba3",
@@ -102,7 +104,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "79d100edf010b03ed1693c0f816921b441c1eeb882b782bd6fede570ebb1ca86",
+    "inputs/driver-source.tar.gz": "69998b1652f4f9f1a42269ec3c6fa25ca56d4821c1bdef5d3406c969c11af255",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9",
     "v84-contract.json": "d93959e2a6ae0c324cf43d5c45e8d37374003a734a8f8e621e968f05261329a4",
     "schedule-estimate.json": "143df380273706017f48ff927fadbbf5f0f25442a9f373dc0167d774e5948fc5"
@@ -165,5 +167,5 @@
     "workflow2b-cost-analysis.txt": "1baf67f33515d9617c8daeb8526047969818ddc9f132526fcd820ee6cabbfc3b",
     "v84-contract.json": "d93959e2a6ae0c324cf43d5c45e8d37374003a734a8f8e621e968f05261329a4"
   },
-  "count": 99
+  "count": 101
 }
