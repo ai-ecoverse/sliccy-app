@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "version": "schema6-v8.4-build17",
-  "status": "PINNED_FOR_CAPTURE_PENDING_DRIVER_SYNTHETIC_AND_WRAPPER_CLEAR",
-  "deviation": "The frozen result remains FAIL (134 of 135 exact named REDs); overlay v83-snapshot-class-rollback512 was RED at the earlier fixture-reservation guard, and the Begin/End capacity refusal was not exercised by that overlay.",
+  "status": "PINNED_FOR_CAPTURE_PENDING_WRAPPER_CLEAR",
+  "deviation": "The frozen result remains FAIL (142 of 146 exact named validRed); overlay v83-snapshot-class-rollback512 was RED at the earlier fixture-reservation guard, and the Begin/End capacity refusal was not exercised by that overlay.",
   "entry": [
     "go",
     "test",
@@ -14,8 +14,8 @@
     "-timeout=980s"
   ],
   "sourceCount": 99,
-  "archiveSHA256": "13ac8f37b6aa0c2b240de68e8f2c8d326071f9c355146fd05db3cd3e9f86420a",
-  "sourceMapSHA256": "03c80cc40aa6f6a949785bd92fa19364d25e54bd2b1161088e4101da7d8b6709",
+  "archiveSHA256": "79d100edf010b03ed1693c0f816921b441c1eeb882b782bd6fede570ebb1ca86",
+  "sourceMapSHA256": "42b88f313130e90da0df333fb0e22b7c231175d370724908f2e2b115e4c56e6a",
   "appBinding": {
     "source": "849b6057c522c932653c6b9fa84560879d7d4681",
     "run": 42217144755,
@@ -31,57 +31,80 @@
   },
   "entryEnvironmentSHA256": "fd015c0f6b0347d1e4fc226e6df8d16b303155ce41d4f692e6bfb8d297b9222e",
   "validation": {
-    "source": "b51fd2aa8d67fdd6e224c21eaea64614c5941642",
-    "run": 42223018229,
+    "source": "7012f3fa33a8cbe7c161ac6ae6044346329119c1",
+    "run": 42229325232,
     "event": "push",
     "ref": "proof/independent-driver-schema6-v1",
     "attempt": 1,
-    "frozenResult": "FAIL_REQUIRED_NAMED_MUTATION_ASSERTION_MISMATCH",
-    "deviation": "The frozen result remains FAIL (134 of 135 exact named REDs); overlay v83-snapshot-class-rollback512 was RED at the earlier fixture-reservation guard, and the Begin/End capacity refusal was not exercised by that overlay.",
-    "trialDisposition": "Coordinator ACCEPTED after both independent retained-evidence reviews; no correction or further run.",
-    "exactNamedRuntimeRed": 134,
-    "earlierGuardRuntimeRed": 1,
+    "frozenResult": "FAIL_MUTATION_COVERAGE_LIMIT_FOUR_INVALID_OVERLAYS",
+    "acceptanceQualification": "WF6 driver synthetic run 42229325232 at 7012f3f: baseline compile and tests passed on all stages that ran (V84 emergency hosted payload 181675; V83 strict PASS); 142 of 146 overlays exact named validRed/restored; four overlays not valid (mutation-coverage limit, no fix/WF7 under PM budget): (1) v84-failure-terminal-promoted \u2014 compile fails unused `complete` after mutant removes its use; defence-in-depth/malformed; property still protected by baseline TestRunnerV84ReservedFailedTerminalRoundTrip integrity and other validRed failure-terminal mutants; (2) v84-emergency-overflow-silent \u2014 runtime PASS because Limited is already set by len(SpawnedChildren)>8 at summary init so loop Limited=true is dead; defence-in-depth guard that also protects the property; (3) v84-launch-revision-accepted \u2014 runtime PASS; launch handshake mutation sensitivity unproven; property still protected by other validRed launch/schema mutants and baseline TestRunnerLaunchLedgerRejectsRevisionChangeAndIncompleteArm; (4) v83-snapshot-class-rollback512 \u2014 RED at ASSERTION:v83-fixture-snapshot-reservation (earlier guard), not capacity; Begin/End capacity refusal not exercised; property still protected by that earlier reservation guard. Build17 app qualification carried from signing/static pins.",
+    "deviation": "The frozen result remains FAIL (142 of 146 exact named validRed); overlay v83-snapshot-class-rollback512 was RED at the earlier fixture-reservation guard, and the Begin/End capacity refusal was not exercised by that overlay.",
+    "trialDisposition": "Coordinator leans AQ-accept for capture trial after both readers confirm per-overlay characterizations; no fix commit; no WF7 under PM budget 6/8.",
+    "baselineGreen": true,
+    "emergencyHostedPayloadBytes": 181675,
     "mutations": 146,
-    "all135OwnRestoredGreen": true,
-    "rawRestoredFormattedTestsPerShard": 101,
+    "validRed": 142,
+    "notValid": 4,
+    "notValidOverlays": [
+      {
+        "name": "v84-failure-terminal-promoted",
+        "shard": 0,
+        "cause": "compile: declared and not used: complete",
+        "protection": "baseline failure-terminal integrity + other validRed failure-terminal mutants"
+      },
+      {
+        "name": "v84-emergency-overflow-silent",
+        "shard": 1,
+        "cause": "Limited already true from len(SpawnedChildren)>8 at init; loop Limited=true dead",
+        "protection": "init Limited predicate / DirectChildrenGone RootsRemoved when Limited"
+      },
+      {
+        "name": "v84-launch-revision-accepted",
+        "shard": 1,
+        "cause": "runtime PASS; launch handshake mutation sensitivity unproven",
+        "protection": "other validRed launch mutants + baseline launch ledger test"
+      },
+      {
+        "name": "v83-snapshot-class-rollback512",
+        "shard": 4,
+        "cause": "RED at v83-fixture-snapshot-reservation earlier guard, not capacity",
+        "protection": "earlier fixture-reservation guard"
+      }
+    ],
     "shards": 6,
-    "streams": 2496,
+    "shardSuccess": [
+      2,
+      3,
+      5
+    ],
+    "shardFailure": [
+      0,
+      1,
+      4
+    ],
     "formattedFiles": 99,
-    "formattedBytesTestedAndEqualAcrossShards": true,
-    "rawMutantArchiveSHA256": "a54d9f424f20e62b5ea01376e7150b93878e9f6d09fad57c23596a4ea5285cc1",
-    "evidencePath": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/driver-v83-workflow2b-final-pin-3e66c9e/run-42076178441",
-    "verificationSHA256": "4d43ab0a0d0d1ba6eda06d95f4f1859cffc01ae3540bcc9378b812d1e30635b6",
-    "reportSHA256": "04e255f13acfed5dafd6ce7b53642783bae7bce76669ded2238a68b6042871ac",
-    "completeEvidenceFileMapSHA256": "8f551655239d1f570ca27d54050bc531434d8580b4248273f421ba372269e22b",
-    "measuredVolume": {
-      "normalizedBytes": 25943893,
-      "tarBytes": 110295040,
-      "marginBytes": 23922688,
-      "files": 273,
-      "phases": 392184,
-      "owners": 3432,
-      "receipts": 6864,
-      "imagesBytes": 67108864,
-      "otherBucketBytes": 16777216
-    },
-    "firstOverflowRefusal": {
-      "slot": 49,
-      "bytes": 50330576,
-      "records": 9252,
-      "reason": "normalization storage overflow"
-    },
+    "evidencePath": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/build17-final-pin-work/wf6-driver-synthetic/failure-evidence-42229325232",
+    "resultPacket": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/frozen-build17-wf6-result-42229325232",
+    "verificationSHA256": "dc0913eaeea11a217f9b4101b05907af8e89003389eeb848490ca3b485bfb691",
+    "reportSHA256": "3fc291a433fecf314afca57001fc5ed55f46668151596a52e81e02fcd1af5bc8",
+    "bindRunSHA256": "3c66095c98476ffde89d974d69d16d02563ddaa018a930963bad2c253d3ad069",
     "workElapsedSecondsRange": [
-      304.615742334,
-      398.356342334
+      249,
+      370
     ],
     "jobElapsedSecondsRange": [
-      321,
-      415
+      249,
+      370
     ],
-    "allHeavyInvocationDetails": "evidence/verification.json",
+    "heavyInvocations": "never invoked on this driver",
+    "volume": {
+      "nominal": "rc0 all phases all shards",
+      "overflow": "rc0 all phases all shards"
+    },
     "nativeLocal": false,
-    "note": "Driver final-pin b51fd2aa cleared by both readers; WF5 synthetic run bound and in progress. Capture dispatch remains coordinator decision after synthetic evidence + wrapper clear.",
-    "all99BeforeAfterRestorationGates": true
+    "note": "Driver 7012f3f WF6 synthetic run 42229325232: baseline GREEN; run FAIL only from 4 notValid overlays under stated mutation-coverage limit. V8.3 deviation retained on its own terms. Capture dispatch remains coordinator decision after wrapper clear.",
+    "all99BeforeAfterRestorationGates": true,
+    "v83AcceptanceRemainsOnOwnRun": true
   },
   "limits": {
     "suiteSeconds": 960,
@@ -150,7 +173,7 @@
     "Diagnostics snapshots are sampled, may be delayed or partial under shared4-worker/256-job limits, and cannot retrospectively name an unobserved owner.",
     "Helper150s lifetime is enforced by its existing main-loop timer and is not a physical teardown bound; signed app setup120/final150 are not guarantees under blocking synchronous SDK calls.",
     "App has no Unix SIGTERM cleanup path; unchanged driver3s failure escalation may kill before owned-root removal; unconfirmed cleanup blocks later cases. App follow-up issue4 remains.",
-    "The frozen result remains FAIL (134 of 135 exact named REDs); overlay v83-snapshot-class-rollback512 was RED at the earlier fixture-reservation guard, and the Begin/End capacity refusal was not exercised by that overlay.",
+    "The frozen result remains FAIL (142 of 146 exact named validRed); overlay v83-snapshot-class-rollback512 was RED at the earlier fixture-reservation guard, and the Begin/End capacity refusal was not exercised by that overlay.",
     "The successful nominal and maximum fixtures share the reservation guard. Their rejection under the constructor rollback is source-backed, not a separately executed mutant result; no isolated Begin/End capacity rollback sensitivity is claimed.",
     "The first display-change notification cause remains unestablished. Immediate stop is unchanged. Build17 diagnostics may identify observed configuration changes/startup timing; absence or recurrence alone does not prove a cause or admit a display change.",
     "WindowServer structural refusal does not demonstrate the protected-set predicate; the stronger every-owner predicate claim remains FAILED_TO_DEMONSTRATE.",
