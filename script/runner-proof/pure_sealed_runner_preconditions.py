@@ -23,7 +23,7 @@ def catalog():
     return [
         {'line':59,'assert':'sha(inputs/name)==INPUTS[name]','file':'script/runner-proof/inputs/*','preHeavy':True},
         {'line':82,'assert':'capture-driver-files.json contract == expected','file':'capture-driver-files.json','preHeavy':True},
-        {'line':94,'assert':'len(files)==99 single-component .go','file':'capture-driver-files.json','preHeavy':True},
+        {'line':94,'assert':'len(files)==101 single-component .go','file':'capture-driver-files.json','preHeavy':True},
         {'line':101,'assert':'tar member digests == files map','file':'capture-driver.tar.gz','preHeavy':True},
         {'line':115,'assert':'app zip == APP_ZIP_SHA','file':'Sliccy-0.1.0.zip','preHeavy':False},
         {'line':220,'assert':'outer == APP_OUTER_SHA','file':'artifact.zip','preHeavy':False},
@@ -64,7 +64,7 @@ def run(inputs: Path):
     check(82,'driver-files contract','capture-driver-files.json', c82)
     expected_files=metadata['files']
     def c94():
-        assert len(expected_files)==99
+        assert len(expected_files)==101
         from pathlib import PurePosixPath
         for n in expected_files:
             v=PurePosixPath(n)

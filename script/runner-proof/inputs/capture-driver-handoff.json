@@ -13,9 +13,9 @@
     "-count=1",
     "-timeout=980s"
   ],
-  "sourceCount": 99,
-  "archiveSHA256": "79d100edf010b03ed1693c0f816921b441c1eeb882b782bd6fede570ebb1ca86",
-  "sourceMapSHA256": "42b88f313130e90da0df333fb0e22b7c231175d370724908f2e2b115e4c56e6a",
+  "sourceCount": 101,
+  "archiveSHA256": "69998b1652f4f9f1a42269ec3c6fa25ca56d4821c1bdef5d3406c969c11af255",
+  "sourceMapSHA256": "d2ba605b9d3937e0f028af4abcdba646413190cf7d30bbd00e4d67778fc59a17",
   "appBinding": {
     "source": "849b6057c522c932653c6b9fa84560879d7d4681",
     "run": 42217144755,
@@ -31,15 +31,17 @@
   },
   "entryEnvironmentSHA256": "fd015c0f6b0347d1e4fc226e6df8d16b303155ce41d4f692e6bfb8d297b9222e",
   "validation": {
-    "source": "7012f3fa33a8cbe7c161ac6ae6044346329119c1",
-    "run": 42229325232,
+    "source": "fb0008fba2b41b8bcd3583ca7b95fe55c1c39934",
+    "tree": "bdff10e66d28946cd5bbb1723019e5009201ff7a",
+    "parent": "7012f3fa33a8cbe7c161ac6ae6044346329119c1",
+    "run": 42242210188,
     "event": "push",
     "ref": "proof/independent-driver-schema6-v1",
     "attempt": 1,
     "frozenResult": "FAIL_MUTATION_COVERAGE_LIMIT_FOUR_INVALID_OVERLAYS",
-    "acceptanceQualification": "WF6 driver synthetic run 42229325232 at 7012f3f: baseline compile and tests passed on all stages that ran (V84 emergency hosted payload 181675; V83 strict PASS); 142 of 146 overlays exact named validRed/restored; four overlays not valid (mutation-coverage limit, no fix/WF7 under PM budget): (1) v84-failure-terminal-promoted \u2014 compile fails unused `complete` after mutant removes its use; defence-in-depth/malformed; property still protected by baseline TestRunnerV84ReservedFailedTerminalRoundTrip integrity and other validRed failure-terminal mutants; (2) v84-emergency-overflow-silent \u2014 runtime PASS because Limited is already set by len(SpawnedChildren)>8 at summary init so loop Limited=true is dead; defence-in-depth guard that also protects the property; (3) v84-launch-revision-accepted \u2014 runtime PASS; launch handshake mutation sensitivity unproven; property still protected by other validRed launch/schema mutants and baseline TestRunnerLaunchLedgerRejectsRevisionChangeAndIncompleteArm; (4) v83-snapshot-class-rollback512 \u2014 RED at ASSERTION:v83-fixture-snapshot-reservation (earlier guard), not capacity; Begin/End capacity refusal not exercised; property still protected by that earlier reservation guard. Build17 app qualification carried from signing/static pins.",
+    "acceptanceQualification": "WF8 driver synthetic run 42242210188 at fb0008f: baseline compile and tests passed on all stages that ran (V84 emergency hosted payload 181675; V83 strict PASS); 142 of 146 overlays exact named validRed/restored; four overlays not valid (mutation-coverage limit, carried from WF6 AQ \u2014 no fix under PM budget): (1) v84-failure-terminal-promoted \u2014 compile fails unused `complete` after mutant removes its use; defence-in-depth/malformed; property still protected by baseline TestRunnerV84ReservedFailedTerminalRoundTrip integrity and other validRed failure-terminal mutants; (2) v84-emergency-overflow-silent \u2014 runtime PASS because Limited is already set by len(SpawnedChildren)>8 at summary init so loop Limited=true is dead; defence-in-depth guard that also protects the property; (3) v84-launch-revision-accepted \u2014 runtime PASS; launch handshake mutation sensitivity unproven; property still protected by other validRed launch/schema mutants and baseline TestRunnerLaunchLedgerRejectsRevisionChangeAndIncompleteArm; (4) v83-snapshot-class-rollback512 \u2014 RED at ASSERTION:v83-fixture-snapshot-reservation (earlier guard), not capacity; Begin/End capacity refusal not exercised; property still protected by that earlier reservation guard. Round-8 scope: diagnostics-only stamps (baselineMarker/stdinCloses/caseBeganAt/chromeIdentityLive) + display-exclusion last; no baseline-marker or revalidate behavior change. Build17 app qualification carried from signing/static pins.",
     "deviation": "The frozen result remains FAIL (142 of 146 exact named validRed); overlay v83-snapshot-class-rollback512 was RED at the earlier fixture-reservation guard, and the Begin/End capacity refusal was not exercised by that overlay.",
-    "trialDisposition": "Coordinator leans AQ-accept for capture trial after both readers confirm per-overlay characterizations; no fix commit; no WF7 under PM budget 6/8.",
+    "trialDisposition": "Both readers ACCEPT_WF8; coordinator accepts round-8 driver synthetic under existing AQ/V8.3/build17/launch-handshake-unproven qualification. Wrapper repin cites ONLY 42242210188/fb0008f.",
     "baselineGreen": true,
     "emergencyHostedPayloadBytes": 181675,
     "mutations": 146,
@@ -82,19 +84,33 @@
       1,
       4
     ],
-    "formattedFiles": 99,
-    "evidencePath": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/build17-final-pin-work/wf6-driver-synthetic/failure-evidence-42229325232",
-    "resultPacket": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/frozen-build17-wf6-result-42229325232",
-    "verificationSHA256": "dc0913eaeea11a217f9b4101b05907af8e89003389eeb848490ca3b485bfb691",
-    "reportSHA256": "3fc291a433fecf314afca57001fc5ed55f46668151596a52e81e02fcd1af5bc8",
-    "bindRunSHA256": "3c66095c98476ffde89d974d69d16d02563ddaa018a930963bad2c253d3ad069",
+    "formattedFiles": 101,
+    "diagnosticsStamps": [
+      "baselineMarker",
+      "stdinCloses",
+      "caseBeganAt",
+      "chromeIdentityLive"
+    ],
+    "caseOrder": [
+      "selected-window",
+      "authorization-exclusion",
+      "reciprocal-revoke",
+      "active-stop",
+      "hotkey-stop",
+      "display-exclusion"
+    ],
+    "evidencePath": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/round8-diag-work/wf8-driver-synthetic/failure-evidence-42242210188",
+    "resultPacket": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/frozen-build17-wf8-result-42242210188",
+    "verificationSHA256": "1ba27d20d4bb7c9c1dbc7a41c9b51b4d8e65f9a6226878b32c5ca54c806353a3",
+    "reportSHA256": "310678bb20e5f578bba69cee0462aeb511df19e82c4ed407fe98dae7990e3192",
+    "bindRunSHA256": "d13848ebe7f672e43dbbee551086cc11ec31538252645f6a174ff5a7b2359c7f",
     "workElapsedSecondsRange": [
-      249,
-      370
+      228.0,
+      364.0
     ],
     "jobElapsedSecondsRange": [
-      249,
-      370
+      228.0,
+      364.0
     ],
     "heavyInvocations": "never invoked on this driver",
     "volume": {
@@ -102,9 +118,13 @@
       "overflow": "rc0 all phases all shards"
     },
     "nativeLocal": false,
-    "note": "Driver 7012f3f WF6 synthetic run 42229325232: baseline GREEN; run FAIL only from 4 notValid overlays under stated mutation-coverage limit. V8.3 deviation retained on its own terms. Capture dispatch remains coordinator decision after wrapper clear.",
-    "all99BeforeAfterRestorationGates": true,
-    "v83AcceptanceRemainsOnOwnRun": true
+    "note": "Driver fb0008f WF8 synthetic run 42242210188: baseline GREEN; run FAIL only from same 4 AQ notValid overlays; diagnostics/reorder introduced no new baseline regression. V8.3 deviation retained on its own terms. Capture 8 remains coordinator decision after wrapper clear.",
+    "all101BeforeAfterRestorationGates": true,
+    "v83AcceptanceRemainsOnOwnRun": true,
+    "citesOnly": {
+      "run": 42242210188,
+      "sha": "fb0008fba2b41b8bcd3583ca7b95fe55c1c39934"
+    }
   },
   "limits": {
     "suiteSeconds": 960,
