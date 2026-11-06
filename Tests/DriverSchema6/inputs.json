@@ -56,8 +56,8 @@
     "runner_native_trace_darwin_test.go": "7a878dd3abfb06fc1fbdae12f1910d233a4f1cae71ac7e0940a9dcbefca6c267",
     "runner_native_trace_fixture_darwin_test.go": "2302805bd2411cfbcdbac3ffd7442b796c9a78b403f74c26f84db3f8375c9e3b",
     "runner_normalized_case_darwin_test.go": "0caf66723a847b3feaf541daf4614d8624de94786d315eb7a55275940b2fb109",
-    "runner_normalized_codec_darwin_test.go": "ec2feb66923d247cda0101db6e5cadc4550e1cec419e176d743b0b32afb7c3a5",
-    "runner_normalized_fixture_darwin_test.go": "6588cf799e00db403308bcfd2978e3918e0683cbce18d3a40c17e270718b99e5",
+    "runner_normalized_codec_darwin_test.go": "16ed1ebfb1ee86df29b41fe626906c6488223635a15deb99204b358bbf905724",
+    "runner_normalized_fixture_darwin_test.go": "8b922727c3b69ef9ab28e631973c08b0ceac941a046caeaf046fe2d0732f4fc8",
     "runner_normalized_reader_darwin_test.go": "e692f7e73f5acaf7de75b7de8b73c50f89523a3b1c7e8199dffbcb6d5a689641",
     "runner_normalized_writer_darwin_test.go": "d4d83a6ca5cd385de4f2558634f8d307c2fc257fb17aa7e78644e451d8d5b886",
     "runner_observation_pool_darwin_test.go": "3050e870dcdd9af4bb7106b3f2355146eeafb7714335a2e65db86818d0cf8ba3",
@@ -102,7 +102,7 @@
     "universal_parser_test.go": "d8853211d3616c58792574a4d72bdb4246604c4c82eeab1eb82609179f44072c"
   },
   "inputs": {
-    "inputs/driver-source.tar.gz": "13ac8f37b6aa0c2b240de68e8f2c8d326071f9c355146fd05db3cd3e9f86420a",
+    "inputs/driver-source.tar.gz": "2f01d5caeea5e93eb468a7dce282524277604f790985858e6f81befe6eaba457",
     "inputs/slicc-v1.59.0.tar.gz": "8f2cfe6b8ae8c091d156f772f5f070527bc7708959b58ec9d8694f3fbad744a9",
     "v84-contract.json": "d93959e2a6ae0c324cf43d5c45e8d37374003a734a8f8e621e968f05261329a4",
     "schedule-estimate.json": "143df380273706017f48ff927fadbbf5f0f25442a9f373dc0167d774e5948fc5"
