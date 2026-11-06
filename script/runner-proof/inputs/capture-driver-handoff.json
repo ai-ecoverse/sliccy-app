@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "version": "schema6-v8.3-build16",
-  "status": "ACCEPTED_FOR_CAPTURE_TRIAL_WITH_STATED_DEVIATION_NOT_DISPATCH",
+  "version": "schema6-v8.4-build17",
+  "status": "PINNED_FOR_CAPTURE_PENDING_DRIVER_SYNTHETIC_AND_WRAPPER_CLEAR",
   "deviation": "The frozen result remains FAIL (134 of 135 exact named REDs); overlay v83-snapshot-class-rollback512 was RED at the earlier fixture-reservation guard, and the Begin/End capacity refusal was not exercised by that overlay.",
   "entry": [
     "go",
@@ -13,26 +13,26 @@
     "-count=1",
     "-timeout=980s"
   ],
-  "sourceCount": 94,
-  "archiveSHA256": "44fd9ba2bd9f4adab4edf3cd52fc11dde67982c60debe60e50e54833a7763a50",
-  "sourceMapSHA256": "3a5ca3e2b94d61ac94517053153fad2672741483f565aa044432d3dc0c176077",
+  "sourceCount": 99,
+  "archiveSHA256": "13ac8f37b6aa0c2b240de68e8f2c8d326071f9c355146fd05db3cd3e9f86420a",
+  "sourceMapSHA256": "03c80cc40aa6f6a949785bd92fa19364d25e54bd2b1161088e4101da7d8b6709",
   "appBinding": {
-    "source": "261b1e3592f4bacafb810bd76480b68b54ca3f55",
-    "run": 42069097054,
-    "artifact": 13435980723,
-    "build": 16,
+    "source": "849b6057c522c932653c6b9fa84560879d7d4681",
+    "run": 42217144755,
+    "artifact": 13502785375,
+    "build": 17,
     "helperBuild": 12,
-    "zipSHA256": "6bc970253574ad281e6acecfa08ca97bc95a5bba656366a44cd7b612b766656a",
-    "outerSHA256": "08d71a606b21083a162d31690ed026024f67591e07a95e490cb66d9c39474c39",
-    "manifestSHA256": "69fd7986228a0e258c57724989bd747a56d7401f029048de8ad6ac2e4ec47167",
+    "zipSHA256": "e1a9f5eb7e869befdcab7ca277af2e6cd893fbd3d4106b14b051c8b1bd84209d",
+    "outerSHA256": "814006a3d902976cde108b4bde9f30713c783e4deddc621b2dc621e2192770ea",
+    "manifestSHA256": "3f352821c5876f7fc1afc262a9f98dcce912fa1018631a8c5d26b7a59ef5d8bb",
     "schema": 6,
     "schemaSHA256": "2d47a525425c3e5cbb23acec0f413b111b3f03f5219c81c9befe3f41837f4ffc",
-    "build16ContractSHA256": "3c73a4b6e9d729151e37826a0b81d35aafcd7cd3f0ec19c9086fba3c5ccfbe62"
+    "build17ContractSHA256": "3dff868d4147d2df4ab66bd89f0bacfa709a828b985451caf4aa316748c409a3"
   },
   "entryEnvironmentSHA256": "fd015c0f6b0347d1e4fc226e6df8d16b303155ce41d4f692e6bfb8d297b9222e",
   "validation": {
-    "source": "3e66c9e67d674864bca731d4e55a42010fd4d626",
-    "run": 42076178441,
+    "source": "b51fd2aa8d67fdd6e224c21eaea64614c5941642",
+    "run": 42223018229,
     "event": "push",
     "ref": "proof/independent-driver-schema6-v1",
     "attempt": 1,
@@ -41,13 +41,12 @@
     "trialDisposition": "Coordinator ACCEPTED after both independent retained-evidence reviews; no correction or further run.",
     "exactNamedRuntimeRed": 134,
     "earlierGuardRuntimeRed": 1,
-    "mutations": 135,
+    "mutations": 146,
     "all135OwnRestoredGreen": true,
-    "all94BeforeAfterRestorationGates": true,
     "rawRestoredFormattedTestsPerShard": 101,
     "shards": 6,
     "streams": 2496,
-    "formattedFiles": 94,
+    "formattedFiles": 99,
     "formattedBytesTestedAndEqualAcrossShards": true,
     "rawMutantArchiveSHA256": "a54d9f424f20e62b5ea01376e7150b93878e9f6d09fad57c23596a4ea5285cc1",
     "evidencePath": "/Users/trieloff/.bb/thread-storage/thr_desfnajij8/driver-v83-workflow2b-final-pin-3e66c9e/run-42076178441",
@@ -80,7 +79,9 @@
       415
     ],
     "allHeavyInvocationDetails": "evidence/verification.json",
-    "nativeLocal": false
+    "nativeLocal": false,
+    "note": "Driver final-pin b51fd2aa cleared by both readers; WF5 synthetic run bound and in progress. Capture dispatch remains coordinator decision after synthetic evidence + wrapper clear.",
+    "all99BeforeAfterRestorationGates": true
   },
   "limits": {
     "suiteSeconds": 960,
@@ -136,7 +137,7 @@
     "dispatch": "one capture dispatch only after both final reads and coordinator authorization",
     "inventoryClaim": "Disjoint complete per-owner categories: predicate refusal or exact verified WindowServer structural refusal with predicateEvidence:false. Stronger every-owner predicate claim remains FAILED_TO_DEMONSTRATE."
   },
-  "displayDiagnostics": "Actual signed build16 producer; 65 structural fixture rows and218 display rows hosted encoder-tested. Notification stop remains first and unchanged; diagnostics do not debounce or grant authority.",
+  "displayDiagnostics": "Actual signed build17 producer; 65 structural fixture rows and218 display rows hosted encoder-tested. Notification stop remains first and unchanged; diagnostics do not debounce or grant authority.",
   "limitations": [
     "Synthetic component validation is not a live capture/native-acceptance result. No app/CLI/helper/Chrome/CG/Security identity query executed in these tests.",
     "No main-text executing-vnode proof; code-hash/same-type unique-slice binding replaces it. Retained FD/path device/inode/metadata checks do not defeat concurrent privileged namespace/content replacement.",
@@ -151,7 +152,7 @@
     "App has no Unix SIGTERM cleanup path; unchanged driver3s failure escalation may kill before owned-root removal; unconfirmed cleanup blocks later cases. App follow-up issue4 remains.",
     "The frozen result remains FAIL (134 of 135 exact named REDs); overlay v83-snapshot-class-rollback512 was RED at the earlier fixture-reservation guard, and the Begin/End capacity refusal was not exercised by that overlay.",
     "The successful nominal and maximum fixtures share the reservation guard. Their rejection under the constructor rollback is source-backed, not a separately executed mutant result; no isolated Begin/End capacity rollback sensitivity is claimed.",
-    "The first display-change notification cause remains unestablished. Immediate stop is unchanged. Build16 diagnostics may identify observed configuration changes/startup timing; absence or recurrence alone does not prove a cause or admit a display change.",
+    "The first display-change notification cause remains unestablished. Immediate stop is unchanged. Build17 diagnostics may identify observed configuration changes/startup timing; absence or recurrence alone does not prove a cause or admit a display change.",
     "WindowServer structural refusal does not demonstrate the protected-set predicate; the stronger every-owner predicate claim remains FAILED_TO_DEMONSTRATE.",
     "Measured synthetic nominal envelope fit is not a guarantee for every capture or a peak-RSS proof; overflow and lost evidence remain fail-closed.",
     "This distribution and coordinator trial acceptance do not authorize wrapper dispatch; both wrapper reads and a separate coordinator capture decision remain required."

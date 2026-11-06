@@ -1,10 +1,10 @@
 {
   "status": "DRAFT_SOURCE_NOT_FROZEN_NOT_FOR_EXECUTION",
-  "baseSource": "0cd76ac0f064f52aaa5a24bb17490e8cf9ccb4a4",
-  "build": 16,
+  "baseSource": "261b1e3592f4bacafb810bd76480b68b54ca3f55",
+  "build": 17,
   "helperBuild": 12,
   "schema": 6,
-  "authority": "Display diagnostics have no decision authority; immediate notification stop is unchanged. Option C admits only an exactly witnessed empty-bundle WindowServer to the proof inventory and reduces the proof claim; product filter and capture selection are byte-identical.",
+  "authority": "Build17 adds proof-only launch-completion handshake and launching-app diagnostics. Display-change stop, filter, geometry, and product path remain unchanged. Instance equality is correlation to later BSD samples, not event-time capture. Display diagnostics have no decision authority; immediate notification stop is unchanged. Option C admits only an exactly witnessed empty-bundle WindowServer to the proof inventory and reduces the proof claim; product filter and capture selection are byte-identical.",
   "clock": {
     "stage": "clock-anchor",
     "fields": {
@@ -315,5 +315,22 @@
       "maximumNotifications": 16,
       "maximumMilestones": 8
     }
-  }
+  },
+  "launchHandshake": {
+    "marker": "runner-launches-observed",
+    "readyRows": [
+      "runner-launch-owner",
+      "runner-launches-ready",
+      "runner-launch-recheck",
+      "runner-launches-verified",
+      "runner-launches-armed",
+      "runner-launches-closed",
+      "runner-launches-failed"
+    ],
+    "attribution": "workspace-stop",
+    "instanceEquality": "NSRunningApplication.isEqual between retained notification instance and fresh lookup, bracketed by BSD-before/after matching original owned tuple; repeated before arm",
+    "claim": "correlation to later BSD samples; not event-time capture",
+    "productProjection": "conditional-compilation byte-equivalent product path vs build16"
+  },
+  "deviation": "The frozen result remains FAIL (134 of 135 exact named REDs); overlay v83-snapshot-class-rollback512 was RED at the earlier fixture-reservation guard, and the Begin/End capacity refusal was not exercised by that overlay."
 }
