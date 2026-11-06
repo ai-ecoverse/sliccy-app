@@ -24,7 +24,7 @@ class CaptureManifestTests(unittest.TestCase):
         for bundle, role, name in [(app, 'ai.sliccy.mac', 'Sliccy'), (helper, 'ai.sliccy.proof-helper', 'ScreenProofSurface')]:
             for part in ['MacOS', '_CodeSignature']:
                 (bundle / 'Contents' / part).mkdir(parents=True)
-            (bundle / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': role, 'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '16' if role == 'ai.sliccy.mac' else '12', 'CFBundleExecutable': name}))
+            (bundle / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': role, 'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '17' if role == 'ai.sliccy.mac' else '12', 'CFBundleExecutable': name}))
             (bundle / 'Contents/MacOS' / name).write_bytes(b'not executable')
         (helper / 'Contents/CodeResources').write_bytes(b'not a real ticket')
         (app / 'Contents/Resources').mkdir()
@@ -44,7 +44,7 @@ class CaptureManifestTests(unittest.TestCase):
     def test_signed_roles_release_binding_and_closed_cases_with_mocked_verifiers(self):
         with tempfile.TemporaryDirectory() as root, patch.dict(os.environ, {'GITHUB_SHA': 'a' * 40}), patch.object(subject, 'signature', side_effect=self.signature), patch.object(subject, 'checked', side_effect=self.checked), patch.object(subject.subprocess, 'run', return_value=subprocess.CompletedProcess([], 3)):
             record = subject.manifest(self.fixture(root))
-            self.assertEqual(record['build'], '16')
+            self.assertEqual(record['build'], '17')
             self.assertEqual(len(record['cases']), 6)
             self.assertEqual(set(record['helpers']), {'ScreenProofSurface.app'})
             self.assertTrue(record['helpers']['ScreenProofSurface.app']['appRoleRefused'])
@@ -94,16 +94,16 @@ class CaptureManifestTests(unittest.TestCase):
                 with self.assertRaises(ValueError): subject.manifest(app)
                 check.assert_not_called()
 
-    def test_build16_has_exact_guarded_packaging_and_preserves_signed_surface_without_execution(self):
+    def test_build17_has_exact_guarded_packaging_and_preserves_signed_surface_without_execution(self):
         root = Path(__file__).resolve().parents[2]
         script = (root / 'script/sign_and_notarize.sh').read_text().splitlines()
         indexes = [i for i, line in enumerate(script) if '/capture_manifest.py"' in line]
         self.assertEqual(len(indexes), 1)
-        self.assertTrue(script[indexes[0] - 2].endswith('== 16 ]]; then'))
+        self.assertTrue(script[indexes[0] - 2].endswith('== 17 ]]; then'))
         self.assertEqual(script[indexes[0] + 1], 'fi')
         self.assertIn('/surface_pin.py', script[indexes[0] - 1])
         build = (root / 'script/build_and_run.sh').read_text()
-        self.assertIn('BUILD_NUMBER=16', build)
+        self.assertIn('BUILD_NUMBER=17', build)
         self.assertIn('.build/pinned-surface/ScreenProofSurface.app', build)
         self.assertNotIn('Tests/NativeCaptureSurface/surface-app.swift', build)
         self.assertNotIn('--identifier ai.sliccy.proof-helper --entitlements \"$artifact_dir/entitlements.plist\" \"$surface_app\"', '\n'.join(script))
