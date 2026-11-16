@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { analyzeCommits } from '@semantic-release/commit-analyzer';
@@ -91,4 +91,26 @@ test('semantic-release plans from a published tag without writing a tag in dry-r
     cwd: process.cwd(), env: { PATH: process.env.PATH, HOME: process.env.HOME },
     stdio: 'pipe', timeout: 30000,
   });
+});
+
+
+test('workflow Actions token uses semantic-release installation-token Git authentication', async () => {
+  const { default: getGitAuthUrl } = await import('../../node_modules/semantic-release/lib/get-git-auth-url.js');
+  const directory = mkdtempSync(join(tmpdir(), 'sliccy-auth-fixture-'));
+  try {
+    // Refuse every probe locally; never contact GitHub or use real credentials.
+    writeFileSync(join(directory, 'git'), '#!/bin/sh\nexit 1\n');
+    chmodSync(join(directory, 'git'), 0o700);
+    const workflow = readFileSync('.github/workflows/signing.yml', 'utf8');
+    const tokens = [...workflow.matchAll(/^\s+(GH_TOKEN|GITHUB_TOKEN): \$\{\{ github.token \}\}/gm)];
+    assert.equal(tokens.length, 1);
+    const url = new URL(await getGitAuthUrl({
+      cwd: directory, branch: { name: 'main' }, options: { repositoryUrl: config.repositoryUrl },
+      env: { PATH: directory + ':' + process.env.PATH, HOME: directory,
+        GITHUB_ACTION: 'release', [tokens[0][1]]: 'synthetic-installation-token' },
+    }));
+    assert.equal(url.username, 'x-access-token');
+    assert.equal(url.password, 'synthetic-installation-token');
+    assert.equal(url.hostname, 'github.com');
+  } finally { rmSync(directory, { recursive: true, force: true }); }
 });
