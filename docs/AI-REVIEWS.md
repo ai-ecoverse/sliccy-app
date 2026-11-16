@@ -50,7 +50,11 @@ A repository-level token was supplied through secure entry during PR setup;
 organization secret access was not broadened. Without a token the setup/review
 check fails with that specific message. The selected region/models must be
 available on that Bedrock account. Local tests do not validate paid model access;
-the first authenticated workflow run establishes that separately.
+authenticated workflows establish that separately. The first authenticated run
+completed Claude successfully; Codex was blocked before inference by an upstream
+Ubuntu 26.04 socket ACL check. The action is now pinned to v1.14
+(`306c6a196a99dcc6582530c396a19d2672d5e9ec`), which fixes that check while
+retaining `drop-sudo`. Both reviewers must still complete on the corrected head.
 
 Reviewers receive read-only GitHub permissions and the model credential; the
 separate publisher receives PR/status write permissions but no Bedrock secret.
@@ -102,3 +106,8 @@ Publisher tests use a local fake GitHub API, exercise actual status/comment
 requests and verify malformed/missing output, denial, stale heads and comment
 ownership. They do not make GitHub writes or call paid models. CI also validates
 Renovate configuration against its schema.
+
+Findings downloads use explicit per-agent names and directories, including when
+only one artifact exists. Comment lookup follows pagination; a rejected inline
+comment fails publication but does not prevent the other reviewer’s output from
+being posted. Full findings remain in the retained run artifacts.

@@ -199,7 +199,7 @@ jobs:
       - id: codex
         if: matrix.agent == 'codex'
         continue-on-error: true
-        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675
+        uses: openai/codex-action@306c6a196a99dcc6582530c396a19d2672d5e9ec
         env:
           AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
           AWS_REGION: ${{ vars.CERT_AWS_REGION || 'us-west-2' }}
@@ -240,7 +240,7 @@ jobs:
 
       - id: codex-retry
         if: matrix.agent == 'codex' && (steps.codex.outcome == 'failure' || steps.codex.outputs.final-message == '')
-        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675
+        uses: openai/codex-action@306c6a196a99dcc6582530c396a19d2672d5e9ec
         env:
           AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
           AWS_REGION: ${{ vars.CERT_AWS_REGION || 'us-west-2' }}
@@ -296,8 +296,13 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         continue-on-error: true
         with:
-          pattern: findings-*
-          path: findings
+          name: findings-claude
+          path: findings/findings-claude
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        continue-on-error: true
+        with:
+          name: findings-codex
+          path: findings/findings-codex
       - name: Validate and publish findings for the exact head
         env:
           GH_TOKEN: ${{ github.token }}

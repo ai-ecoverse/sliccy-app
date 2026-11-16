@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -63,7 +63,15 @@ async function publish(t, findings, options = {}) {
     if (request.url === '/repos/owner/repo/pulls/12' && request.method === 'GET') {
       response.end(JSON.stringify({ state: 'open', head: { sha: options.head ?? sha } }));
     } else if (request.method === 'GET') {
-      response.end(JSON.stringify(options.comments ?? []));
+      const page = Number(new URL(request.url, 'http://test').searchParams.get('page') ?? 1);
+      response.end(JSON.stringify(options.pages?.[page - 1] ?? options.comments ?? []));
+    } else if (
+      options.rejectInline &&
+      request.method === 'POST' &&
+      request.url.endsWith('/pulls/12/comments')
+    ) {
+      response.statusCode = 422;
+      response.end(JSON.stringify({ message: 'Line not in diff' }));
     } else {
       response.end(JSON.stringify({ id: 123 }));
     }
@@ -151,4 +159,63 @@ test('stale head refuses all writes, and a user marker cannot cause another comm
   );
   assert.equal(spoofed.exit, 0);
   assert.ok(spoofed.calls.every((call) => call.method !== 'PATCH'));
+});
+
+test('one missing artifact cannot flatten the other reviewer into an ambiguous path', async () => {
+  const workflow = await readFile('.github/workflows/ai-review.yml', 'utf8');
+  for (const agent of ['claude', 'codex']) {
+    assert.ok(
+      workflow.includes(`name: findings-${agent}\n          path: findings/findings-${agent}`)
+    );
+  }
+  assert.ok(!workflow.includes('pattern: findings-*'));
+});
+
+test('a rejected inline comment fails delivery but preserves both reviewer summaries and statuses', async (t) => {
+  const findings = {
+    ...approved,
+    comments: [{ path: 'Sources/App.swift', line: 12, body: 'Note' }],
+  };
+  const { exit, calls } = await publish(
+    t,
+    { claude: findings, codex: approved },
+    { rejectInline: true }
+  );
+  assert.equal(exit, 1);
+  assert.equal(calls.filter((call) => call.path.includes('/statuses/')).length, 2);
+  assert.equal(
+    calls.filter((call) => call.method === 'POST' && call.path.endsWith('/issues/12/comments'))
+      .length,
+    2
+  );
+});
+
+test('pagination finds an existing bot summary and inline note beyond the first hundred', async (t) => {
+  const note = { path: 'Sources/App.swift', line: 12, body: 'Note' };
+  const pages = [
+    Array.from({ length: 100 }, (_, id) => ({ id, body: 'Old', user: { login: 'person' } })),
+    [
+      { id: 101, user: { login: 'github-actions[bot]' }, body: '<!-- slicc-review:claude -->Old' },
+      {
+        id: 102,
+        user: { login: 'github-actions[bot]' },
+        body: '**claude:** Note',
+        commit_id: sha,
+        path: note.path,
+        line: note.line,
+      },
+    ],
+  ];
+  const { exit, calls } = await publish(
+    t,
+    { claude: { ...approved, comments: [note] }, codex: approved },
+    { pages }
+  );
+  assert.equal(exit, 0);
+  assert.ok(
+    calls.some((call) => call.method === 'PATCH' && call.path.endsWith('/issues/comments/101'))
+  );
+  assert.ok(
+    !calls.some((call) => call.method === 'POST' && call.path.endsWith('/pulls/12/comments'))
+  );
 });

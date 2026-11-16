@@ -21,13 +21,20 @@ const call = async (method, path, body) => {
   if (!response.ok) throw new Error(`${method} ${path}: HTTP ${response.status}`);
   return response.json();
 };
+const list = async (path) => {
+  const items = [];
+  // Refuse truncation rather than silently miss old bot comments.
+  for (let page = 1; page <= 100; page++) {
+    const batch = await call('GET', `${path}?per_page=100&page=${page}`);
+    items.push(...batch);
+    if (batch.length < 100) return items;
+  }
+  throw new Error('Comment pagination limit reached');
+};
 const current = await call('GET', `${root}/pulls/${pr.number}`);
 if (current.state !== 'open' || current.head.sha !== sha)
   throw new Error('PR closed or head changed; stale findings will not be posted');
-const comments = await call(
-  'GET',
-  `${root}/issues/${pr.number}/comments?per_page=100&sort=updated&direction=desc`
-);
+const comments = await list(`${root}/issues/${pr.number}/comments`);
 let accepted = true;
 for (const agent of agents) {
   let findings;
@@ -58,7 +65,7 @@ for (const agent of agents) {
     prior ? `${root}/issues/comments/${prior.id}` : `${root}/issues/${pr.number}/comments`,
     { body }
   );
-  const inline = await call('GET', `${root}/pulls/${pr.number}/comments?per_page=100`);
+  const inline = await list(`${root}/pulls/${pr.number}/comments`);
   for (const comment of findings.comments) {
     const text = `**${agent}:** ${comment.body}`;
     if (
@@ -72,13 +79,19 @@ for (const agent of agents) {
       )
     )
       continue;
-    await call('POST', `${root}/pulls/${pr.number}/comments`, {
-      commit_id: sha,
-      path: comment.path,
-      line: comment.line,
-      side: 'RIGHT',
-      body: text,
-    });
+    try {
+      await call('POST', `${root}/pulls/${pr.number}/comments`, {
+        commit_id: sha,
+        path: comment.path,
+        line: comment.line,
+        side: 'RIGHT',
+        body: text,
+      });
+    } catch (error) {
+      // Preserve the artifact and finish publishing both agents; delivery still fails CI.
+      accepted = false;
+      console.error(`${agent}: inline comment publication failed: ${error.message}`);
+    }
   }
 }
 if (!accepted) process.exitCode = 1;
