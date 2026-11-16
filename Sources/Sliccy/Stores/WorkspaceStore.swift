@@ -109,6 +109,15 @@ final class WorkspaceStore {
         defaults?.set(data, forKey: storageKey)
     }
 
+    @discardableResult
+    func rename(_ id: UUID, to proposed: String) -> Bool {
+        let name = proposed.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, session(id) != nil else { return false }
+        update(id) { $0.name = name }
+        save()
+        return true
+    }
+
     func sessionName(for proposed: String) -> String {
         let name = proposed.trimmingCharacters(in: .whitespacesAndNewlines)
         if !name.isEmpty { return name }

@@ -11,8 +11,11 @@ struct LocalBrowserPicker: View {
         VStack(alignment: .leading, spacing: 12) {
             Picker("Browser", selection: $browser) {
                 ForEach(LocalBrowserChoice.allCases) { choice in
-                    Text(choice.name + (choice.isInstalled ? "" : " — not installed"))
-                        .tag(choice).disabled(!choice.isInstalled)
+                    Label {
+                        Text(choice.name + (choice.isInstalled ? "" : " — not installed"))
+                    } icon: {
+                        BrowserIcon(bundleID: choice.bundleID, size: 16)
+                    }.tag(choice).disabled(!choice.isInstalled)
                 }
             }
             Picker("Profile", selection: $selection) {

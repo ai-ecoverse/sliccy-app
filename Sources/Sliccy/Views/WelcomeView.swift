@@ -20,7 +20,9 @@ struct WelcomeView: View {
             }.font(.callout)
             HStack(spacing: 16) {
                 Button { store.createLocalBrowser(name: "", browser: browser, profile: profile) } label: {
-                    Label("Start SLICC in \(browser.name)", systemImage: "arrow.up.forward.app")
+                    Label { Text("Start SLICC in \(browser.name)") } icon: {
+                        BrowserIcon(bundleID: browser.bundleID)
+                    }
                 }.buttonStyle(.borderedProminent).controlSize(.large)
                     .disabled(!browser.isInstalled || !LocalBrowserChoice.validProfile(profile))
                 Button("Join an existing session…") { store.startNew(remote: true) }.buttonStyle(.link)

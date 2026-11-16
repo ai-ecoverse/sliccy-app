@@ -5,6 +5,7 @@ struct SidebarView: View {
     @Binding var selection: String
     let search: String
     var onRemove: (UUID) -> Void
+    var onRename: (Session) -> Void
 
     private var visible: [Session] {
         store.sessions.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.device.localizedCaseInsensitiveContains(search) }
@@ -16,17 +17,21 @@ struct SidebarView: View {
                 ForEach(visible) { session in
                     Label {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(session.name).lineLimit(1)
+                            HStack(spacing: 4) {
+                                Text(session.name).lineLimit(1)
+                                if session.isFavorite { Image(systemName: "star.fill").font(.caption2).foregroundStyle(.secondary).accessibilityLabel("Favorite") }
+                            }
                             Text(session.isLive ? "\(session.device) · \(session.connection.title)" : session.runningAgentCount.map { "\($0) running · \(session.device)" } ?? session.device)
                                 .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
                     } icon: {
-                        Image(systemName: session.isFavorite ? "star" : session.kind.symbol)
-                            .foregroundStyle(session.connection == .connected ? Color.accentColor : Color.secondary)
+                        BrowserIcon(bundleID: session.localBrowserProfile != nil ? session.localBrowserChoice.bundleID : nil,
+                                    fallback: session.kind.symbol)
                     }
                     .padding(.vertical, 4)
                     .tag(session.id.uuidString)
                     .contextMenu {
+                        Button("Rename…") { onRename(session) }
                         Button(session.isFavorite ? "Remove Favorite" : "Favorite") {
                             store.update(session.id) { $0.isFavorite.toggle() }; store.save()
                         }

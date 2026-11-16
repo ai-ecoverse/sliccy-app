@@ -5,17 +5,18 @@ struct ContentView: View {
     @SceneStorage("workspace.selection") private var selection = ""
     @State private var search = ""
     @State private var removing: UUID?
+    @State private var renaming: Session?
 
     private var selectedSession: Session? { UUID(uuidString: selection).flatMap { store.session($0) } }
 
     var body: some View {
         NavigationSplitView {
-            SidebarView(store: store, selection: $selection, search: search, onRemove: { removing = $0 })
+            SidebarView(store: store, selection: $selection, search: search, onRemove: { removing = $0 }, onRename: { renaming = $0 })
                 .navigationSplitViewColumnWidth(min: 210, ideal: 235, max: 300)
         } detail: {
             Group {
                 if let session = selectedSession {
-                    SessionDetailView(store: store, session: session)
+                    SessionDetailView(store: store, session: session, onRename: { renaming = session })
                         .id(session.id)
                 } else if selection == Destination.browsers.rawValue {
                     BrowsersView(store: store, search: search)
@@ -39,6 +40,7 @@ struct ContentView: View {
 
         }
         .sheet(isPresented: $store.showNewSession) { NewSessionView(store: store) }
+        .sheet(item: $renaming) { RenameSessionView(store: store, session: $0) }
         .sheet(isPresented: Binding(get: { store.credentialSession != nil }, set: { if !$0 { store.credentialSession = nil } })) {
             if let id = store.credentialSession { ReconnectView(store: store, id: id) }
         }

@@ -3,10 +3,13 @@ import SwiftUI
 struct SessionDetailView: View {
     let store: WorkspaceStore
     let session: Session
+    var onRename: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center) {
+                BrowserIcon(bundleID: session.localBrowserProfile != nil ? session.localBrowserChoice.bundleID : nil,
+                            fallback: session.kind.symbol, size: 36)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(session.name).font(.title2).fontWeight(.semibold)
                     HStack(spacing: 6) {
@@ -16,6 +19,8 @@ struct SessionDetailView: View {
                     }.font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
+                Button(action: onRename) { Image(systemName: "pencil") }
+                    .help("Rename connection").accessibilityLabel("Rename connection")
                 if session.localBrowserProfile != nil {
                     Button { store.showBrowser(session.id) } label: { Label("Show in \(session.localBrowserChoice.name)", systemImage: "arrow.up.forward.app") }
                         .disabled(session.connection != .connected || store.localTabURLs[session.id] == nil || store.openingBrowser.contains(session.id))

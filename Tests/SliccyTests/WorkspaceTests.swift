@@ -13,6 +13,29 @@ private final class ControlledRuntime: SessionRuntime {
 
 @MainActor
 struct WorkspaceTests {
+    @Test func renamePersistsWithoutChangingConnectionOrProfile() throws {
+        let domain = "SliccyRenameTests.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: domain))
+        defer { defaults.removePersistentDomain(forName: domain) }
+        let store = WorkspaceStore(defaults: defaults)
+        let session = Session(name: "Original", device: "This Mac", kind: .browser, profile: "work",
+                              connection: .connected, access: .init(), usesLiveRuntime: true,
+                              localBrowserProfile: "work", localBrowser: .edge, localAccess: .init())
+        store.sessions = [session]
+        store.linkSessionID = session.id
+        #expect(store.rename(session.id, to: "  Research  "))
+        var expected = session; expected.name = "Research"
+        #expect(store.session(session.id) == expected)
+        let restored = WorkspaceStore(defaults: defaults)
+        #expect(restored.session(session.id)?.name == "Research")
+        #expect(restored.session(session.id)?.localBrowserProfile == "work")
+        #expect(restored.session(session.id)?.localBrowser == .edge)
+        #expect(restored.linkSessionID == session.id)
+        #expect(!store.rename(session.id, to: " \n "))
+        #expect(!store.rename(UUID(), to: "Missing"))
+        #expect(store.session(session.id) == expected)
+    }
+
     @Test func disconnectedSessionCannotSend() {
         let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[2].id
