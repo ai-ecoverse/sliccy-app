@@ -1,13 +1,12 @@
-# Sliccy 7.0.0
+# Sliccy 7.1.0
 
-Sliccy is the native Mac successor to Sliccstart. Version 7 starts its own release line above Sliccstart 6.x. Requires **macOS 27 or newer on Apple silicon**.
+Sliccy can now be your default web browser. Requires **macOS 27 or newer on Apple silicon**.
 
-- Start SLICC in a dedicated browser profile, choose another supported browser or profile, or join a remote session.
-- Inspect live agent and resource status. Browser control and network are on by default; shell, SFTP and credentials are opt-in.
-- Bring the connected SLICC tab forward from the app.
-- Check for signed updates automatically or from Sliccy → Check for Updates.
-- Includes the Sliccstart icon and bundled, signed SLICC CLI 1.59.0.
+- Opt in from **Settings → General → Make Sliccy Default Browser…**, then confirm with macOS.
+- Web links open in an attached local SLICC browser first. If none is attached, Sliccy starts your preferred session or the first configured local profile.
+- Choose a preferred browser session in Settings. Sliccy preserves its saved browser, profile and access settings; it never silently creates a different Chrome profile for incoming links.
+- Links arriving while the browser connects are queued in memory. Connection failures are reported instead of sending links to another browser.
 
-Download **Sliccy-7.0.0.dmg**, open it, and drag Sliccy to Applications. The ZIP is retained for automatic updates. The app is Developer-ID signed and notarized. Sliccy 0.2.0 users can install this release through Check for Updates. Sliccstart users and older Sliccy test builds must install the DMG once; this release does not replace Sliccstart automatically or migrate its settings.
+Download **Sliccy-7.1.0.dmg**, open it, and drag Sliccy to Applications. Existing Sliccy users can use **Sliccy → Check for Updates…**. The ZIP is retained for automatic updates. The release is Developer-ID signed and notarized.
 
-Screen capture remains disabled. Local access changes reconnect the CLI while preserving the browser. Network relay controls do not firewall browser traffic or shell commands. Updating or quitting the app disconnects its local links; reconnect after relaunch.
+Choosing Sliccy as the default is optional; installing this update does not change your default browser. Remote sessions are not destinations for incoming web links. Screen capture remains disabled. Updating disconnects local links; reconnect after relaunch. Sliccstart remains a separate installation with no automatic settings migration.
