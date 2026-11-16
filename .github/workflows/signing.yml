@@ -22,49 +22,32 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - name: Check release version
-        id: version
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.15.0'
+          cache: npm
+      - name: Install locked release tools
+        run: npm ci --ignore-scripts
+      - name: Test release tooling
+        run: npm test
+      - name: Analyze commits, build, sign, notarize and publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          version=$(python3 script/release_metadata.py --version)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" > "$RUNNER_TEMP/sliccy-releases.json"
-          python3 script/check_release_version.py "$RUNNER_TEMP/sliccy-releases.json" >> "$GITHUB_OUTPUT"
-      - name: Test
-        if: steps.version.outputs.publish == 'true'
-        run: |
-          /usr/bin/xcrun swift test
-          python3 -m unittest discover -s Tests/Release -p 'test_*.py'
-      - name: Build production app
-        if: steps.version.outputs.publish == 'true'
-        env:
-          SLICCY_RELEASE: '1'
-        run: |
-          ./script/fetch_cli.sh
-          ./script/build_and_run.sh --build
-      - name: Sign and notarize
-        if: steps.version.outputs.publish == 'true'
-        env:
-          SLICCY_RELEASE: '1'
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_DEVELOPER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_KEY_ISSUER_ID: ${{ secrets.APPLE_API_KEY_ISSUER_ID }}
           APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
-        run: ./script/ci_sign.sh dist/Sliccy.app artifacts/signed
-      - name: Sign update archive and verify release metadata
-        if: steps.version.outputs.publish == 'true'
-        env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-        run: python3 script/prepare_release.py artifacts/signed
-      - name: Retain verified release assets
-        if: steps.version.outputs.publish == 'true'
+        run: npm run release
+      - name: Retain release assets and generated metadata
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: Sliccy-${{ steps.version.outputs.version }}-arm64-${{ github.sha }}
+          name: Sliccy-release-${{ github.sha }}
           path: |
             artifacts/signed/Sliccy-*.zip
             !artifacts/signed/Sliccy-notarize.zip
@@ -72,40 +55,7 @@ jobs:
             artifacts/signed/SHA256SUMS
             artifacts/signed/appcast.xml
             artifacts/signed/signing.txt
+            release/version.json
+            release/notes.md
           if-no-files-found: error
           retention-days: 30
-      - name: Publish GitHub release
-        if: steps.version.outputs.publish == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          gh release create "v$VERSION" --target "$GITHUB_SHA" --draft --title "Sliccy $VERSION" --notes-file release/notes.md \
-            "artifacts/signed/Sliccy-$VERSION.dmg" "artifacts/signed/Sliccy-$VERSION.zip" artifacts/signed/SHA256SUMS artifacts/signed/appcast.xml
-          gh release edit "v$VERSION" --draft=false --latest
-
-      - name: Fetch existing signed release for DMG packaging
-        if: steps.version.outputs.package_dmg == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 -m unittest discover -s Tests/Release -p 'test_*.py'
-          python3 script/fetch_release_app.py artifacts/dmg-input
-      - name: Sign and notarize existing release DMG
-        if: steps.version.outputs.package_dmg == 'true'
-        env:
-          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
-          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-          APPLE_DEVELOPER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_KEY_ISSUER_ID: ${{ secrets.APPLE_API_KEY_ISSUER_ID }}
-          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
-        run: ./script/ci_sign.sh --dmg-only artifacts/dmg-input/unpacked/Sliccy.app artifacts/dmg
-      - name: Add DMG to existing release
-        if: steps.version.outputs.package_dmg == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          gh release upload "v$VERSION" "artifacts/dmg/Sliccy-$VERSION.dmg" artifacts/dmg/DMG-SHA256SUMS
-          gh release edit "v$VERSION" --notes-file release/notes.md

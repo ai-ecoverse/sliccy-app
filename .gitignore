@@ -14,3 +14,5 @@ dist-proof/
 
 __pycache__/
 *.pyc
+
+node_modules/

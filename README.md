@@ -20,7 +20,7 @@ It requires network access to fetch the checksum-verified CLI. The CLI is bundle
 without replacing the system installation. Settings → Runtime
 can select another executable and check compatibility. The build script stages and
 ad-hoc signs `dist/Sliccy.app`; this is a development build, not notarized.
-The push-to-main workflow publishes a Developer-ID-signed and notarized GitHub release when the release version increases;
+The push-to-main workflow publishes a Developer-ID-signed and notarized GitHub release when conventional commits call for a release;
 see [build and signing](docs/BUILDING.md). Signing does not enable screen sharing.
 `--build`, `--verify`, `--debug`, `--logs`, and `--telemetry` support development.
 To try the UI without loading or changing saved sessions:
@@ -104,7 +104,13 @@ Download the latest signed [GitHub release](https://github.com/ai-ecoverse/slicc
 
 Release builds use Sparkle 2.10.1 to check for updates automatically. Use **Sliccy → Check for Updates…** or **Settings → General** to check manually or disable automatic checks. Installation requires confirmation and restarts Sliccy; Chrome stays open, and local links need reconnecting. Update archives are Ed25519-signed in addition to Developer ID signing and notarization. Development/preview/proof builds do not start the updater.
 
-Maintainers: update `release/version.json` (both version and monotonically increasing build) and `release/notes.md`, then push reviewed code to main. The release workflow tests, builds, signs nested Sparkle components and the app, notarizes/staples, verifies the update signature against the bundled public key, and publishes a signed/notarized DMG, the updater ZIP, SHA256SUMS and appcast together. Existing versions are never overwritten. The Sparkle private key is in the GitHub `signing` environment and the local `ai.ecoverse.sliccy-app` Keychain account; it is never committed. See [Sparkle's integration guide](https://sparkle-project.org/documentation/) for the upstream update model.
+Maintainers: push reviewed conventional commits to main. `fix:` produces a patch, `feat:` a minor, and `!` or a `BREAKING CHANGE:` footer a major release. Documentation, tests, and chores alone do not release. CI uses locked semantic-release tooling, full Git history and the last published tag; it generates release notes and updates `release/version.json` only in the runner checkout. The checked-in JSON remains the local-development baseline and Sparkle configuration, not a manual release switch. No version-bump commit is pushed back to main.
+
+The Sparkle build number is one greater than the larger of the previous published appcast build and the development baseline. It is monotonic and separate from the semantic version. A missing/mismatched previous appcast stops the release. The workflow tests, builds, signs nested Sparkle components and the app, notarizes/staples, verifies the update signature against the bundled public key, then tags and publishes the DMG, updater ZIP, SHA256SUMS and appcast together. Assets are uploaded to a draft before it becomes public. Existing versions are never overwritten. A failed publication may leave a tag or draft: inspect it before recovery; do not automatically rerun or delete it.
+
+Node 24.15+ and `npm ci --ignore-scripts && npm test` run the release-tool checks. `npm run release` is restricted to the upstream main-push CI context. The Sparkle private key stays in the GitHub `signing` environment; it is never committed. See [Sparkle's integration guide](https://sparkle-project.org/documentation/) for the update model.
+
+The CLI is pinned and checksum/signature-verified by `script/fetch_cli.sh`. This repository currently has no Renovate rule for that pin; updating it requires reviewing the version and both architecture hashes. At runtime, Sliccy does not independently download CLI updates: the bundled CLI updates with the signed app through Sparkle. A custom executable selected in Settings → Runtime remains selected across app updates and is managed separately.
 
 ### Default web browser
 
