@@ -4,6 +4,37 @@ import Testing
 
 @MainActor
 struct LiveRuntimeTests {
+    @Test func lostLinkKeepsCauseUntilConnectedAndOnlyLocalLinksCanRetry() throws {
+        let store = WorkspaceStore(preview: true, defaults: nil)
+        let id = store.sessions[0].id
+        let secret = "https://example.invalid/#private-join"
+        store.joinCredentials[id] = secret
+        store.update(id) { $0.usesLiveRuntime = true; $0.localBrowserProfile = "work"; $0.localBrowser = .edge }
+        #expect(!store.canRetryLocalConnection(id))
+        let lost = try JSONDecoder().decode(CLIEvent.self, from: Data("""
+        {"schema":1,"event":"link-lost","reason":"ICE failed","message":"link at \(secret) ended"}
+        """.utf8))
+        store.applyLifecycle(lost, to: id)
+        #expect(store.canRetryLocalConnection(id))
+        #expect(store.session(id)?.connectionMessage?.contains("ICE failed") == true)
+        #expect(store.session(id)?.connectionMessage?.contains(secret) == false)
+        #expect(store.session(id)?.entries.last?.text.contains("ICE failed") == true)
+        let retry = try JSONDecoder().decode(CLIEvent.self, from: Data(#"{"schema":1,"event":"reconnecting","attempt":1}"#.utf8))
+        store.applyLifecycle(retry, to: id)
+        #expect(store.session(id)?.connectionMessage?.contains("ICE failed") == true)
+        store.reconfiguring.insert(id)
+        #expect(!store.canRetryLocalConnection(id))
+        store.reconfiguring.remove(id)
+        store.update(id) { $0.localBrowserProfile = nil }
+        #expect(!store.canRetryLocalConnection(id))
+        let linked = try JSONDecoder().decode(CLIEvent.self, from: Data(#"{"schema":1,"event":"linked"}"#.utf8))
+        store.applyLifecycle(linked, to: id)
+        #expect(store.session(id)?.connectionMessage == nil)
+        #expect(!store.canRetryLocalConnection(id))
+        store.disconnect(id)
+        #expect(!store.canRetryLocalConnection(id))
+    }
+
     func fixture(_ name: String) throws -> Data {
         try Data(contentsOf: Bundle.module.resourceURL!.appending(path: "Fixtures/" + name))
     }

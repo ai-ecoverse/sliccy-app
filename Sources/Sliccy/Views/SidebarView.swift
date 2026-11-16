@@ -39,6 +39,9 @@ struct SidebarView: View {
                             if session.connection == .disconnected { store.reconnect(session.id) }
                             else { store.disconnect(session.id) }
                         }
+                        if store.canRetryLocalConnection(session.id) {
+                            Button("Retry Connection") { store.retryLocalConnection(session.id) }
+                        }
                         Divider()
                         Button("Remove Session…", role: .destructive) { onRemove(session.id) }
                     }

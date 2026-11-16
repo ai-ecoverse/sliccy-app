@@ -166,7 +166,17 @@ extension WorkspaceStore {
         case "connecting": update(id) { $0.connection = .connecting }
         case "reconnecting", "link-lost":
             stopInventory(id)
-            update(id) { $0.connection = .reconnecting; $0.effectiveResources = nil; $0.access = .init(browser: nil, network: false) }
+            let details = [event.reason, event.message].compactMap { $0 }.filter { !$0.isEmpty }
+            let explanation = details.isEmpty ? "" : " " + redacted(details.joined(separator: ": "), id: id)
+            let message = event.kind == "link-lost"
+                ? "Connection lost.\(explanation) Waiting for SLICC to reconnect."
+                : "Reconnecting to SLICC.\(explanation)"
+            update(id) {
+                $0.connection = .reconnecting; $0.effectiveResources = nil; $0.access = .init(browser: nil, network: false)
+                // Preserve the reported failure when a later retry event has no details.
+                if event.kind == "link-lost" || !details.isEmpty || $0.connectionMessage == nil { $0.connectionMessage = message }
+            }
+            if event.kind == "link-lost" { notice(message, id: id) }
         case "linked":
             let local = session(id)?.localBrowserProfile != nil
             let resources = event.resources ?? (local ? (session(id)?.localAccess ?? .init()).resources(from: event, browser: attachedBrowsers[id]) : nil)

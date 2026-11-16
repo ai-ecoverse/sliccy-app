@@ -26,6 +26,10 @@ struct SessionDetailView: View {
                         .disabled(session.connection != .connected || store.localTabURLs[session.id] == nil || store.openingBrowser.contains(session.id))
                         .help("Bring the connected SLICC tab to the front")
                 }
+                if store.canRetryLocalConnection(session.id) {
+                    Button("Retry Connection") { store.retryLocalConnection(session.id) }
+                        .help("Restart the SLICC link using this session’s saved browser, profile and access settings")
+                }
                 Button(session.connection == .disconnected ? "Connect" : "Disconnect") {
                     if session.connection == .disconnected { store.reconnect(session.id) }
                     else { store.disconnect(session.id) }

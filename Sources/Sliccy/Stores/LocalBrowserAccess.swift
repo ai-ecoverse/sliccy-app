@@ -2,6 +2,18 @@ import AppKit
 import Foundation
 
 extension WorkspaceStore {
+    func canRetryLocalConnection(_ id: UUID) -> Bool {
+        guard let session = session(id), session.isLive, session.localBrowserProfile != nil,
+              !reconfiguring.contains(id) else { return false }
+        return session.connection == .connecting || session.connection == .reconnecting
+    }
+
+    func retryLocalConnection(_ id: UUID) {
+        guard canRetryLocalConnection(id) else { return }
+        restartLocalConnection(id, offerCredentials: credentialOffers.contains(id))
+        update(id) { $0.connectionMessage = "Restarting connection… Your browser stays open." }
+    }
+
     func setLocalEntitlement(_ entitlement: Entitlement, enabled: Bool, for id: UUID) {
         guard session(id)?.localBrowserProfile != nil, !reconfiguring.contains(id) else { return }
         if entitlement == .browser {

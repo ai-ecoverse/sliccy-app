@@ -11,7 +11,7 @@ Requires macOS 27 and Xcode 27 / Swift 6.2 or newer. No Swift package dependenci
 
 ```sh
 ./script/local_build.sh --check  # macOS / selected Xcode prerequisites only
-./script/local_build.sh          # fetch pinned CLI v1.59.0, build; do not launch
+./script/local_build.sh          # fetch pinned CLI v1.67.12, build; do not launch
 open dist/Sliccy.app             # launch when ready
 ```
 
