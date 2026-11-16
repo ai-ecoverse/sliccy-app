@@ -5,7 +5,7 @@ import Testing
 @MainActor
 struct AccessManagementTests {
     @Test func agentCountUsesInventoryInsteadOfPromptBusyState() {
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.update(id) { $0.isWorking = false }
         #expect(store.session(id)?.runningAgentCount == 2)
@@ -17,7 +17,7 @@ struct AccessManagementTests {
     }
 
     @Test func liveSessionsCannotBeGivenMockCredentialsOrScreenGrants() {
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.update(id) { $0.usesLiveRuntime = true }
         store.setDemoCredential("github", enabled: true, for: id)
@@ -26,7 +26,7 @@ struct AccessManagementTests {
     }
 
     @Test func disconnectClearsScreenGrantButKeepsConfiguredCredentials() {
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.setDemoCredential("github", enabled: true, for: id)
         store.setDemoScreen("Sample window", for: id)
@@ -38,7 +38,7 @@ struct AccessManagementTests {
     }
 
     @Test func linkedLifecycleDoesNotStartTranscriptWatch() throws {
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.update(id) { $0.usesLiveRuntime = true }
         store.watchSupported.insert(id)
@@ -53,12 +53,12 @@ struct AccessManagementTests {
         let domain = "SliccyTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: domain))
         defer { defaults.removePersistentDomain(forName: domain) }
-        let store = WorkspaceStore(defaults: defaults)
+        let store = WorkspaceStore(preview: true, defaults: defaults)
         let id = store.sessions[0].id
         let folder = try #require(store.session(id)?.access.folders.first)
         store.setDemoFolder(folder.id, readOnly: false, for: id)
         store.setDemoFolder(folder.id, enabled: false, for: id)
-        let restored = WorkspaceStore(defaults: defaults)
+        let restored = WorkspaceStore(preview: true, defaults: defaults)
         let retained = try #require(restored.session(id)?.access.folders.first)
         #expect(retained.id == folder.id)
         #expect(retained.path == folder.path)
@@ -70,17 +70,17 @@ struct AccessManagementTests {
         let domain = "SliccyTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: domain))
         defer { defaults.removePersistentDomain(forName: domain) }
-        let store = WorkspaceStore(defaults: defaults)
+        let store = WorkspaceStore(preview: true, defaults: defaults)
         let id = store.sessions[0].id
         store.setDemoScreen("Browser window", for: id)
         store.setDemoScreen("Full screen · All apps", for: id)
         #expect(store.session(id)?.managementSnapshot?.screenTarget == "Full screen · All apps")
-        let restored = WorkspaceStore(defaults: defaults)
+        let restored = WorkspaceStore(preview: true, defaults: defaults)
         #expect(restored.session(id)?.managementSnapshot?.screenTarget == nil)
     }
 
     @Test func disabledBrowserRestoresItsChoiceAndShellWithdrawalClearsSFTP() {
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.update(id) { $0.access.browser = "Microsoft Edge" }
         store.setDemoEntitlement(.browser, enabled: false, for: id)

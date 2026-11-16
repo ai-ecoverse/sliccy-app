@@ -20,7 +20,7 @@ struct AgentInventoryView: View {
                     Text(message).font(.callout).foregroundStyle(.secondary)
                 }
                 if let reported = inventory.reportedAt {
-                    Text("Seven reported \(reported.formatted(date: .omitted, time: .standard))")
+                    Text("SLICC reported \(reported.formatted(date: .omitted, time: .standard))")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 if inventory.instance != nil {

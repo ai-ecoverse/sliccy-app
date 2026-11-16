@@ -3,6 +3,12 @@ import Foundation
 /// The CLI has two event families: lifecycle `event` and agent `t`.
 /// Transcript entry IDs are opaque strings, not run IDs. Unknown events are retained.
 struct CLIEvent: Decodable, Equatable, Sendable {
+    var browser: String?
+    var launched: Bool?
+    var tab: String?
+    var policy: String?
+    var cdp: String?
+    var role: String?
     var schema: Int?
     var event: String?
     var t: String?

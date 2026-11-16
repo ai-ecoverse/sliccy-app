@@ -1,0 +1,54 @@
+import base64
+import importlib.util
+import json
+from pathlib import Path
+import plistlib
+import subprocess
+import sys
+import tempfile
+import unittest
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'script'))
+from prepare_release import make_appcast, SPARKLE
+from release_metadata import configuration
+
+class ReleaseTests(unittest.TestCase):
+    def test_appcast_binds_archive_and_compatibility(self):
+        config = configuration()
+        signature = base64.b64encode(bytes(range(64))).decode()
+        item = ET.fromstring(make_appcast(config, 'Sliccy-0.2.0.zip', 12345, signature)).find('channel/item')
+        self.assertEqual(item.find('enclosure').attrib, {
+            'url': f'https://github.com/ai-ecoverse/sliccy-app/releases/download/v{config["version"]}/Sliccy-0.2.0.zip',
+            'length': '12345', 'type': 'application/octet-stream', f'{{{SPARKLE}}}edSignature': signature})
+        self.assertEqual(item.find(f'{{{SPARKLE}}}version').text, config['build'])
+        self.assertEqual(item.find(f'{{{SPARKLE}}}minimumSystemVersion').text, '27.0')
+        self.assertEqual(item.find(f'{{{SPARKLE}}}hardwareRequirements').text, 'arm64')
+        for signature, size in [('invalid', 10), (base64.b64encode(bytes(64)).decode(), 0)]:
+            with self.assertRaises(ValueError):
+                make_appcast(config, 'test.zip', size, signature)
+
+    def test_only_release_bundle_enables_updater(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'Info.plist'
+            for mode in ['development', 'release', 'proof']:
+                path.write_bytes(plistlib.dumps({'CFBundleVersion':'17','CFBundleShortVersionString':'0.1.0'}))
+                subprocess.run([sys.executable, str(ROOT/'script/release_metadata.py'), str(path), mode], check=True)
+                result = plistlib.loads(path.read_bytes())
+                self.assertEqual(result['SliccyEnableUpdater'], mode == 'release')
+                self.assertEqual(result['CFBundleVersion'], '17' if mode == 'proof' else configuration()['build'])
+                self.assertFalse(result['SUAllowsAutomaticUpdates'])
+                self.assertFalse(result['SUSendProfileInfo'])
+
+    def test_version_gate_refuses_drafts_and_downgrades(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'releases.json'
+            for data, code, output in [([],0,'publish=true'),
+                ([{'tag_name':'v' + configuration()['version'],'draft':False}],0,'publish=false'),
+                ([{'tag_name':'v' + configuration()['version'],'draft':True}],1,''),
+                ([{'tag_name':'v99.0.0','prerelease':False}],1,'')]:
+                path.write_text(json.dumps(data))
+                result = subprocess.run([sys.executable,str(ROOT/'script/check_release_version.py'),str(path)],capture_output=True,text=True)
+                self.assertEqual(result.returncode, code)
+                if output: self.assertEqual(result.stdout.strip(),output)

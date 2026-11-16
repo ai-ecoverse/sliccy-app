@@ -21,6 +21,10 @@ struct CLICapabilities: Decodable, Sendable {
         ["opened", "reconnecting"].allSatisfy { agent?.own?.contains($0) == true }
     }
 
+    var supportsLocalBrowser: Bool {
+        supportsRemoteWorkspace && commands["default"]?.json == "events"
+    }
+
     var supportsRemoteWorkspace: Bool {
         schema == 1 && contract == 1 && control.v == 1 && control.ops.contains("detach") &&
         ["follow", "prompt"].allSatisfy { commands[$0]?.json == "events" } && commands["abort"] != nil
@@ -30,6 +34,25 @@ struct CLICapabilities: Decodable, Sendable {
 struct CLIInvocation: Sendable {
     var arguments: [String]
     var input: Data = Data()
+
+    static let localPage = "https://www.sliccy.ai"
+
+    static func localBrowser(profile: String, browser: LocalBrowserChoice = .chrome, access: LocalAccessOptions = .init(), offerCredentials: Bool = false) -> Self {
+        var arguments = ["--browser", browser.rawValue, "--profile", profile, "--page", localPage,
+                         "--json", "--keep-browsers", "--no-fallback"]
+        if !offerCredentials { arguments.append("--no-jerk") }
+        if !access.network {
+            arguments += ["--no-kernel", "--deny", LocalAccessOptions.blockedNetworks.joined(separator: ",")]
+        }
+        if access.shell {
+            arguments += [access.sftp ? "--sftp" : "--no-sftp", "--runner", "/bin/zsh", "-c", "--"]
+        }
+        return .init(arguments: arguments)
+    }
+
+    static func agents(cdp: String) -> Self {
+        .init(arguments: ["agents", "--cdp", cdp, "--origin", localPage, "--json", "--watch"])
+    }
 
     static func follow(join: String, offerCredentials: Bool = false) -> Self {
         // The broker is offered only after the user enables the credential switch.

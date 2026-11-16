@@ -29,7 +29,7 @@ struct LiveFeed: Codable, Equatable {
             // `head` is the server's current head, not the last event we've consumed.
             if event.gap == true {
                 cursor = nil; initialReplay = nil
-                entries.append(.init(role: .notice, text: "Some activity was missed. Seven no longer holds the saved position; this feed continues with new events."))
+                entries.append(.init(role: .notice, text: "Some activity was missed. SLICC no longer holds the saved position; this feed continues with new events."))
             }
         case "reconnecting":
             state = .reconnecting; busy = nil; retryDelay = event.wait?.milliseconds

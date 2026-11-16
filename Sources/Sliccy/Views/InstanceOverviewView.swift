@@ -8,9 +8,15 @@ struct InstanceOverviewView: View {
     private var snapshot: InstanceManagement? { session.managementSnapshot }
     private var connected: Bool { session.connection == .connected }
     private var agents: [InstanceManagement.Agent] { connected ? snapshot?.agents ?? [] : [] }
+    private var local: Bool { session.isLive && session.localBrowserProfile != nil }
     private var editable: Bool { !session.isLive }
     private var screen: String? { snapshot?.screenTarget }
     private var windowEnabled: Bool { screen != nil && screen != fullScreen }
+    // UI simulation only. This never enables the native capture release policy.
+    private var showsScreenDemo: Bool {
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("--preview") && arguments.contains("--screen-demo")
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -43,34 +49,36 @@ struct InstanceOverviewView: View {
     private var deviceColumn: some View {
         VStack(alignment: .leading, spacing: 18) {
             section("This Mac") {
-                entitlement("Browser control", detail: session.access.browser ?? session.access.preferredBrowser ?? "Separate browser", symbol: "macwindow", value: session.access.browser != nil, kind: .browser)
+                entitlement("Browser control", detail: local ? "Disconnects the local link when off; keeps your browser open" : session.access.browser ?? session.access.preferredBrowser ?? "Separate browser", symbol: "macwindow", value: session.access.browser != nil, kind: .browser)
                 Divider()
-                entitlement("Network", detail: session.kind == .remote ? "Public internet" : "This Mac, local network & internet", symbol: "network", value: session.access.network, kind: .network)
+                entitlement(local ? "Network relay" : "Network", detail: local ? "CLI network access · Chrome and shell networking are separate" : "Public internet", symbol: "network", value: session.access.network, kind: .network)
                 Divider()
                 entitlement("Shell execution", detail: "Commands run as your Mac user", symbol: "terminal", value: session.access.shell, kind: .shell)
                 Divider()
                 entitlement("SFTP", detail: "File transfer · Also enables shell access", symbol: "arrow.up.arrow.down", value: session.access.sftp, kind: .sftp)
             }
-            section("Screen access") {
-                switchRow("Full screen", detail: "All eligible apps · View only", symbol: "display", binding: Binding(
-                    get: { screen == fullScreen },
-                    set: { store.setDemoScreen($0 ? fullScreen : nil, for: session.id) }
-                ), enabled: editable && connected)
-                Divider()
-                switchRow("Selected window", detail: "One window · View only", symbol: "macwindow", binding: Binding(
-                    get: { windowEnabled },
-                    set: { store.setDemoScreen($0 ? window : nil, for: session.id) }
-                ), enabled: editable && connected)
-                if windowEnabled {
-                    Picker("Window", selection: $window) {
-                        Text("Browser · Website preview").tag("Browser · Website preview")
-                        Text("Xcode · Project window").tag("Xcode · Project window")
-                    }.controlSize(.small).padding(.bottom, 10)
-                        .onChange(of: window) { _, value in store.setDemoScreen(value, for: session.id) }
+            if showsScreenDemo {
+                section("Screen access") {
+                    switchRow("Full screen", detail: "All eligible apps · View only", symbol: "display", binding: Binding(
+                        get: { screen == fullScreen },
+                        set: { store.setDemoScreen($0 ? fullScreen : nil, for: session.id) }
+                    ), enabled: editable && connected)
+                    Divider()
+                    switchRow("Selected window", detail: "One window · View only", symbol: "macwindow", binding: Binding(
+                        get: { windowEnabled },
+                        set: { store.setDemoScreen($0 ? window : nil, for: session.id) }
+                    ), enabled: editable && connected)
+                    if windowEnabled {
+                        Picker("Window", selection: $window) {
+                            Text("Browser · Website preview").tag("Browser · Website preview")
+                            Text("Xcode · Project window").tag("Xcode · Project window")
+                        }.controlSize(.small).padding(.bottom, 10)
+                            .onChange(of: window) { _, value in store.setDemoScreen(value, for: session.id) }
+                    }
                 }
+                Text(editable ? "Screen switches are simulated; nothing is captured. Choose full screen or one window." : "Screen sharing is unavailable in this development build.")
+                    .font(.caption2).foregroundStyle(.secondary)
             }
-            Text(editable ? "Screen switches are simulated; nothing is captured. Choose full screen or one window." : "Screen sharing is unavailable in this development build.")
-                .font(.caption2).foregroundStyle(.secondary)
         }
     }
 
@@ -116,7 +124,7 @@ struct InstanceOverviewView: View {
                 } label: { Label("Add Folder…", systemImage: "plus") }
                     .buttonStyle(.borderless).padding(.vertical, 10).disabled(!editable)
             }
-            Text(editable ? "Changes apply immediately to the demo. No real permissions or credentials change." : "Credential controls apply to this CLI process. Other resource grants are read-only.")
+            Text(editable ? "Changes apply immediately to the demo. No real permissions or credentials change." : local ? "Access changes reconnect the CLI and interrupt its active streams. Your browser stays open. Shell access runs as your Mac user; SFTP also enables shell access." : "Credential controls apply to this CLI process. Other resource grants are read-only.")
                 .font(.caption2).foregroundStyle(.secondary)
         }
     }
@@ -165,7 +173,11 @@ struct InstanceOverviewView: View {
 
     private func entitlement(_ title: String, detail: String, symbol: String, value: Bool, kind: WorkspaceStore.Entitlement) -> some View {
         switchRow(title, detail: session.isLive && session.effectiveResources == nil ? "Not reported" : detail, symbol: symbol,
-                  binding: Binding(get: { value }, set: { store.setDemoEntitlement(kind, enabled: $0, for: session.id) }), enabled: editable)
+                  binding: Binding(get: { value }, set: {
+                      if local { store.setLocalEntitlement(kind, enabled: $0, for: session.id) }
+                      else { store.setDemoEntitlement(kind, enabled: $0, for: session.id) }
+                  }), enabled: editable || (local && !store.reconfiguring.contains(session.id) &&
+                      (connected || (kind == .browser && session.connection == .disconnected))))
     }
     private func switchRow(_ title: String, detail: String, symbol: String, binding: Binding<Bool>, enabled: Bool) -> some View {
         HStack(spacing: 12) {

@@ -7,6 +7,13 @@ final class WorkspaceStore {
     var showNewSession = false
     var requestedSelection: UUID?
     var newSessionBrowser: String?
+    var newSessionRemote = false
+    var reconfiguring: Set<UUID> = []
+    var openingBrowser: Set<UUID> = []
+    @ObservationIgnored var configurationTasks: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored var retiringProcesses: [UUID: CLIProcess] = [:]
+    @ObservationIgnored var attachedBrowsers: [UUID: CLIResources.Browser] = [:]
+    var localTabURLs: [UUID: String] = [:]
     var errorMessage: String?
     @ObservationIgnored private let runtime: any SessionRuntime
     @ObservationIgnored private let defaults: UserDefaults?
@@ -39,19 +46,26 @@ final class WorkspaceStore {
     @ObservationIgnored var liveProcesses: [UUID: CLIProcess] = [:]
     @ObservationIgnored var promptProcesses: [UUID: CLIProcess] = [:]
     @ObservationIgnored var liveTokens: [UUID: UUID] = [:]
+    @ObservationIgnored var localBrowserEndpoints: [UUID: String] = [:]
     @ObservationIgnored var liveExecutables: [UUID: String] = [:]
-    private static let storageKey = "sliccy.demo.sessions.v1"
+    let isDemo: Bool
+    private var storageKey: String { isDemo ? Self.legacyStorageKey : "sliccy.sessions.v1" }
+    private static let legacyStorageKey = "sliccy.demo.sessions.v1"
 
-    init(runtime: any SessionRuntime = MockRuntime(), defaults: UserDefaults? = .standard) {
+    init(preview: Bool = false, runtime: any SessionRuntime = MockRuntime(), defaults: UserDefaults? = .standard) {
+        self.isDemo = preview
         self.runtime = runtime
         self.defaults = defaults
         self.cliExecutable = defaults?.string(forKey: "sliccy.cli.path") ?? CLIClient.defaultExecutable
-        if let data = defaults?.data(forKey: Self.storageKey),
+        let key = preview ? Self.legacyStorageKey : "sliccy.sessions.v1"
+        // Import only real connections from the old mixed demo/live workspace.
+        // Keep the legacy data intact; preview uses its own store.
+        if let data = defaults?.data(forKey: key) ?? defaults?.data(forKey: Self.legacyStorageKey),
            let saved = try? JSONDecoder().decode([Session].self, from: data) {
-            sessions = saved.map { session in
+            sessions = saved.filter { preview || $0.isLive }.map { session in
                 var restored = session
                 if restored.isWorking {
-                    restored.entries.append(.init(role: .notice, text: restored.isLive ? "Activity stream ended when Sliccy closed. The agent may still be running in seven." : "Demo run interrupted when the app closed."))
+                    restored.entries.append(.init(role: .notice, text: restored.isLive ? "Activity stream ended when Sliccy closed. The agent may still be running in SLICC." : "Demo run interrupted when the app closed."))
                 }
                 restored.management?.screenTarget = nil
                 restored.isWorking = false
@@ -68,10 +82,9 @@ final class WorkspaceStore {
                 }
                 return restored
             }
-        } else { sessions = DemoData.sessions() }
+        } else { sessions = preview ? DemoData.sessions() : [] }
     }
 
-    var isDemo: Bool { runtime.isDemo }
     var connectedCount: Int { sessions.filter { $0.connection == .connected }.count }
     var workingCount: Int { sessions.filter(\.isWorking).count }
     func session(_ id: UUID) -> Session? { sessions.first { $0.id == id } }
@@ -82,30 +95,47 @@ final class WorkspaceStore {
     }
 
     func save() {
-        guard let data = try? JSONEncoder().encode(sessions) else { return }
-        defaults?.set(data, forKey: Self.storageKey)
+        let saved = isDemo ? sessions : sessions.filter(\.isLive)
+        guard let data = try? JSONEncoder().encode(saved) else { return }
+        defaults?.set(data, forKey: storageKey)
     }
 
-    func create(name: String, kind: SessionKind, browser: String, profile: String) -> UUID {
-        let session = Session(name: name.trimmingCharacters(in: .whitespacesAndNewlines), device: kind == .remote ? "Remote Mac" : "This Mac", kind: kind, profile: profile, connection: .disconnected, access: .init(browser: kind == .browser ? browser : nil))
+    func sessionName(for proposed: String) -> String {
+        let name = proposed.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty { return name }
+        let used = Set(sessions.map { $0.name.lowercased() })
+        var suffix = 1
+        var candidate = "SLICC"
+        while used.contains(candidate.lowercased()) {
+            suffix += 1
+            candidate = "SLICC \(suffix)"
+        }
+        return candidate
+    }
+
+    func create(name: String, kind: SessionKind, browser: String, profile: String) -> UUID? {
+        guard isDemo else { return nil }
+        let session = Session(name: sessionName(for: name), device: kind == .remote ? "Remote Mac" : "This Mac", kind: kind, profile: profile, connection: .disconnected, access: .init(browser: kind == .browser ? browser : nil))
         sessions.append(session)
         requestedSelection = session.id
         reconnect(session.id)
         return session.id
     }
 
-    func startNew(browser: String? = nil) {
+    func startNew(browser: String? = nil, remote: Bool = false) {
+        newSessionRemote = remote
         newSessionBrowser = browser
         showNewSession = true
     }
 
     func reconnect(_ id: UUID) {
-        guard let session = session(id), session.connection == .disconnected else { return }
+        guard !reconfiguring.contains(id), let session = session(id), session.connection == .disconnected else { return }
         if session.isLive {
-            guard joinCredentials[id] != nil else { credentialSession = id; return }
+            guard session.localBrowserProfile != nil || joinCredentials[id] != nil else { credentialSession = id; return }
             connectLive(id)
             return
         }
+        guard isDemo else { return }
         update(id) { $0.connection = .connecting }
         connections[id] = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(700)) } catch { return }
@@ -129,7 +159,7 @@ final class WorkspaceStore {
             $0.connection = .disconnected
             $0.isWorking = false
             $0.queuedPrompts = []
-            $0.entries.append(.init(role: .notice, text: "Disconnected from the demo. In a live session, disconnecting does not abort seven’s agent."))
+            $0.entries.append(.init(role: .notice, text: "Disconnected from the demo. In a live session, disconnecting does not abort SLICC’s agent."))
         }
         save()
     }
@@ -150,7 +180,7 @@ final class WorkspaceStore {
         }
         if session.isWorking {
             cancelStream(id)
-            update(id) { $0.entries.append(.init(role: .notice, text: session.isLive ? "Sending a new direction to seven." : "Steering the simulated response with your latest message.")) }
+            update(id) { $0.entries.append(.init(role: .notice, text: session.isLive ? "Sending a new direction to SLICC." : "Steering the simulated response with your latest message.")) }
         }
         begin(prompt, id: id, steer: session.isWorking && mode == .steer)
     }
@@ -158,6 +188,7 @@ final class WorkspaceStore {
     func begin(_ prompt: String, id: UUID, steer: Bool = false) {
         guard let session = session(id) else { return }
         if session.isLive { beginLivePrompt(prompt, id: id, steer: steer); return }
+        guard isDemo else { return }
         let generation = UUID()
         generations[id] = generation
         update(id) { $0.isWorking = true }
@@ -234,6 +265,7 @@ final class WorkspaceStore {
     }
 
     func resetDemo() {
+        guard isDemo else { return }
         for session in sessions where !session.isLive {
             cancelStream(session.id)
             connections.removeValue(forKey: session.id)?.cancel()

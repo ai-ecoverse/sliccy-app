@@ -74,6 +74,9 @@ struct Session: Identifiable, Codable, Equatable {
     var lastActivity = Date()
     // Optional additions preserve older demo workspaces. Join credentials are never Codable.
     var usesLiveRuntime: Bool?
+    var localBrowserProfile: String?
+    var localBrowser: LocalBrowserChoice?
+    var localAccess: LocalAccessOptions?
     var management: InstanceManagement?
     var effectiveResources: CLIResources?
     var connectionMessage: String?

@@ -26,7 +26,13 @@ plist="$input_app/Contents/Info.plist"
 [[ -d "$input_app" && -f "$plist" ]] || { echo 'Built app bundle is missing.' >&2; exit 2; }
 [[ ! -e "$artifact_dir" ]] || { echo 'Use a new artifact directory.' >&2; exit 2; }
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")" == ai.sliccy.mac ]] || { echo 'Unexpected app identifier.' >&2; exit 2; }
-[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")" == 0.1.0 ]] || { echo 'Proof build must use approved version 0.1.0.' >&2; exit 2; }
+app_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")"
+if [[ "${SLICCY_RELEASE:-0}" == 1 ]]; then
+  [[ "$app_version" == "$(python3 "$(dirname "$0")/release_metadata.py" --version)" ]] || { echo 'Release version mismatch.' >&2; exit 2; }
+  [[ ! -e "$input_app/Contents/Helpers" ]] || { echo 'Proof helpers cannot ship in a release.' >&2; exit 2; }
+else
+  [[ "$app_version" == 0.1.0 ]] || { echo 'Proof build must use approved version 0.1.0.' >&2; exit 2; }
+fi
 [[ -x "$input_app/Contents/MacOS/Sliccy" ]] || { echo 'App executable is missing.' >&2; exit 2; }
 [[ -x "$input_app/Contents/Resources/slicc" ]] || { echo 'Bundled CLI is missing.' >&2; exit 2; }
 /usr/bin/codesign --verify --strict "$input_app/Contents/Resources/slicc"
@@ -43,6 +49,15 @@ cat > "$artifact_dir/entitlements.plist" <<'PLIST'
 <plist version="1.0"><dict/></plist>
 PLIST
 identity="Developer ID Application: Lars Trieloff ($APPLE_TEAM_ID)"
+sparkle="$signed_app/Contents/Frameworks/Sparkle.framework"
+if [[ -d "$sparkle" ]]; then
+  # Sign nested Sparkle code inside-out, retaining the downloader's own entitlements.
+  /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" "$sparkle/Versions/B/XPCServices/Installer.xpc"
+  /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" --preserve-metadata=entitlements "$sparkle/Versions/B/XPCServices/Downloader.xpc"
+  /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" "$sparkle/Versions/B/Autoupdate"
+  /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" "$sparkle/Versions/B/Updater.app"
+  /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" "$sparkle"
+fi
 for helper_name in ScreenProofExecHelper ScreenProofHandoffHelper; do
 helper="$signed_app/Contents/Helpers/$helper_name"
 if [[ -e "$helper" ]]; then
@@ -98,11 +113,11 @@ fi
 /usr/bin/xcrun stapler validate "$signed_app"
 /usr/bin/codesign --verify --deep --strict -R "=$requirement" "$signed_app"
 /usr/sbin/spctl --assess --type execute "$signed_app"
-/usr/bin/ditto -c -k --keepParent "$signed_app" "$artifact_dir/Sliccy-0.1.0.zip"
+/usr/bin/ditto -c -k --keepParent "$signed_app" "$artifact_dir/Sliccy-$app_version.zip"
 /usr/bin/codesign -dvvv "$signed_app" 2> "$artifact_dir/signing.txt"
 for helper_name in ScreenProofExecHelper ScreenProofHandoffHelper; do
   helper="$signed_app/Contents/Helpers/$helper_name"
   if [[ -e "$helper" ]]; then /usr/bin/codesign -dvvv "$helper" 2>> "$artifact_dir/signing.txt"; fi
 done
-(cd "$artifact_dir" && /usr/bin/shasum -a 256 Sliccy-0.1.0.zip > SHA256SUMS)
+(cd "$artifact_dir" && /usr/bin/shasum -a 256 "Sliccy-$app_version.zip" > SHA256SUMS)
 printf 'Verified signed app: %s\n' "$signed_app"

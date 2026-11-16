@@ -27,7 +27,7 @@ struct LiveFeedView: View {
                 ContentUnavailableView("Waiting for activity", systemImage: "waveform", description: Text(
                     feed.state == .unsupported ? "This CLI cannot resume the live feed. Choose slicc 1.55 or later in Settings." :
                     session.connection == .disconnected ? "Connect to resume the feed from its saved position." :
-                    "New activity from seven appears here. Earlier conversation history is not available."))
+                    "New activity from SLICC appears here. Earlier conversation history is not available."))
             } else {
                 ActivityView(session: display, userLabel: "User")
             }

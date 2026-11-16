@@ -14,7 +14,7 @@ private final class ControlledRuntime: SessionRuntime {
 @MainActor
 struct WorkspaceTests {
     @Test func disconnectedSessionCannotSend() {
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[2].id
         let before = store.session(id)!.entries.count
         store.send("Do something", to: id)
@@ -24,7 +24,7 @@ struct WorkspaceTests {
 
     @Test func stoppingPreventsLateStreamEventsAndClearsQueue() async {
         let runtime = ControlledRuntime()
-        let store = WorkspaceStore(runtime: runtime, defaults: nil)
+        let store = WorkspaceStore(preview: true, runtime: runtime, defaults: nil)
         let id = store.sessions[0].id
         store.send("First", to: id)
         store.send("Second", to: id)
@@ -41,7 +41,7 @@ struct WorkspaceTests {
 
     @Test func steeringReplacesStreamWithoutChangingConnection() async {
         let runtime = ControlledRuntime()
-        let store = WorkspaceStore(runtime: runtime, defaults: nil)
+        let store = WorkspaceStore(preview: true, runtime: runtime, defaults: nil)
         let id = store.sessions[0].id
         store.send("First", to: id)
         store.send("New direction", to: id, mode: .steer)
@@ -58,10 +58,10 @@ struct WorkspaceTests {
         let name = "SliccyTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
-        let store = WorkspaceStore(runtime: ControlledRuntime(), defaults: defaults)
+        let store = WorkspaceStore(preview: true, runtime: ControlledRuntime(), defaults: defaults)
         let id = store.sessions[0].id
         store.send("Unfinished", to: id)
-        let restored = WorkspaceStore(defaults: defaults)
+        let restored = WorkspaceStore(preview: true, defaults: defaults)
         #expect(!restored.session(id)!.isWorking)
         #expect(restored.session(id)!.queuedPrompts.isEmpty)
         #expect(restored.session(id)!.entries.last?.role == .notice)

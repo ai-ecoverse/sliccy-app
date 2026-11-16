@@ -50,9 +50,9 @@ struct CredentialAccess: Equatable {
 
     static func revocationMessage(upstream: Bool?) -> String {
         switch upstream {
-        case true: "The broker confirmed provider revocation. Seven has not confirmed removal from its vault."
-        case false: "Lease released by the broker. The provider credential remains valid until expiry; seven has not confirmed removal."
-        case nil: "Lease released by the broker. Provider revocation and removal from seven are unconfirmed."
+        case true: "The broker confirmed provider revocation. SLICC has not confirmed removal from its vault."
+        case false: "Lease released by the broker. The provider credential remains valid until expiry; SLICC has not confirmed removal."
+        case nil: "Lease released by the broker. Provider revocation and removal from SLICC are unconfirmed."
         }
     }
 }

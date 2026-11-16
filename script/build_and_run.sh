@@ -11,7 +11,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Sliccy"
 BUNDLE_ID="ai.sliccy.mac"
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
-SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build")
+SWIFT_FLAGS=(--scratch-path "$ROOT_DIR/.build/local-app")
+if [[ "${SLICCY_RELEASE:-0}" == 1 ]]; then SWIFT_FLAGS+=(-c release); fi
 BUILD_NUMBER=1
 if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 || "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 || "${SLICCY_SNAPSHOT_PROOF:-0}" == 1 || "${SLICCY_HOSTED_PID_PROOF:-0}" == 1 || "${SLICCY_CAPTURE_RUNNER_PROOF:-0}" == 1 ]]; then
   [[ "$MODE" == --build && "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == ai-ecoverse/sliccy-app && "${GITHUB_EVENT_NAME:-}" == push && "${GITHUB_REF:-}" == refs/heads/main ]] || { echo 'Build the diagnostic bundle through upstream main CI.' >&2; exit 2; }
@@ -49,6 +50,17 @@ if [[ "$MODE" != "--build" ]]; then
   /usr/bin/pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 fi
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
+# Replace executable inodes instead of overwriting a live signed process's pages.
+# --build may be used while the previous local app and its CLI are still running.
+copy_executable() {
+  local staged_executable
+  staged_executable="$(mktemp "${2}.XXXXXX")"
+  if ! /usr/bin/install -m 755 "$1" "$staged_executable"; then
+    rm -f "$staged_executable"
+    return 1
+  fi
+  mv -f "$staged_executable" "$2"
+}
 if [[ "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 ]]; then
   proof_slices=()
   for proof_arch in arm64 x86_64; do
@@ -66,7 +78,7 @@ if [[ "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" == 1 ]]; then
 else
   "$SWIFT" build "${SWIFT_FLAGS[@]}" --product "$APP_NAME"
   BUILD_DIR="$("$SWIFT" build "${SWIFT_FLAGS[@]}" --show-bin-path)"
-  cp "$BUILD_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+  copy_executable "$BUILD_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 fi
 if [[ "${SLICCY_NATIVE_SCREEN_PROOF:-0}" == 1 && "${SLICCY_UNIVERSAL_SLICE_PROOF:-0}" != 1 && "${SLICCY_SNAPSHOT_PROOF:-0}" != 1 ]]; then
   mkdir -p "$APP_BUNDLE/Contents/Helpers"
@@ -90,7 +102,7 @@ else
 fi
 if [[ -x "$ROOT_DIR/.build/tools/slicc" ]]; then
   mkdir -p "$APP_BUNDLE/Contents/Resources"
-  cp "$ROOT_DIR/.build/tools/slicc" "$APP_BUNDLE/Contents/Resources/slicc"
+  copy_executable "$ROOT_DIR/.build/tools/slicc" "$APP_BUNDLE/Contents/Resources/slicc"
   # Preserve the upstream Developer ID signature and CodeDirectory identity.
   /usr/bin/codesign --verify --strict "$APP_BUNDLE/Contents/Resources/slicc"
 fi
@@ -99,6 +111,16 @@ if [[ "${SLICCY_SNAPSHOT_PROOF:-0}" == 1 ]]; then
   cp "$ROOT_DIR/.build/tools/slicc-snapshot-amd64" "$APP_BUNDLE/Contents/Resources/slicc-snapshot-amd64"
   /usr/bin/codesign --verify --strict "$APP_BUNDLE/Contents/Resources/slicc-snapshot-amd64"
 fi
+# SwiftPM links Sparkle, but assembling a .app must embed it explicitly.
+framework_source="$ROOT_DIR/.build/local-app/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+if [[ "$BUILD_NUMBER" != 1 ]]; then
+  framework_source="$(find "$ROOT_DIR/.build" -path '*/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework' -type d -print -quit)"
+fi
+[[ -d "$framework_source" ]] || { echo 'Resolved Sparkle framework missing.' >&2; exit 2; }
+mkdir -p "$APP_BUNDLE/Contents/Frameworks" "$APP_BUNDLE/Contents/Resources"
+/usr/bin/ditto "$framework_source" "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+cp "$(dirname "$(dirname "$(dirname "$framework_source")")")/LICENSE" "$APP_BUNDLE/Contents/Resources/Sparkle-LICENSE"
+cp "$ROOT_DIR/Resources/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -107,6 +129,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
 <key>CFBundleName</key><string>$APP_NAME</string>
 <key>CFBundleDisplayName</key><string>Sliccy</string>
+<key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
 <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
@@ -115,6 +138,10 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
+metadata_mode=development
+if [[ "$BUILD_NUMBER" != 1 ]]; then metadata_mode=proof
+elif [[ "${SLICCY_RELEASE:-0}" == 1 ]]; then metadata_mode=release; fi
+python3 "$ROOT_DIR/script/release_metadata.py" "$APP_BUNDLE/Contents/Info.plist" "$metadata_mode"
 /usr/bin/codesign --force --sign - "$APP_BUNDLE"
 
 case "$MODE" in

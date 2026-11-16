@@ -9,10 +9,10 @@ struct FoldersView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 PageHeading(title: "Shared Folders", subtitle: "A clear view of what leaves this Mac.")
-                Text("Folder access belongs to a session. Choose an instance to switch folder access on or off.")
+                Text(store.isDemo ? "Folder access belongs to a session. Choose an instance to switch folder access on or off." : "Folder access is reported by each connected runtime. This app does not offer local folders yet.")
                     .font(.callout).foregroundStyle(.secondary)
                 if sharing.isEmpty {
-                    ContentUnavailableView("No shared folders", systemImage: "folder", description: Text("Add a folder from an instance’s entitlement view."))
+                    ContentUnavailableView("No shared folders", systemImage: "folder", description: Text(store.isDemo ? "Add a folder from an instance’s entitlement view." : "No connected runtime has reported shared folders."))
                 }
                 ForEach(sharing) { session in
                     VStack(alignment: .leading, spacing: 14) {

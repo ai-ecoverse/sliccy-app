@@ -17,7 +17,7 @@ struct SidebarView: View {
                     Label {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(session.name).lineLimit(1)
-                            Text(session.runningAgentCount.map { "\($0) running · \(session.device)" } ?? "\(session.device) · Agents not reported")
+                            Text(session.isLive ? "\(session.device) · \(session.connection.title)" : session.runningAgentCount.map { "\($0) running · \(session.device)" } ?? session.device)
                                 .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
                     } icon: {
@@ -38,7 +38,7 @@ struct SidebarView: View {
                         Button("Remove Session…", role: .destructive) { onRemove(session.id) }
                     }
                 }
-                if visible.isEmpty { Text("No matching sessions").font(.caption).foregroundStyle(.secondary) }
+                if visible.isEmpty { Text(store.sessions.isEmpty ? "Your sessions will appear here" : "No matching sessions").font(.caption).foregroundStyle(.secondary) }
             }
             Section("This Mac") {
                 ForEach(Destination.allCases) { destination in
@@ -52,8 +52,8 @@ struct SidebarView: View {
             HStack {
                 Image(systemName: "circle.hexagongrid.fill").foregroundStyle(.tint)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Your Mac, connected").font(.caption).fontWeight(.medium)
-                    Text("\(store.sessions.filter { $0.isLive && $0.connection == .connected }.count) live · \(store.sessions.filter { !$0.isLive && $0.connection == .connected }.count) demo").font(.caption2).foregroundStyle(.secondary)
+                    Text(store.isDemo ? "Preview workspace" : "Your Mac").font(.caption).fontWeight(.medium)
+                    Text(store.connectedCount == 1 ? "1 live connection" : "\(store.connectedCount) live connections").font(.caption2).foregroundStyle(.secondary)
                 }
                 Spacer()
                 SettingsLink { Image(systemName: "gearshape") }.buttonStyle(.plain).help("Settings")

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Preview metadata only. Live inventory will come from seven and the credential broker.
+/// Preview metadata only. Live inventory will come from SLICC and the credential broker.
 /// This model deliberately has no field for a secret value.
 struct InstanceManagement: Codable, Equatable {
     struct Agent: Identifiable, Codable, Equatable {
@@ -29,8 +29,8 @@ struct InstanceManagement: Codable, Equatable {
             .init(id: "reviewer", name: kind == .remote ? "Researcher" : "Browser reviewer", model: "Claude Sonnet", provider: "Anthropic", running: true),
             .init(id: "worker", name: "Code worker", model: "GPT-6.1", provider: "OpenAI", running: false)
         ], credentials: [
-            .init(id: "openai", name: "Project API key", provider: "OpenAI", source: "Seven vault", scope: "Coordinator, Code worker", delivery: "Provider requests", enabled: true),
-            .init(id: "anthropic", name: "Team API key", provider: "Anthropic", source: "Seven vault", scope: kind == .remote ? "Researcher" : "Browser reviewer", delivery: "Provider requests", enabled: true),
+            .init(id: "openai", name: "Project API key", provider: "OpenAI", source: "SLICC vault", scope: "Coordinator, Code worker", delivery: "Provider requests", enabled: true),
+            .init(id: "anthropic", name: "Team API key", provider: "Anthropic", source: "SLICC vault", scope: kind == .remote ? "Researcher" : "Browser reviewer", delivery: "Provider requests", enabled: true),
             .init(id: "github", name: "Repository access", provider: "GitHub", source: "Mac credential broker", scope: "Code worker · example/website", delivery: "Expiring lease", enabled: false)
         ])
     }

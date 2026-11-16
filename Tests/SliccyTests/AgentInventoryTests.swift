@@ -61,7 +61,7 @@ struct AgentInventoryTests {
         #expect(invocation.arguments == ["-", "agents", "--json", "--watch"])
         #expect(!invocation.arguments.contains("private-join"))
         #expect(String(decoding: invocation.input, as: UTF8.self) == "private-join\n")
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.update(id) { $0.usesLiveRuntime = true }
         store.applyInventory(try events()[0], to: id)

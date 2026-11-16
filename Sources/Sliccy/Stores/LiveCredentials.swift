@@ -8,6 +8,12 @@ extension WorkspaceStore {
     func setCredentialSealing(_ enabled: Bool, for id: UUID) {
         guard session(id)?.isLive == true, session(id)?.connection == .connected,
               credentialAccess[id]?.busy != true else { return }
+        if session(id)?.localBrowserProfile != nil {
+            // Local flow offers the broker at startup; off removes that offer on reconnect.
+            // Existing issued leases are not represented as revoked by this operation.
+            restartLocalConnection(id, offerCredentials: enabled)
+            return
+        }
         let operation = enabled ? "seal-on" : "seal-off"
         if credentialAccess[id]?.ops.contains(operation) == true {
             credentialOperation(id, operation: operation)

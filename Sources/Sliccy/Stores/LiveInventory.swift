@@ -3,7 +3,7 @@ import Foundation
 extension WorkspaceStore {
     func startInventory(_ id: UUID) {
         guard session(id)?.isLive == true, session(id)?.connection == .connected,
-              inventoryProcesses[id] == nil, let join = joinCredentials[id], let executable = liveExecutables[id] else { return }
+              inventoryProcesses[id] == nil, let invocation = inventoryInvocation(id), let executable = liveExecutables[id] else { return }
         guard inventorySupported.contains(id) else {
             inventories[id] = .init(message: "This CLI does not report agents. Select slicc 1.57 or later.")
             return
@@ -11,7 +11,7 @@ extension WorkspaceStore {
         let token = UUID()
         inventoryTokens[id] = token
         var state = inventories[id] ?? .init()
-        state.active = false; state.message = "Waiting for seven’s agent inventory…"
+        state.active = false; state.message = "Waiting for SLICC’s agent inventory…"
         inventories[id] = state
         let child = CLIProcess()
         inventoryProcesses[id] = child
@@ -19,19 +19,20 @@ extension WorkspaceStore {
             guard let self else { return }
             do {
                 var decoder = NDJSONDecoder()
-                let stream = try child.start(executable: executable, invocation: .agents(join: join))
+                let stream = try child.start(executable: executable, invocation: invocation)
                 for try await chunk in stream {
                     guard !Task.isCancelled, self.inventoryTokens[id] == token else { return }
                     for event in try decoder.append(chunk) { self.applyInventory(event, to: id) }
                 }
+                guard !Task.isCancelled, self.inventoryTokens[id] == token else { return }
                 for event in try decoder.finish() { self.applyInventory(event, to: id) }
             } catch {
                 guard !Task.isCancelled, self.inventoryTokens[id] == token else { return }
                 let message: String
                 if case CLIError.exit(1) = error {
-                    message = "Agent inventory is unavailable. Seven may need an update, or its agent may not be running."
+                    message = "Agent inventory is unavailable. SLICC may need an update, or its agent may not be running."
                 } else if case CLIError.exit(3) = error {
-                    message = "Allow agent access for this device in seven’s Linked devices."
+                    message = "Allow agent access for this device in SLICC’s Linked devices."
                 } else { message = self.redacted(error.localizedDescription, id: id) }
                 self.inventories[id]?.message = message
             }

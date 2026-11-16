@@ -1,4 +1,4 @@
-name: Signed app
+name: Release Sliccy
 
 on:
   push:
@@ -6,91 +6,79 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
-  group: signed-app-main
+  group: release-main
   cancel-in-progress: false
 
 jobs:
-  sign:
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: [app, ipc-proof, universal-proof, snapshot-proof, hosted-pid-proof, capture-proof]
-    if: github.repository == 'ai-ecoverse/sliccy-app' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+  release:
+    if: github.repository == 'ai-ecoverse/sliccy-app'
     runs-on: xcode-27
     timeout-minutes: 60
     environment: signing
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: Test
-        run: |
-          /usr/bin/xcrun swift test
-          /usr/bin/xcrun swift test --scratch-path .build/proof-tests -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF --filter 'Screen'
-          ./script/test_screen_socket.sh
-          python3 -m unittest discover -s Tests/UniversalManifest -p 'test_*.py'
-          if [[ '${{ matrix.variant }}' == snapshot-proof ]]; then
-            /usr/bin/xcrun swift test --scratch-path .build/snapshot-tests -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_SNAPSHOT_PROOF --filter 'Screen'
-          fi
-          if [[ '${{ matrix.variant }}' == hosted-pid-proof ]]; then
-            /usr/bin/xcrun swift test --scratch-path .build/hosted-pid-tests -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_HOSTED_PID_PROOF --filter 'Screen'
-          fi
-          if [[ '${{ matrix.variant }}' == capture-proof ]]; then
-            python3 -m unittest discover -s Tests/RunnerStaging -p 'test_*.py'
-            /usr/bin/xcrun swift test --scratch-path .build/capture-tests -Xswiftc -DSLICCY_NATIVE_SCREEN_PROOF -Xswiftc -DSLICCY_CAPTURE_RUNNER_PROOF -Xcc -DSLICCY_CAPTURE_RUNNER_PROOF --filter 'Screen'
-          fi
-      - name: Fetch immutable signed surface
-        if: matrix.variant == 'capture-proof'
+      - name: Check release version
+        id: version
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 script/fetch_surface.py
-      - name: Build app with pinned CLI
+        run: |
+          version=$(python3 script/release_metadata.py --version)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" > "$RUNNER_TEMP/sliccy-releases.json"
+          python3 script/check_release_version.py "$RUNNER_TEMP/sliccy-releases.json" >> "$GITHUB_OUTPUT"
+      - name: Test
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          /usr/bin/xcrun swift test
+          python3 -m unittest discover -s Tests/Release -p 'test_*.py'
+      - name: Build production app
+        if: steps.version.outputs.publish == 'true'
         env:
-          SLICCY_NATIVE_SCREEN_PROOF: ${{ matrix.variant == 'ipc-proof' && '1' || '0' }}
-          SLICCY_UNIVERSAL_SLICE_PROOF: ${{ matrix.variant == 'universal-proof' && '1' || '0' }}
-          SLICCY_SNAPSHOT_PROOF: ${{ matrix.variant == 'snapshot-proof' && '1' || '0' }}
-          SLICCY_HOSTED_PID_PROOF: ${{ matrix.variant == 'hosted-pid-proof' && '1' || '0' }}
-          SLICCY_CAPTURE_RUNNER_PROOF: ${{ matrix.variant == 'capture-proof' && '1' || '0' }}
+          SLICCY_RELEASE: '1'
         run: |
           ./script/fetch_cli.sh
-          if [[ '${{ matrix.variant }}' == snapshot-proof ]]; then ./script/fetch_snapshot_cli.sh; fi
           ./script/build_and_run.sh --build
       - name: Sign and notarize
+        if: steps.version.outputs.publish == 'true'
         env:
+          SLICCY_RELEASE: '1'
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_DEVELOPER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_KEY_ISSUER_ID: ${{ secrets.APPLE_API_KEY_ISSUER_ID }}
           APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
-        run: |
-          if [[ '${{ matrix.variant }}' == ipc-proof ]]; then
-            ./script/ci_sign.sh dist-proof/Sliccy.app artifacts/signed
-          elif [[ '${{ matrix.variant }}' == universal-proof ]]; then
-            ./script/ci_sign.sh dist-universal-proof/Sliccy.app artifacts/signed
-          elif [[ '${{ matrix.variant }}' == hosted-pid-proof ]]; then
-            ./script/ci_sign.sh dist-hosted-pid-proof/Sliccy.app artifacts/signed
-          elif [[ '${{ matrix.variant }}' == capture-proof ]]; then
-            ./script/ci_sign.sh dist-capture-proof/Sliccy.app artifacts/signed
-          elif [[ '${{ matrix.variant }}' == snapshot-proof ]]; then
-            ./script/ci_sign.sh dist-snapshot-proof/Sliccy.app artifacts/signed
-          else
-            ./script/ci_sign.sh dist/Sliccy.app artifacts/signed
-          fi
-      - name: Upload verified app
+        run: ./script/ci_sign.sh dist/Sliccy.app artifacts/signed
+      - name: Sign update archive and verify release metadata
+        if: steps.version.outputs.publish == 'true'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: python3 script/prepare_release.py artifacts/signed
+      - name: Retain verified release assets
+        if: steps.version.outputs.publish == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ${{ matrix.variant == 'capture-proof' && 'Sliccy-Capture-Proof-0.1.0-arm64' || matrix.variant == 'hosted-pid-proof' && 'Sliccy-Hosted-PID-Proof-0.1.0-arm64' || matrix.variant == 'snapshot-proof' && 'Sliccy-Snapshot-Proof-0.1.0-arm64' || matrix.variant == 'universal-proof' && 'Sliccy-Universal-Proof-0.1.0-universal' || matrix.variant == 'ipc-proof' && 'Sliccy-IPC-Proof-0.1.0-arm64' || 'Sliccy-0.1.0-arm64' }}-${{ github.sha }}
+          name: Sliccy-${{ steps.version.outputs.version }}-arm64-${{ github.sha }}
           path: |
-            artifacts/signed/Sliccy-0.1.0.zip
+            artifacts/signed/Sliccy-*.zip
+            !artifacts/signed/Sliccy-notarize.zip
             artifacts/signed/SHA256SUMS
+            artifacts/signed/appcast.xml
             artifacts/signed/signing.txt
-            artifacts/signed/universal-manifest.json
-            artifacts/signed/snapshot-manifest.json
-            artifacts/signed/hosted-pid-manifest.json
-            artifacts/signed/capture-manifest.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
+      - name: Publish GitHub release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --draft --title "Sliccy $VERSION" --notes-file release/notes.md \
+            "artifacts/signed/Sliccy-$VERSION.zip" artifacts/signed/SHA256SUMS artifacts/signed/appcast.xml
+          gh release edit "v$VERSION" --draft=false --latest

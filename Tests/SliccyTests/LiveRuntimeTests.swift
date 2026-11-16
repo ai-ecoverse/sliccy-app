@@ -19,7 +19,7 @@ struct LiveRuntimeTests {
     }
 
     @Test func lifecycleUsesEffectiveGrantsAndWaitsForClosed() throws {
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.update(id) { $0.usesLiveRuntime = true; $0.connection = .connecting }
         var decoder = NDJSONDecoder()
@@ -51,7 +51,7 @@ struct LiveRuntimeTests {
             #expect(!call.arguments.joined().contains(prompt))
             #expect(String(decoding: call.input, as: UTF8.self).hasPrefix(secret + "\n"))
         }
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.joinCredentials[id] = secret
         store.update(id) { $0.usesLiveRuntime = true }
@@ -64,12 +64,12 @@ struct LiveRuntimeTests {
         let name = "SliccyTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
-        let store = WorkspaceStore(defaults: defaults)
+        let store = WorkspaceStore(preview: true, defaults: defaults)
         let id = store.sessions[0].id
         store.update(id) { $0.usesLiveRuntime = true }
         store.joinCredentials[id] = "https://example.invalid/#secret"
         store.save()
-        let restored = WorkspaceStore(defaults: defaults)
+        let restored = WorkspaceStore(preview: true, defaults: defaults)
         #expect(restored.session(id)?.connection == .disconnected)
         #expect(restored.session(id)?.access.folders.isEmpty == true)
         #expect(restored.joinCredentials.isEmpty)
@@ -79,7 +79,7 @@ struct LiveRuntimeTests {
     }
 
     @Test func agentEntryIDsGroupDeltasWithoutInventingRunIDs() throws {
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.update(id) { $0.entries = [] }
         var entries: [String: UUID] = [:]

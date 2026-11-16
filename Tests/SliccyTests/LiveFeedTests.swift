@@ -62,7 +62,7 @@ struct LiveFeedTests {
     }
 
     @MainActor @Test func disconnectPreservesReplayCursorAndClearsBusyState() {
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.update(id) {
             $0.usesLiveRuntime = true
@@ -76,7 +76,7 @@ struct LiveFeedTests {
         #expect(store.watchProcesses.isEmpty)
     }
     @MainActor @Test func cursorNeverCrossesJoinCredentials() {
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.bindCredential("https://example.invalid/#one", to: id)
         store.update(id) { $0.liveFeed = .init(entries: [.init(role: .assistant, text: "Old", sourceID: "a1")], cursor: "a1") }

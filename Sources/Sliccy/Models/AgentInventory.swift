@@ -51,7 +51,7 @@ struct AgentInventory {
                   ["running", "queued", "waiting", "idle", "error"].allSatisfy({ counts[$0] != nil }),
                   counts.values.allSatisfy({ $0 >= 0 }), agents.allSatisfy({ $0.queued >= 0 }),
                   Set(agents.map(\.id)).count == agents.count else {
-                active = false; message = "Seven returned an incompatible agent inventory."; return
+                active = false; message = "SLICC returned an incompatible agent inventory."; return
             }
             // Whole snapshots: a lower seq means an agent restart, not a stale delta.
             self.agents = agents; self.instance = instance; self.counts = counts; self.seq = seq

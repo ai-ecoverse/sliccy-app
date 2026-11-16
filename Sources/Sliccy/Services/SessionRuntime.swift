@@ -20,7 +20,7 @@ final class MockRuntime: SessionRuntime {
                 do {
                     try await Task.sleep(for: .milliseconds(450))
                     continuation.yield(.tool("Preparing a simulated response"))
-                    let answer = "This is a preview response for **\(sessionName)**.\n\nYour message reached the demo runtime. In a connected session, Sliccy will stream seven’s response here, with tool activity alongside it.\n\nYou can try a follow-up, steer this response, or stop it. No browser, file, or shell access was used."
+                    let answer = "This is a preview response for **\(sessionName)**.\n\nYour message reached the demo runtime. In a connected session, Sliccy will stream SLICC’s response here, with tool activity alongside it.\n\nYou can try a follow-up, steer this response, or stop it. No browser, file, or shell access was used."
                     for word in answer.split(separator: " ", omittingEmptySubsequences: false) {
                         try Task.checkCancellation()
                         continuation.yield(.text(String(word) + " "))

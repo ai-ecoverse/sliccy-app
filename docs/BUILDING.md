@@ -1,9 +1,39 @@
 # Build and signing
 
-Local builds use `script/build_and_run.sh --build` and ad-hoc signing. They can
-run the UI and CLI integrations but cannot activate native screen sharing.
+## Local development
 
-The `Signed app` workflow runs only for pushes to `main` in
+Requires macOS 27 and Xcode 27 / Swift 6.2 or newer. Start with:
+
+```sh
+./script/local_build.sh --check
+./script/local_build.sh
+open dist/Sliccy.app
+```
+
+The first command checks the OS and selected SDK without downloading, compiling,
+signing or launching. The second fetches checksum-pinned CLI 1.59.0 and uses
+`script/build_and_run.sh --build` to build and ad-hoc sign the app. It does not
+launch, install, notarize or upload anything. It rejects all proof-build flags.
+If the wrong SDK is selected, choose Xcode 27 in Xcode Settings → Locations or set
+`DEVELOPER_DIR` to the intended Xcode developer directory before building.
+
+The app can run the UI and CLI integrations but cannot activate native screen
+sharing. Screen controls are hidden; `--preview --screen-demo` exposes only the
+simulated UI. The release policy still has no approved capture scopes or CLI
+capture identities, and capture-audit maintenance stays off.
+
+For an isolated UI preview, launch with:
+
+```sh
+open -n dist/Sliccy.app --args --preview --show-overview
+```
+
+This local-build path keeps the existing CLI pin. Newer runtime integration and
+release signing are separate work; a local build is not a signed distribution.
+
+## Hosted signing
+
+The `Release Sliccy` workflow runs only for pushes to `main` in
 `ai-ecoverse/sliccy-app`. It uses GitHub's `xcode-27` hosted runner, tests the app,
 downloads the checksum-pinned CLI, and builds the bundle before accessing signing
 credentials. The `signing` environment allows only the `main` branch. The PR test
@@ -16,14 +46,14 @@ The signing step consumes the existing organization secrets
 files are private temporary files deleted on exit. Signing scripts reject events,
 refs and repositories outside the upstream push-to-main path.
 
-The app uses identifier `ai.sliccy.mac`, version `0.1.0`, Developer ID, hardened
+The app uses identifier `ai.sliccy.mac`, the version in `release/version.json`, Developer ID, hardened
 runtime and empty entitlements. The bundled CLI retains its upstream signature and
 bytes. The workflow notarizes and staples the app, verifies its signature and
 Gatekeeper assessment, and uploads only the app ZIP, SHA-256 checksum and public
 signing metadata. It does not upload signing keys, certificates or diagnostic logs.
 
-Download the successful workflow's `Sliccy-0.1.0-arm64-<commit>` artifact, verify
-`SHA256SUMS`, and extract the ZIP with `ditto -x -k`. Verify locally with:
+Download the latest GitHub Release ZIP, verify `SHA256SUMS`, and extract it
+with `ditto -x -k`. Verify locally with:
 
 ```sh
 codesign --verify --deep --strict Sliccy.app
@@ -34,6 +64,16 @@ codesign -dvvv Sliccy.app
 
 A valid signed bundle does not enable screen capture. Runtime pins, native identity
 validation and supported source scopes remain separate conditions in the app.
+
+## Production release pipeline
+
+The automatic main workflow now builds only the production app and publishes a versioned GitHub Release. The historical six-variant proof signing matrix is no longer run on ordinary main pushes. Its source and retained evidence remain in Git history; no capture dispatch is part of release publication.
+
+`release/version.json` is the release version/build/feed/key source. Sparkle is pinned in `Package.swift` and `Package.resolved`, embedded in `Contents/Frameworks`, and signed inside-out by the existing Developer ID CI identity. The upstream CLI signature is preserved. The workflow signs the notarized ZIP using `SPARKLE_PRIVATE_KEY` from the signing environment and independently checks that signature against `SUPublicEDKey` before publishing. The feed is `releases/latest/download/appcast.xml`; archive URLs are immutable per-version release assets. ZIP, feed and checksums are uploaded to a draft before publication.
+
+Local `./script/local_build.sh` remains an ad-hoc development build with the updater disabled. Set `SLICCY_RELEASE=1` only when assembling a release candidate; CI alone imports Developer ID and notarization secrets. `Sliccy → Check for Updates…` and the General settings panel use Sparkle's standard UI. Automatic checks are on for release builds, automatic installation is off, and profiling is disabled.
+
+The following sections describe historical diagnostic fixtures, not the production release route.
 
 ## Connection diagnostic build
 

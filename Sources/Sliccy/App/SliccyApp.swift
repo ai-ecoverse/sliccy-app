@@ -3,8 +3,11 @@ import SwiftUI
 import OSLog
 
 struct SliccyApp: App {
+    @StateObject private var updater = AppUpdater()
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @State private var store = WorkspaceStore(defaults: ProcessInfo.processInfo.arguments.contains("--preview") ? nil : .standard)
+    @State private var store = WorkspaceStore(
+        preview: ProcessInfo.processInfo.arguments.contains("--preview"),
+        defaults: ProcessInfo.processInfo.arguments.contains("--preview") ? nil : .standard)
 
     var body: some Scene {
         WindowGroup("Sliccy", id: "workspace") {
@@ -14,18 +17,19 @@ struct SliccyApp: App {
         .defaultSize(width: 1120, height: 780)
         .defaultLaunchBehavior(.presented)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…", action: updater.check).disabled(!updater.canCheck)
+            }
             CommandGroup(replacing: .newItem) {
                 Button("New Session…") { store.startNew() }.keyboardShortcut("n")
             }
             CommandMenu("Session") {
-                Button("New Session…") { store.startNew() }
-                Divider()
                 ForEach(store.sessions) { session in
                     Button(session.name) { store.requestedSelection = session.id }
                 }
             }
         }
-        Settings { SettingsView(store: store) }
+        Settings { SettingsView(store: store, updater: updater) }
         MenuBarExtra("Sliccy", systemImage: "circle.hexagongrid") {
             MenuBarView(store: store)
         }
@@ -42,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         shutdown?()
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if !ProcessInfo.processInfo.arguments.contains("--preview") {
+        if ScreenReleasePolicy.identityProofApproved && !ProcessInfo.processInfo.arguments.contains("--preview") {
             do {
                 auditMaintenance = ScreenAuditMaintenance(audit: try ScreenAudit())
                 NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake), name: NSWorkspace.didWakeNotification, object: nil)

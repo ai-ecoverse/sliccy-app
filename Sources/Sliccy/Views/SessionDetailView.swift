@@ -16,6 +16,11 @@ struct SessionDetailView: View {
                     }.font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
+                if session.localBrowserProfile != nil {
+                    Button { store.showBrowser(session.id) } label: { Label("Show in \(session.localBrowserChoice.name)", systemImage: "arrow.up.forward.app") }
+                        .disabled(session.connection != .connected || store.localTabURLs[session.id] == nil || store.openingBrowser.contains(session.id))
+                        .help("Bring the connected SLICC tab to the front")
+                }
                 Button(session.connection == .disconnected ? "Connect" : "Disconnect") {
                     if session.connection == .disconnected { store.reconnect(session.id) }
                     else { store.disconnect(session.id) }

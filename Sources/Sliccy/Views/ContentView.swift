@@ -22,18 +22,12 @@ struct ContentView: View {
                 } else if selection == Destination.folders.rawValue {
                     FoldersView(store: store, onSelect: { selection = $0.uuidString })
                 } else {
-                    ContentUnavailableView {
-                        Label("Make room for your next idea", systemImage: "circle.hexagongrid")
-                    } description: {
-                        Text("Start a session to bring seven and this Mac together.")
-                    } actions: {
-                        Button("New Session…") { store.startNew() }.buttonStyle(.borderedProminent)
-                    }
+                    WelcomeView(store: store)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                if selectedSession?.isLive != true { DemoBanner() }
+                if store.isDemo && selectedSession?.isLive != true { DemoBanner() }
             }
         }
         .searchable(text: $search, prompt: "Find sessions and apps")
@@ -57,7 +51,7 @@ struct ContentView: View {
                 removing = nil
                 if selectedSession == nil { selection = store.sessions.first?.id.uuidString ?? "" }
             }
-        } message: { Text("Its local activity will be removed and its connection will close. Any remote agent run continues in seven.") }
+        } message: { Text("Its local activity will be removed and its connection will close. Any remote agent run continues in SLICC.") }
         .onAppear {
             let knownDestination = Destination(rawValue: selection) != nil
             if !knownDestination && selectedSession == nil {

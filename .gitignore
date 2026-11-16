@@ -11,3 +11,6 @@ artifacts/
 *.p8
 *.keychain-db
 dist-proof/
+
+__pycache__/
+*.pyc

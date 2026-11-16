@@ -26,7 +26,7 @@ struct CredentialAccessView: View {
                 )).labelsHidden().toggleStyle(.switch).controlSize(.small).disabled(!canSwitch)
             }
             if canOffer {
-                Text("Allows seven to request this Mac’s credentials through the broker. Vault rules and recipient scopes are not reported here.")
+                Text("Allows SLICC to request this Mac’s credentials through the broker. Vault rules and recipient scopes are not reported here.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Divider()
@@ -68,7 +68,7 @@ struct CredentialAccessView: View {
                 Text(store.credentialOffers.contains(session.id) ? "The Mac broker is unavailable. Install a compatible slicc-jerk on this Mac, then reconnect." : "Credential leasing is not offered by this process.")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Text("Process-local metadata only. Seven’s vault inventory is not reported; a refreshed list may briefly include a concurrently revoked lease.")
+            Text("Process-local metadata only. SLICC’s vault inventory is not reported; a refreshed list may briefly include a concurrently revoked lease.")
                 .font(.caption2).foregroundStyle(.secondary)
         }.padding(.vertical, 10)
     }

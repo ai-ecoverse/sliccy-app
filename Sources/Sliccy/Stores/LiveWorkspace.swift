@@ -15,13 +15,43 @@ extension WorkspaceStore {
 
     @discardableResult
     func createLive(name: String, join: String) -> UUID {
-        let session = Session(name: name.trimmingCharacters(in: .whitespacesAndNewlines), device: "Remote seven", kind: .remote,
+        let session = Session(name: sessionName(for: name), device: "Remote SLICC", kind: .remote,
                               profile: "Remote", connection: .disconnected, access: .init(browser: nil, network: false), usesLiveRuntime: true)
         sessions.append(session)
         bindCredential(join, to: session.id)
         requestedSelection = session.id
         reconnect(session.id)
         return session.id
+    }
+
+    @discardableResult
+    func createLocalBrowser(name: String, browser: LocalBrowserChoice = .chrome, profile: String? = nil) -> UUID {
+        let profile = profile ?? browser.defaultProfile
+        // Reuse the selected profile rather than opening overlapping app-owned links.
+        if let existing = sessions.first(where: { $0.isLive && $0.localBrowserProfile == profile }) {
+            guard existing.localBrowserChoice == browser else {
+                errorMessage = "This profile is already assigned to \(existing.localBrowserChoice.name). Choose another profile."
+                return existing.id
+            }
+            requestedSelection = existing.id
+            if existing.connection == .disconnected { reconnect(existing.id) }
+            return existing.id
+        }
+        let session = Session(name: sessionName(for: name), device: "This Mac", kind: .browser,
+                              profile: profile == browser.defaultProfile ? "SLICC \(browser.name) profile" : profile, connection: .disconnected,
+                              access: .init(browser: nil, network: false), usesLiveRuntime: true,
+                              localBrowserProfile: profile, localBrowser: browser, localAccess: .init())
+        sessions.append(session)
+        requestedSelection = session.id
+        reconnect(session.id)
+        return session.id
+    }
+
+    func inventoryInvocation(_ id: UUID) -> CLIInvocation? {
+        if session(id)?.localBrowserProfile != nil {
+            return localBrowserEndpoints[id].map { .agents(cdp: $0) }
+        }
+        return joinCredentials[id].map { .agents(join: $0) }
     }
 
     func bindCredential(_ join: String, to id: UUID) {
@@ -49,7 +79,10 @@ extension WorkspaceStore {
     }
 
     func connectLive(_ id: UUID) {
-        guard let join = joinCredentials[id] else { return }
+        let profile = session(id)?.localBrowserProfile
+        let join = joinCredentials[id]
+        guard profile != nil || join != nil else { return }
+        localBrowserEndpoints[id] = nil
         let token = UUID()
         liveTokens[id] = token
         let executable = cliExecutable
@@ -58,15 +91,23 @@ extension WorkspaceStore {
         connections[id] = Task { [weak self] in
             guard let self else { return }
             do {
+                let deadline = ContinuousClock.now.advanced(by: .seconds(8))
+                while self.retiringProcesses[id]?.runningPID != nil, ContinuousClock.now < deadline {
+                    try await Task.sleep(for: .milliseconds(50))
+                }
+                guard self.retiringProcesses[id]?.runningPID == nil else { throw CLIControlError.timeout }
+                self.retiringProcesses[id] = nil
+                try Task.checkCancellation()
                 let capabilities = try await CLIClient.capabilities(at: executable)
                 guard !Task.isCancelled, self.liveTokens[id] == token else { return }
+                if profile != nil, !capabilities.supportsLocalBrowser { throw CLIError.incompatible }
                 self.cliVersion = capabilities.version
                 if capabilities.commands["agents"]?.json == "events" { self.inventorySupported.insert(id) }
                 else { self.inventorySupported.remove(id) }
                 if self.credentialOffers.contains(id), !capabilities.supportsCredentialLeases { throw CLIError.incompatible }
                 if capabilities.supportsCredentialLeases { self.leaseSupported.insert(id) }
                 else { self.leaseSupported.remove(id) }
-                if capabilities.supportsResumableWatch {
+                if profile == nil, capabilities.supportsResumableWatch {
                     self.watchSupported.insert(id)
                 } else {
                     self.watchSupported.remove(id)
@@ -79,11 +120,18 @@ extension WorkspaceStore {
                 self.liveProcesses[id] = child
                 self.liveExecutables[id] = executable
                 var decoder = NDJSONDecoder()
-                let stream = try child.start(executable: executable, invocation: .follow(join: join, offerCredentials: self.credentialOffers.contains(id)))
+                let invocation: CLIInvocation
+                if let profile {
+                    invocation = .localBrowser(profile: profile, browser: self.session(id)?.localBrowserChoice ?? .chrome, access: self.session(id)?.localAccess ?? .init(), offerCredentials: self.credentialOffers.contains(id))
+                } else if let join {
+                    invocation = .follow(join: join, offerCredentials: self.credentialOffers.contains(id))
+                } else { return }
+                let stream = try child.start(executable: executable, invocation: invocation)
                 for try await data in stream {
                     guard !Task.isCancelled, self.liveTokens[id] == token else { return }
                     for event in try decoder.append(data) { self.applyLifecycle(event, to: id) }
                 }
+                guard !Task.isCancelled, self.liveTokens[id] == token else { return }
                 for event in try decoder.finish() { self.applyLifecycle(event, to: id) }
             } catch {
                 guard !Task.isCancelled, self.liveTokens[id] == token else { return }
@@ -103,18 +151,33 @@ extension WorkspaceStore {
     func applyLifecycle(_ event: CLIEvent, to id: UUID) {
         guard event.schema == nil || event.schema == 1 else { return }
         switch event.kind {
+        case "attached", "launched":
+            // Protocol role is named "seven" by the released CLI. It is not UI branding.
+            if session(id)?.localBrowserProfile != nil, event.role == "seven",
+               let endpoint = event.cdp, let url = URL(string: endpoint),
+               url.scheme == "http", ["127.0.0.1", "localhost", "[::1]"].contains(url.host ?? ""),
+               url.user == nil, url.password == nil, let port = url.port, (1...65535).contains(port) {
+                localBrowserEndpoints[id] = endpoint
+                if let browser = event.browser, let name = event.name {
+                    attachedBrowsers[id] = .init(id: browser, name: name, role: event.role!, owned: event.launched == true)
+                }
+                startInventory(id)
+            }
         case "connecting": update(id) { $0.connection = .connecting }
         case "reconnecting", "link-lost":
             stopInventory(id)
             update(id) { $0.connection = .reconnecting; $0.effectiveResources = nil; $0.access = .init(browser: nil, network: false) }
         case "linked":
+            let local = session(id)?.localBrowserProfile != nil
+            let resources = event.resources ?? (local ? (session(id)?.localAccess ?? .init()).resources(from: event, browser: attachedBrowsers[id]) : nil)
+            if local, let tab = event.tab, BrowserTabClient.isSLICCTab(tab) { localTabURLs[id] = tab }
             update(id) {
                 $0.connection = .connected
                 $0.connectionMessage = nil
-                $0.effectiveResources = event.resources
-                $0.access = event.resources?.access ?? .init(browser: nil, network: false)
+                $0.effectiveResources = resources
+                $0.access = resources?.access ?? .init(browser: nil, network: false)
             }
-            notice("Connected to seven. Access shows the resources reported by the CLI.", id: id)
+            notice("Connected to SLICC. Access shows the resources reported by the CLI.", id: id)
             // Launcher UI does not subscribe to agent transcripts.
             refreshCredentials(id)
             startInventory(id)
@@ -134,6 +197,9 @@ extension WorkspaceStore {
 
     func clearLiveConnection(_ id: UUID) {
         stopInventory(id)
+        localBrowserEndpoints[id] = nil
+        attachedBrowsers[id] = nil
+        localTabURLs[id] = nil
         credentialTasks.removeValue(forKey: id)?.cancel()
         if var credentials = credentialAccess[id] {
             credentials.ops = []; credentials.sealing = nil; credentials.complete = false; credentials.busy = false
@@ -151,18 +217,23 @@ extension WorkspaceStore {
     }
 
     func disconnectLive(_ id: UUID) {
+        configurationTasks.removeValue(forKey: id)?.cancel()
+        reconfiguring.remove(id)
         credentialOffers.remove(id)
         leaseSupported.remove(id)
         liveTokens[id] = nil
         abortProcesses.removeValue(forKey: id)?.terminate()
         aborting.remove(id)
         connections.removeValue(forKey: id)?.cancel()
-        // This adapter owns only `follow` processes, which never launch browsers.
-        // SIGTERM ends their link; it does not abort the remote agent.
-        liveProcesses.removeValue(forKey: id)?.terminate()
+        // Local launches use --keep-browsers; follow never owns a browser.
+        // SIGTERM ends our link while preserving Chrome, its profile and the agent.
+        if let child = liveProcesses.removeValue(forKey: id) {
+            child.terminate()
+            retiringProcesses[id] = child
+        }
         liveExecutables[id] = nil
         clearLiveConnection(id)
-        notice("Disconnected. Any agent run continues in seven. Unsent follow-ups were cleared.", id: id)
+        notice("Disconnected. Any agent run continues in SLICC. Unsent follow-ups were cleared.", id: id)
         save()
     }
 
@@ -194,7 +265,7 @@ extension WorkspaceStore {
                 if !sawEnd { throw CLIError.exit(1) }
             } catch {
                 guard !Task.isCancelled, self.generations[id] == generation else { return }
-                self.notice(error.localizedDescription + " The agent may still be running in seven.", id: id)
+                self.notice(error.localizedDescription + " The agent may still be running in SLICC.", id: id)
                 self.update(id) { $0.queuedPrompts = [] }
             }
             guard self.generations[id] == generation else { return }
@@ -259,7 +330,7 @@ extension WorkspaceStore {
                 guard let self, self.generations[id] == generation else { return }
                 self.cancelStream(id)
                 self.update(id) { $0.isWorking = false; $0.queuedPrompts = [] }
-                self.notice("Seven acknowledged Stop Agent.", id: id)
+                self.notice("SLICC acknowledged Stop Agent.", id: id)
                 self.save()
             } catch {
                 if self?.abortProcesses[id] === child { self?.errorMessage = error.localizedDescription }

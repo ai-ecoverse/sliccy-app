@@ -62,7 +62,7 @@ struct CredentialAccessTests {
         #expect(!capabilities.supportsCredentialLeases)
         #expect(!CLIInvocation.follow(join: "secret").arguments.contains("--jerk-seal"))
         #expect(CLIInvocation.follow(join: "secret", offerCredentials: true).arguments.contains("--jerk-seal"))
-        let store = WorkspaceStore(defaults: nil)
+        let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.update(id) { $0.usesLiveRuntime = true }
         store.credentialAccess[id] = .init(leases: [.init(provider: "github", leaseId: "metadata-only")], ops: ["unseal"], sealing: true)
