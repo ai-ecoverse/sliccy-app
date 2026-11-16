@@ -1,14 +1,48 @@
 import SwiftUI
+import AppKit
 
 struct SettingsView: View {
     let store: WorkspaceStore
     @ObservedObject var updater: AppUpdater
     @State private var reset = false
+    @State private var defaultBrowser = DefaultBrowserRegistration()
+
+    private var linkDestinationAvailable: Bool {
+        guard !store.isDemo else { return false }
+        guard let id = store.webLinkDestination else { return false }
+        return store.session(id)?.localBrowserChoice.isInstalled == true
+    }
 
     var body: some View {
         TabView {
             Form {
                 UpdateSettingsView(updater: updater)
+                Section("Default web browser") {
+                    Picker("Preferred browser session", selection: Binding(get: { store.linkSessionID }, set: { store.linkSessionID = $0 })) {
+                        Text("First configured profile").tag(nil as UUID?)
+                        ForEach(store.linkSessions) { session in
+                            Text("\(session.name) · \(session.localBrowserChoice.name) · \(session.localBrowserProfile ?? "")").tag(Optional(session.id))
+                        }
+                        if let id = store.linkSessionID, !store.linkSessions.contains(where: { $0.id == id }) {
+                            Text("Session removed — choose a destination").tag(Optional(id))
+                        }
+                    }
+                    Text("Web links go to an attached local browser first. If none is attached, Sliccy starts the preferred session, or the first configured profile, with its saved browser and access settings. The preference also chooses between attached browsers.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if defaultBrowser.isDefault {
+                        Label("Sliccy is your default web browser", systemImage: "checkmark.circle.fill")
+                    } else {
+                        Button(defaultBrowser.requesting ? "Waiting for macOS…" : "Make Sliccy Default Browser…") {
+                            Task { await defaultBrowser.makeDefault() }
+                        }
+                        .disabled(defaultBrowser.requesting || !defaultBrowser.canRegister || !linkDestinationAvailable)
+                    }
+                    if let message = defaultBrowser.message { Text(message).font(.caption) }
+                    if !defaultBrowser.canRegister { Text("Use an installed app build to change the default browser.").font(.caption) }
+                    if !linkDestinationAvailable { Text("Configure a local browser profile before making Sliccy the default.").font(.caption) }
+                }
+                .onAppear { defaultBrowser.refresh() }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in defaultBrowser.refresh() }
                 Section("Instance management") {
                     Text("Inspect agents, models, credentials, and access from the instance overview. Live inventory appears when the connected runtime reports it.")
                         .foregroundStyle(.secondary)

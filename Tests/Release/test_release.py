@@ -41,6 +41,11 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual(result['CFBundleVersion'], '17' if mode == 'proof' else configuration()['build'])
                 self.assertFalse(result['SUAllowsAutomaticUpdates'])
                 self.assertFalse(result['SUSendProfileInfo'])
+                if mode == 'proof':
+                    self.assertNotIn('CFBundleURLTypes', result)
+                else:
+                    self.assertEqual(result['CFBundleURLTypes'][0]['CFBundleURLSchemes'], ['http','https'])
+                    self.assertTrue(result['SliccyHandlesWebLinks'])
 
     def test_version_gate_refuses_drafts_and_downgrades(self):
         with tempfile.TemporaryDirectory() as d:

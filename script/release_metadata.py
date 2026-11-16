@@ -31,6 +31,7 @@ if __name__ == "__main__":
         release = sys.argv[2] == "release"
         # Proof variants keep their original version/pins and never run the updater.
         if sys.argv[2] != "proof":
+            plist.update(CFBundleURLTypes=[{"CFBundleURLName": "Web links", "CFBundleTypeRole": "Viewer", "CFBundleURLSchemes": ["http", "https"]}], SliccyHandlesWebLinks=True)
             plist.update(CFBundleShortVersionString=config["version"], CFBundleVersion=config["build"])
         plist.update(SUFeedURL=config["feedURL"], SUPublicEDKey=config["publicEDKey"],
                      SUEnableAutomaticChecks=True, SUAutomaticallyUpdate=False,

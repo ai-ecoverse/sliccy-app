@@ -4,6 +4,14 @@ import Observation
 @MainActor @Observable
 final class WorkspaceStore {
     var sessions: [Session]
+    var linkSessionID: UUID? {
+        didSet { defaults?.set(linkSessionID?.uuidString, forKey: "sliccy.links.session") }
+    }
+    @ObservationIgnored lazy var incomingLinks = IncomingWebLinks(
+        open: { [weak self] url in
+            guard let self else { throw BrowserTabClient.Failure.missing }
+            try await self.openWebLink(url)
+        }, report: { [weak self] in self?.errorMessage = $0 })
     var showNewSession = false
     var requestedSelection: UUID?
     var newSessionBrowser: String?
@@ -56,6 +64,7 @@ final class WorkspaceStore {
         self.isDemo = preview
         self.runtime = runtime
         self.defaults = defaults
+        self.linkSessionID = defaults?.string(forKey: "sliccy.links.session").flatMap(UUID.init(uuidString:))
         self.cliExecutable = defaults?.string(forKey: "sliccy.cli.path") ?? CLIClient.defaultExecutable
         let key = preview ? Self.legacyStorageKey : "sliccy.sessions.v1"
         // Import only real connections from the old mixed demo/live workspace.
