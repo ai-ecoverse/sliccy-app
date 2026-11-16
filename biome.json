@@ -1,0 +1,17 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
+  "extends": ["@ai-ecoverse/slicc-shared-web/biome"],
+  "files": {
+    "includes": [
+      "package.json",
+      "biome.json",
+      "renovate.json",
+      "release.config.cjs",
+      "script/*.cjs",
+      "script/ai-review/*.mjs",
+      "Tests/Release/*.mjs",
+      "Tests/Automation/*.mjs",
+      ".github/ai-review/*.json"
+    ]
+  }
+}

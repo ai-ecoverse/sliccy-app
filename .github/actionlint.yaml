@@ -3,3 +3,8 @@
 self-hosted-runner:
   labels:
     - xcode-27
+# The old capture workflow is intentionally disabled, not a lint defect to "fix".
+paths:
+  .github/workflows/runner-proof.yml:
+    ignore:
+      - 'constant expression "false" in condition'
