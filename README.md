@@ -100,7 +100,7 @@ The same choices are available in the new-session form.
 
 ### Releases and automatic updates
 
-Download the latest signed [GitHub release](https://github.com/ai-ecoverse/sliccy-app/releases/latest), open the DMG, and drag Sliccy to Applications. The release supports Apple silicon and macOS 27 or newer. Install 0.2.0 once if you are using an older test build.
+Download the latest signed [GitHub release](https://github.com/ai-ecoverse/sliccy-app/releases/latest), open the DMG, and drag Sliccy to Applications. The release supports Apple silicon and macOS 27 or newer. Sliccy 7.x is the successor to Sliccstart 6.x. Sliccstart users and older Sliccy test builds install the DMG once; Sliccy 0.2.0 can update through Check for Updates. Sliccstart is a separate app and its settings are not migrated automatically.
 
 Release builds use Sparkle 2.10.1 to check for updates automatically. Use **Sliccy → Check for Updates…** or **Settings → General** to check manually or disable automatic checks. Installation requires confirmation and restarts Sliccy; Chrome stays open, and local links need reconnecting. Update archives are Ed25519-signed in addition to Developer ID signing and notarization. Development/preview/proof builds do not start the updater.
 

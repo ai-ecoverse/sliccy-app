@@ -17,10 +17,11 @@ from release_metadata import configuration
 class ReleaseTests(unittest.TestCase):
     def test_appcast_binds_archive_and_compatibility(self):
         config = configuration()
+        archive = f'Sliccy-{config["version"]}.zip'
         signature = base64.b64encode(bytes(range(64))).decode()
-        item = ET.fromstring(make_appcast(config, 'Sliccy-0.2.0.zip', 12345, signature)).find('channel/item')
+        item = ET.fromstring(make_appcast(config, archive, 12345, signature)).find('channel/item')
         self.assertEqual(item.find('enclosure').attrib, {
-            'url': f'https://github.com/ai-ecoverse/sliccy-app/releases/download/v{config["version"]}/Sliccy-0.2.0.zip',
+            'url': f'https://github.com/ai-ecoverse/sliccy-app/releases/download/v{config["version"]}/{archive}',
             'length': '12345', 'type': 'application/octet-stream', f'{{{SPARKLE}}}edSignature': signature})
         self.assertEqual(item.find(f'{{{SPARKLE}}}version').text, config['build'])
         self.assertEqual(item.find(f'{{{SPARKLE}}}minimumSystemVersion').text, '27.0')
