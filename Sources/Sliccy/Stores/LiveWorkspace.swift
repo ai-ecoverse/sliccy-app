@@ -163,8 +163,11 @@ extension WorkspaceStore {
                 }
                 startInventory(id)
             }
-        case "connecting": update(id) { $0.connection = .connecting }
+        case "connecting":
+            disableCua(id)
+            update(id) { $0.connection = .connecting }
         case "reconnecting", "link-lost":
+            disableCua(id)
             stopInventory(id)
             let details = [event.reason, event.message].compactMap { $0 }.filter { !$0.isEmpty }
             let explanation = details.isEmpty ? "" : " " + redacted(details.joined(separator: ": "), id: id)
@@ -187,6 +190,7 @@ extension WorkspaceStore {
                 $0.effectiveResources = resources
                 $0.access = resources?.access ?? .init(browser: nil, network: false)
             }
+            if session(id)?.access.network != true { disableCua(id) }
             notice("Connected to SLICC. Access shows the resources reported by the CLI.", id: id)
             // Launcher UI does not subscribe to agent transcripts.
             refreshCredentials(id)
@@ -206,6 +210,7 @@ extension WorkspaceStore {
     }
 
     func clearLiveConnection(_ id: UUID) {
+        disableCua(id)
         stopInventory(id)
         localBrowserEndpoints[id] = nil
         attachedBrowsers[id] = nil

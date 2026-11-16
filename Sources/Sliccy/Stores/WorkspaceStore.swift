@@ -22,6 +22,9 @@ final class WorkspaceStore {
     @ObservationIgnored var retiringProcesses: [UUID: CLIProcess] = [:]
     @ObservationIgnored var attachedBrowsers: [UUID: CLIResources.Browser] = [:]
     var localTabURLs: [UUID: String] = [:]
+    var cuaAccess: [UUID: CuaAccessState] = [:]
+    @ObservationIgnored var cuaBridges: [UUID: CuaBridge] = [:]
+    @ObservationIgnored var cuaTasks: [UUID: Task<Void, Never>] = [:]
     var errorMessage: String?
     @ObservationIgnored private let runtime: any SessionRuntime
     @ObservationIgnored private let defaults: UserDefaults?
