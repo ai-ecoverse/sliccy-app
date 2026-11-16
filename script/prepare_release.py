@@ -61,7 +61,7 @@ def prepare(directory):
     del secret
     subprocess.run(["/usr/bin/xcrun", "swift", str(ROOT / "script/verify_update.swift"), config["publicEDKey"], signature, str(archive)], check=True)
     (directory / "appcast.xml").write_bytes(make_appcast(config, archive.name, archive.stat().st_size, signature))
-    (directory / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n" for path in [archive, directory / "appcast.xml"]))
+    (directory / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n" for path in [archive, directory / f'Sliccy-{config["version"]}.dmg', directory / "appcast.xml"]))
 
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())

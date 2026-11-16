@@ -100,7 +100,6 @@ fi
 private_dir=$(mktemp -d "$RUNNER_TEMP/sliccy-notary.XXXXXX")
 trap 'rm -rf "$private_dir"' EXIT
 printf '%s' "$APPLE_API_KEY_P8_BASE64" | /usr/bin/base64 --decode > "$private_dir/key.p8"
-unset APPLE_API_KEY_P8_BASE64
 if ! /usr/bin/xcrun notarytool submit "$artifact_dir/Sliccy-notarize.zip" \
   --key "$private_dir/key.p8" --key-id "$APPLE_API_KEY_ID" \
   --issuer "$APPLE_API_KEY_ISSUER_ID" --wait --timeout 30m \
@@ -121,3 +120,8 @@ for helper_name in ScreenProofExecHelper ScreenProofHandoffHelper; do
 done
 (cd "$artifact_dir" && /usr/bin/shasum -a 256 "Sliccy-$app_version.zip" > SHA256SUMS)
 printf 'Verified signed app: %s\n' "$signed_app"
+
+if [[ "${SLICCY_RELEASE:-0}" == 1 ]]; then
+  "$(dirname "$0")/sign_dmg.sh" "$signed_app" "$artifact_dir"
+fi
+unset APPLE_API_KEY_P8_BASE64

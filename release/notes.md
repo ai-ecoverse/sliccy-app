@@ -8,6 +8,6 @@ A native Mac companion for SLICC. Requires **macOS 27 or newer on Apple silicon*
 - Check for signed updates automatically or from Sliccy → Check for Updates.
 - Includes the Sliccstart icon and bundled, signed SLICC CLI 1.59.0.
 
-Download the ZIP, extract it, and move Sliccy.app to Applications. The app is Developer-ID signed and notarized. Existing test builds do not include the updater; install this release once to receive future updates.
+Download **Sliccy-0.2.0.dmg**, open it, and drag Sliccy to Applications. The ZIP is retained for automatic updates. The app is Developer-ID signed and notarized. Existing test builds do not include the updater; install this release once to receive future updates.
 
 Screen capture remains disabled. Local access changes reconnect the CLI while preserving the browser. Network relay controls do not firewall browser traffic or shell commands. Updating or quitting the app disconnects its local links; reconnect after relaunch.

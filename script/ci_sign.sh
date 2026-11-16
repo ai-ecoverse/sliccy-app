@@ -37,4 +37,9 @@ if ! import_certificate > "$private_dir/import.log" 2>&1; then
   exit 1
 fi
 unset APPLE_CERTIFICATE_BASE64 APPLE_DEVELOPER_CERTIFICATE_PASSWORD SLICCY_P12_PASSWORD
-"$(dirname "$0")/sign_and_notarize.sh" "$@"
+if [[ "${1:-}" == --dmg-only ]]; then
+  shift
+  "$(dirname "$0")/sign_dmg.sh" "$@"
+else
+  "$(dirname "$0")/sign_and_notarize.sh" "$@"
+fi

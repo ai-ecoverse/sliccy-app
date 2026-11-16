@@ -51,4 +51,14 @@ class ReleaseTests(unittest.TestCase):
                 path.write_text(json.dumps(data))
                 result = subprocess.run([sys.executable,str(ROOT/'script/check_release_version.py'),str(path)],capture_output=True,text=True)
                 self.assertEqual(result.returncode, code)
-                if output: self.assertEqual(result.stdout.strip(),output)
+                if output: self.assertIn(output,result.stdout.splitlines())
+
+    def test_existing_release_dmg_backfill_is_one_time(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'releases.json'
+            name = f'Sliccy-{configuration()["version"]}.dmg'
+            for names, code, expected in [([],0,'package_dmg=true'), ([name],0,'package_dmg=false'), (['DMG-SHA256SUMS'],1,None)]:
+                path.write_text(json.dumps([{'tag_name':'v'+configuration()['version'], 'assets':[{'name':n} for n in names]}]))
+                result = subprocess.run([sys.executable,str(ROOT/'script/check_release_version.py'),str(path)],capture_output=True,text=True)
+                self.assertEqual(result.returncode,code)
+                if expected: self.assertIn(expected,result.stdout.splitlines())

@@ -21,6 +21,12 @@ for release in releases:
     if release['tag_name'] == 'v' + config['version']:
         if release.get('draft'):
             raise SystemExit('Release draft already exists; inspect it before publishing.')
+        names = [a['name'] for a in release.get('assets', [])]
+        dmg = f'Sliccy-{config["version"]}.dmg'
+        present = dmg in names
+        if not present and 'DMG-SHA256SUMS' in names:
+            raise SystemExit('Partial DMG publication; inspect existing assets.')
+        print('package_dmg=' + ('false' if present else 'true'))
         print('publish=false')
         break
     match = re.fullmatch(r'v(\d+)\.(\d+)\.(\d+)', release['tag_name'])
