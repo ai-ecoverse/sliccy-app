@@ -10,11 +10,14 @@ function requireReleaseCI(env) {
 }
 
 function run(command, args, context, input) {
+  const started = Date.now();
+  console.log(`Release step: ${command} ${args.join(' ')}`);
   const result = spawnSync(command, args, {
     cwd: context.cwd, env: { ...context.env, SLICCY_RELEASE: '1' },
     stdio: [input === undefined ? 'inherit' : 'pipe', 'inherit', 'inherit'], input,
   });
   if (result.error) throw result.error;
+  console.log(`Release step finished: ${command} (${((Date.now() - started) / 1000).toFixed(1)}s)`);
   if (result.status !== 0) throw new Error(`Release command failed: ${command} (${result.status ?? result.signal})`);
 }
 
@@ -42,6 +45,7 @@ async function prepareRelease(context, execute = run) {
     previousTag: context.lastRelease.gitTag,
   }));
   execute('npm', ['test'], context);
+  execute('python3', ['script/cache_sparkle.py'], context);
   execute('/usr/bin/xcrun', ['swift', 'test'], context);
   execute('./script/fetch_cli.sh', [], context);
   execute('./script/build_and_run.sh', ['--build'], context);
