@@ -44,12 +44,13 @@ current. This PR does not change branch protection or configure auto-merge.
 
 ### Required repository setup
 
-The existing organization secret **AWS_BEARER_TOKEN_BEDROCK** must include
-`ai-ecoverse/sliccy-app` in its selected repositories. At preparation time it did
-not; this PR does not broaden secret access. Without it the setup/review check
-fails with that specific message. The selected region/models must be available
-on that Bedrock account. The actual paid reviewer path cannot be validated by
-local tests without the secret.
+Configure **AWS_BEARER_TOKEN_BEDROCK** as a repository Actions secret, or include
+`ai-ecoverse/sliccy-app` in the organization secret's selected repositories.
+A repository-level token was supplied through secure entry during PR setup;
+organization secret access was not broadened. Without a token the setup/review
+check fails with that specific message. The selected region/models must be
+available on that Bedrock account. Local tests do not validate paid model access;
+the first authenticated workflow run establishes that separately.
 
 Reviewers receive read-only GitHub permissions and the model credential; the
 separate publisher receives PR/status write permissions but no Bedrock secret.

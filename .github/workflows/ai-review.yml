@@ -26,7 +26,7 @@ jobs:
             exit 1
           fi
           if [ "$BEDROCK" != true ]; then
-            echo '::error::AWS_BEARER_TOKEN_BEDROCK is unavailable. Add sliccy-app to the organization secret repository allowlist.'
+            echo '::error::AWS_BEARER_TOKEN_BEDROCK is unavailable. Configure a repository Actions secret or allow this repository to use the organization secret.'
             exit 1
           fi
           echo 'enabled=true' >> "$GITHUB_OUTPUT"
