@@ -4,12 +4,20 @@ struct CLICapabilities: Decodable, Sendable {
     struct Command: Decodable, Sendable { var json: String }
     struct Agent: Decodable, Sendable { var own: [String]? }
     struct Control: Decodable, Sendable { var v: Int; var ops: [String] }
+    struct Events: Decodable, Sendable { var schema: Int?; var names: [String] }
     var schema: Int
     var version: String
     var contract: Int
     var commands: [String: Command]
     var control: Control
     var agent: Agent?
+    var events: Events?
+
+    /// Newer CLIs explain why a local launch has not linked yet. Older CLIs (1.67.12)
+    /// don't advertise the event, and the app falls back to its own timer.
+    var supportsLinkWaitEvent: Bool {
+        supportsLocalBrowser && events?.names.contains(CLIInvocation.linkWaitEvent) == true
+    }
 
     var supportsCredentialLeases: Bool {
         schema == 1 && contract == 1 && control.v == 1 &&
@@ -35,11 +43,23 @@ struct CLIInvocation: Sendable {
     var arguments: [String]
     var input: Data = Data()
 
-    static let localPage = "https://www.sliccy.ai"
+    /// The origin of every SLICC tab the app opens, inventories and activates.
+    static let localOrigin = "https://www.sliccy.ai"
+    /// The CLI's documented page in SLICC six's profile, where six upgrades in place.
+    /// The bare origin redirects (to sliccy.com without six's service worker), so never open it directly.
+    static let localPage = "https://www.sliccy.ai/7/"
+    /// Lifecycle event a newer CLI emits while it has no seven target ready to link.
+    static let linkWaitEvent = "waiting"
+
+    static func usesSixHome(_ profile: String) -> Bool { profile == "six" || profile.hasPrefix("six:") }
 
     static func localBrowser(profile: String, browser: LocalBrowserChoice = .chrome, access: LocalAccessOptions = .init(), offerCredentials: Bool = false) -> Self {
-        var arguments = ["--browser", browser.rawValue, "--profile", profile, "--page", localPage,
-                         "--json", "--keep-browsers", "--no-fallback"]
+        // In six's profile the CLI picks its own page and only adopts tabs on its app
+        // routes; an explicit --page would make it accept any tab on the origin.
+        // --origin keeps the accepted origin explicit without changing the page.
+        let page = usesSixHome(profile) ? ["--origin", localOrigin] : ["--page", localPage]
+        var arguments = ["--browser", browser.rawValue, "--profile", profile] + page +
+                        ["--json", "--keep-browsers", "--no-fallback"]
         if !offerCredentials { arguments.append("--no-jerk") }
         if !access.network {
             arguments += ["--no-kernel", "--deny", LocalAccessOptions.blockedNetworks.joined(separator: ",")]
@@ -51,7 +71,7 @@ struct CLIInvocation: Sendable {
     }
 
     static func agents(cdp: String) -> Self {
-        .init(arguments: ["agents", "--cdp", cdp, "--origin", localPage, "--json", "--watch"])
+        .init(arguments: ["agents", "--cdp", cdp, "--origin", localOrigin, "--json", "--watch"])
     }
 
     static func follow(join: String, offerCredentials: Bool = false) -> Self {
@@ -86,28 +106,94 @@ enum CLIError: LocalizedError {
     }
 }
 
+/// Splits the CLI's human stderr into short, printable status lines.
+/// Bounded: an overlong line is cut and the rest of it skipped, so a chatty or
+/// hostile child cannot grow memory. Text is display-only and never controls state.
+struct CLIStatusLines {
+    static let lineLimit = 240
+    private static let byteLimit = 1024
+    private var buffer = Data()
+    private var skipping = false
+
+    mutating func append(_ data: Data) -> [String] {
+        var lines: [String] = []
+        for byte in data {
+            if byte == 10 {
+                if let line = Self.clean(buffer) { lines.append(line) }
+                buffer.removeAll(keepingCapacity: true)
+                skipping = false
+            } else if !skipping {
+                buffer.append(byte)
+                if buffer.count >= Self.byteLimit {
+                    if let line = Self.clean(buffer) { lines.append(line) }
+                    buffer.removeAll(keepingCapacity: true)
+                    skipping = true
+                }
+            }
+        }
+        return lines
+    }
+
+    mutating func finish() -> [String] {
+        defer { buffer.removeAll(); skipping = false }
+        return Self.clean(buffer).map { [$0] } ?? []
+    }
+
+    static func clean(_ bytes: Data) -> String? {
+        var text = String(decoding: bytes, as: UTF8.self)
+        // Drop ANSI escapes and other control characters before display.
+        text = text.replacingOccurrences(of: "\u{1B}\\[[0-9;?]*[ -/]*[@-~]", with: "", options: .regularExpression)
+        text = String(text.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) || $0 == "\t" }
+            .map(Character.init)).replacingOccurrences(of: "\t", with: " ")
+        text = text.trimmingCharacters(in: .whitespaces)
+        if text.hasPrefix("slicc: ") { text.removeFirst("slicc: ".count) }
+        // The app pins its bundled CLI; its self-update hint is not a connection status.
+        guard !text.isEmpty, !text.hasSuffix("run `slicc update`") else { return nil }
+        return text.count > lineLimit ? String(text.prefix(lineLimit - 1)) + "…" : text
+    }
+}
+
 /// Owns one child process. Pipe reads and writes run off the UI thread.
-/// Human stderr is drained by /dev/null; only the JSON contract controls UI state.
+/// Only the JSON contract controls UI state. Human stderr is drained to /dev/null
+/// unless the caller asks for bounded status lines to display.
 @MainActor
 final class CLIProcess {
     private let process = Process()
     private let output = Pipe()
     private let input = Pipe()
     private var reader: Task<Void, Never>?
+    private var statusReader: Task<Void, Never>?
     private var timeout: Task<Void, Never>?
     var runningPID: Int32? { process.isRunning ? process.processIdentifier : nil }
 
-    func start(executable: String, invocation: CLIInvocation, deadline: Duration? = nil) throws -> AsyncThrowingStream<Data, Error> {
+    func start(executable: String, invocation: CLIInvocation, deadline: Duration? = nil,
+               status: (@Sendable (String) -> Void)? = nil) throws -> AsyncThrowingStream<Data, Error> {
         guard FileManager.default.isExecutableFile(atPath: executable) else { throw CLIError.missing }
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = invocation.arguments
         process.standardOutput = output
-        process.standardError = FileHandle.nullDevice
+        let errors = status.map { _ in Pipe() }
+        process.standardError = errors ?? FileHandle.nullDevice
         process.standardInput = input
         try process.run()
         // Close the parent's duplicates, so EOF follows child exit.
         try? output.fileHandleForWriting.close()
         try? input.fileHandleForReading.close()
+        if let errors, let status {
+            try? errors.fileHandleForWriting.close()
+            let handle = errors.fileHandleForReading
+            // Always drain, so a blocked stderr write can never stall the child.
+            statusReader = Task.detached {
+                defer { try? handle.close() }
+                var lines = CLIStatusLines()
+                while true {
+                    let bytes = handle.availableData
+                    if bytes.isEmpty { break }
+                    for line in lines.append(bytes) { status(line) }
+                }
+                for line in lines.finish() { status(line) }
+            }
+        }
         let handle = output.fileHandleForReading
         let writer = input.fileHandleForWriting
         let process = process

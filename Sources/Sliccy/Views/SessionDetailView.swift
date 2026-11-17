@@ -13,7 +13,7 @@ struct SessionDetailView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(session.name).font(.title2).fontWeight(.semibold)
                     HStack(spacing: 6) {
-                        StatusLabel(state: session.connection)
+                        StatusLabel(state: session.connection, waiting: store.linkWaiting.contains(session.id))
                         Text("·")
                         Text(session.access.browser ?? session.kind.rawValue)
                     }.font(.caption).foregroundStyle(.secondary)
@@ -53,8 +53,11 @@ struct SessionDetailView: View {
 
 struct StatusLabel: View {
     let state: ConnectionState
+    var waiting = false
     var body: some View {
-        Label(state.title, systemImage: state.symbol)
+        // A stalled local link is still connecting; say so instead of spinning silently.
+        Label(waiting && state != .connected ? "Waiting for SLICC" : state.title,
+              systemImage: waiting && state != .connected ? "exclamationmark.triangle" : state.symbol)
             .foregroundStyle(state == .connected ? Color.green : Color.secondary)
             .labelStyle(.titleAndIcon)
     }

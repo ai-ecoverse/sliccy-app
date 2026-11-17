@@ -18,6 +18,7 @@ struct CLIEvent: Decodable, Equatable, Sendable {
     var message: String?
     var state: String?
     var reason: String?
+    var candidates: Int?
     var gap: Bool?
     var head: String?
     var busy: Bool?

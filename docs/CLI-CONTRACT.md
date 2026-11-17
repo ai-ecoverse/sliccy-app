@@ -83,10 +83,29 @@ app relaunch requests the join URL again. The CLI itself maintains its own
 pairing/device state according to its contract. Session activity and drafts are
 saved locally. Every live session restores disconnected; no implicit reconnect.
 
-The subprocess adapter drains stdout off the main thread, discards human stderr,
-limits buffers, accepts arbitrary UTF-8 boundaries, and reports nonzero exits.
-Human stderr is never used to infer lifecycle state. The generic exit diagnostic
-is currently less detailed than the CLI's human error output.
+The subprocess adapter drains stdout off the main thread, limits buffers, accepts
+arbitrary UTF-8 boundaries, and reports nonzero exits. The local-browser and follow
+children also drain human stderr into bounded, printable, redacted status lines
+(240 characters each, the last three kept in memory). Status lines are display-only:
+they never change lifecycle state and never replace a message from the JSON contract.
+While a link is pending the latest line is shown as the connection message, and a
+nonzero exit includes the last line. Other children still discard stderr.
+
+## Local browser launch and stalled links
+
+In SLICC six's profile (`--profile six`) the app passes no `--page`, so the CLI
+opens its documented six page `https://www.sliccy.ai/7/` and adopts only tabs on
+six's app routes. `--origin https://www.sliccy.ai` keeps the origin explicit. Other
+profiles pass `--page https://www.sliccy.ai/7/`; the bare origin redirects (to
+sliccy.com without six's service worker). Inventory (`agents --cdp … --origin`) and
+tab activation use the same origin.
+
+If `linked` doesn't follow seven's `attached`/`launched` within 20 seconds, the
+session shows Waiting for SLICC and explains that the tab hasn't linked, with the
+latest status line, and suggests closing duplicate SLICC tabs and Retry Connection.
+The CLI process is not stopped. When `capabilities --json` lists a `waiting`
+lifecycle event, its `message` (or `reason`/`candidates`) replaces the status line
+in that explanation. Older CLIs, including the bundled 1.67.12, use the timer only.
 
 ## Live Feed
 
