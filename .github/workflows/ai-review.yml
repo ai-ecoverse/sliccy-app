@@ -1,0 +1,326 @@
+# Adapted from ai-ecoverse/slicc-shared-web b7a6eda4ee67e7689aacd86b4b1c0c98fb6fe6e4.
+# Changed for Swift/macOS: source-only Linux reviews, native CI evidence, no deploy/release/browser/issue creation.
+# Copyright 2025 ai-ecoverse. Apache-2.0; see docs/licenses/slicc-shared-web-APACHE-2.0.txt.
+name: AI review
+on:
+  workflow_call:
+    secrets:
+      AWS_BEARER_TOKEN_BEDROCK:
+        required: false
+permissions:
+  contents: read
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        env:
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK != '' }}
+        run: |
+          if [ "$SAME_REPO" != true ]; then
+            echo '::error::Fork PRs receive no review credentials. A maintainer must review and move the change to a trusted branch before AI review.'
+            exit 1
+          fi
+          if [ "$BEDROCK" != true ]; then
+            echo '::error::AWS_BEARER_TOKEN_BEDROCK is unavailable. Configure a repository Actions secret or allow this repository to use the organization secret.'
+            exit 1
+          fi
+          echo 'enabled=true' >> "$GITHUB_OUTPUT"
+
+  context:
+    needs: setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.15.0'
+      - name: Collect exact PR and prior review context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node script/ai-review/context.mjs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ai-review-context
+          path: ${{ runner.temp }}/review/context/
+          retention-days: 14
+
+  reviewer:
+    needs: [setup, context]
+    if: needs.setup.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    strategy:
+      fail-fast: false
+      matrix:
+        agent: [claude, codex]
+    env:
+      CLAUDE_MODEL: ${{ vars.CERT_BEDROCK_MODEL || 'global.anthropic.claude-opus-5-5' }}
+      CLAUDE_FALLBACK_MODEL: ${{ vars.CERT_BEDROCK_FALLBACK_MODEL || 'global.anthropic.claude-sonnet-5-5' }}
+      CODEX_MODEL: ${{ vars.CODEX_BEDROCK_MODEL || 'global.openai.gpt-6.1-sol' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.15.0'
+      - run: |
+          mv base "$RUNNER_TEMP/base"
+          npm ci --ignore-scripts
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: ai-review-context
+          path: ${{ runner.temp }}/review/context
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        continue-on-error: true
+        with:
+          name: native-tests
+          path: ${{ runner.temp }}/review/native-tests
+      - name: Review instructions and schema
+        run: |
+          cp .github/ai-review/prompt.md "$RUNNER_TEMP/review/prompt.txt"
+          printf 'FINDINGS_SCHEMA=%s\n' "$(jq -c . .github/ai-review/findings.schema.json)" >> "$GITHUB_ENV"
+      - id: claude-code
+        if: matrix.agent == 'claude'
+        env:
+          # renovate: datasource=npm depName=@anthropic-ai/claude-code
+          CLAUDE_CODE: 2.1.319
+        run: |
+          npm install --prefix "$RUNNER_TEMP/claude-code" --no-save --no-audit --no-fund "@anthropic-ai/claude-code@$CLAUDE_CODE"
+          "$RUNNER_TEMP/claude-code/node_modules/.bin/claude" --version
+          echo "path=$RUNNER_TEMP/claude-code/node_modules/.bin/claude" >> "$GITHUB_OUTPUT"
+
+      - id: claude
+        if: matrix.agent == 'claude'
+        continue-on-error: true
+        uses: anthropics/claude-code-action@5eb090f3c3afd701a0672cd32981197ca27688f6
+        env:
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_REGION: ${{ vars.CERT_AWS_REGION || 'us-west-2' }}
+        with:
+          prompt: Follow the instructions in ${{ runner.temp }}/review/prompt.txt.
+          use_bedrock: 'true'
+          path_to_claude_code_executable: ${{ steps.claude-code.outputs.path }}
+          github_token: ${{ github.token }}
+          allowed_bots: renovate[bot]
+          claude_args: >-
+            --model ${{ env.CLAUDE_MODEL }}
+            --add-dir ${{ runner.temp }}/base
+            --add-dir ${{ runner.temp }}/review
+            --allowedTools Bash,Read,Glob,Grep,WebFetch
+            --json-schema '${{ env.FINDINGS_SCHEMA }}'
+
+      - name: Claude outcome
+        if: matrix.agent == 'claude' && steps.claude.outcome != 'skipped'
+        env:
+          ATTEMPT: '1'
+          MODEL: ${{ env.CLAUDE_MODEL }}
+        run: &claude-outcome |
+          file=$RUNNER_TEMP/claude-execution-output.json
+          if [ ! -f "$file" ]; then
+            echo "claude attempt $ATTEMPT, $MODEL: no claude-execution-output.json"
+            exit 0
+          fi
+          line=$(jq -r '
+            def word: if type == "number" or type == "boolean" then tostring elif type == "string" and test("^[A-Za-z0-9_.:-]{1,64}$") then . elif . == null then "none" else "?" end;
+            def list: if length == 0 then "none" else unique | join(",") end;
+            [.[]? | objects] as $all
+            | ([$all[] | select(.type == "result")] | last // {}) as $result
+            | ([$all[] | select(.type == "system" and ((.subtype | word) | startswith("model_refusal"))) | "\(.subtype | word):\(.api_refusal_category | word)"] | list) as $refusal
+            | ([$all[] | select(.type == "assistant" and .error != null) | .error | word] | list) as $error
+            | "subtype=\($result.subtype | word) is_error=\($result.is_error | word) stop_reason=\($result.stop_reason | word) num_turns=\($result.num_turns | word) total_cost_usd=\($result.total_cost_usd | word) terminal_reason=\($result.terminal_reason | word) api_error_status=\($result.api_error_status | word) refusal=\($refusal) error=\($error)"
+          ' "$file" 2> /dev/null) || line='claude-execution-output.json is not JSON'
+          rm -f "$file"
+          echo "claude attempt $ATTEMPT, $MODEL: $line"
+
+      - id: claude-retry
+        if: matrix.agent == 'claude' && (steps.claude.outcome == 'failure' || steps.claude.outputs.structured_output == '')
+        uses: anthropics/claude-code-action@5eb090f3c3afd701a0672cd32981197ca27688f6
+        env:
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_REGION: ${{ vars.CERT_AWS_REGION || 'us-west-2' }}
+        with:
+          prompt: Follow the instructions in ${{ runner.temp }}/review/prompt.txt.
+          use_bedrock: 'true'
+          path_to_claude_code_executable: ${{ steps.claude-code.outputs.path }}
+          github_token: ${{ github.token }}
+          allowed_bots: renovate[bot]
+          claude_args: >-
+            --model ${{ env.CLAUDE_FALLBACK_MODEL }}
+            --add-dir ${{ runner.temp }}/base
+            --add-dir ${{ runner.temp }}/review
+            --allowedTools Bash,Read,Glob,Grep,WebFetch
+            --json-schema '${{ env.FINDINGS_SCHEMA }}'
+
+      - name: Claude retry outcome
+        if: '!cancelled() && steps.claude-retry.outcome != ''skipped'''
+        env:
+          ATTEMPT: '2'
+          MODEL: ${{ env.CLAUDE_FALLBACK_MODEL }}
+        run: *claude-outcome
+
+      - if: matrix.agent == 'claude'
+        env:
+          FINDINGS: ${{ steps.claude-retry.outputs.structured_output || steps.claude.outputs.structured_output }}
+        run: printf '%s' "$FINDINGS" > "$RUNNER_TEMP/review/findings.json"
+
+      - if: matrix.agent == 'codex'
+        name: Codex on Bedrock
+        run: |
+          mkdir -p "$RUNNER_TEMP/codex-home"
+          echo 'model_provider = "amazon-bedrock-runtime"' > "$RUNNER_TEMP/codex-home/config.toml"
+          echo '{"port":0}' > "$RUNNER_TEMP/codex-home/$GITHUB_RUN_ID.json"
+
+      - id: codex
+        if: matrix.agent == 'codex'
+        continue-on-error: true
+        uses: openai/codex-action@306c6a196a99dcc6582530c396a19d2672d5e9ec
+        env:
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_REGION: ${{ vars.CERT_AWS_REGION || 'us-west-2' }}
+        with:
+          prompt-file: ${{ runner.temp }}/review/prompt.txt
+          output-schema: ${{ env.FINDINGS_SCHEMA }}
+          codex-home: ${{ runner.temp }}/codex-home
+          model: ${{ env.CODEX_MODEL }}
+          sandbox: danger-full-access
+          safety-strategy: drop-sudo
+          allow-bot-users: renovate
+
+      - name: Codex outcome
+        if: matrix.agent == 'codex' && steps.codex.outcome != 'skipped'
+        env:
+          ATTEMPT: '1'
+          MODEL: ${{ env.CODEX_MODEL }}
+          OUTCOME: ${{ steps.codex.outcome }}
+          HAS_FINDINGS: ${{ steps.codex.outputs.final-message != '' }}
+        run: &codex-outcome |
+          sessions=$RUNNER_TEMP/codex-home/sessions
+          file=$(find "$sessions" -type f -name 'rollout-*.jsonl' 2> /dev/null | sort | tail -n 1) || file=
+          if [ -z "$file" ]; then
+            echo "codex attempt $ATTEMPT, $MODEL: outcome=$OUTCOME findings=$HAS_FINDINGS, no session rollout"
+            exit 0
+          fi
+          line=$(jq -rRn '
+            def word: if type == "number" or type == "boolean" then tostring elif type == "string" and test("^[A-Za-z0-9_.:-]{1,64}$") then . elif . == null then "none" else "?" end;
+            [inputs | fromjson? | objects | select(.type == "event_msg") | .payload | objects] as $all
+            | ([$all[] | select(.type == "task_complete" or .type == "turn_aborted")] | last // {}) as $end
+            | ($end.error.message | if type == "string" then (fromjson? // {}) else {} end | if type == "object" then .error else null end | if type == "object" then . else {} end) as $api
+            | ($end.error.codex_error_info | if type == "object" then (keys | first) else . end) as $info
+            | ([$all[] | select(.type == "token_count") | .info.total_token_usage.total_tokens] | last) as $tokens
+            | "turn_end=\($end.type | word) error_type=\($api.type | word) error_code=\($api.code | word) codex_error=\($info | word) tokens=\($tokens | word)"
+          ' < "$file" 2> /dev/null) || line='session rollout is not JSON lines'
+          rm -rf "$sessions"
+          echo "codex attempt $ATTEMPT, $MODEL: outcome=$OUTCOME findings=$HAS_FINDINGS $line"
+
+      - id: codex-retry
+        if: matrix.agent == 'codex' && (steps.codex.outcome == 'failure' || steps.codex.outputs.final-message == '')
+        uses: openai/codex-action@306c6a196a99dcc6582530c396a19d2672d5e9ec
+        env:
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_REGION: ${{ vars.CERT_AWS_REGION || 'us-west-2' }}
+        with:
+          prompt-file: ${{ runner.temp }}/review/prompt.txt
+          output-schema: ${{ env.FINDINGS_SCHEMA }}
+          codex-home: ${{ runner.temp }}/codex-home
+          model: ${{ env.CODEX_MODEL }}
+          sandbox: danger-full-access
+          safety-strategy: drop-sudo
+          allow-bot-users: renovate
+
+      - name: Codex retry outcome
+        if: '!cancelled() && steps.codex-retry.outcome != ''skipped'''
+        env:
+          ATTEMPT: '2'
+          MODEL: ${{ env.CODEX_MODEL }}
+          OUTCOME: ${{ steps.codex-retry.outcome }}
+          HAS_FINDINGS: ${{ steps.codex-retry.outputs.final-message != '' }}
+        run: *codex-outcome
+
+      - if: matrix.agent == 'codex'
+        env:
+          FINDINGS: ${{ steps.codex-retry.outputs.final-message || steps.codex.outputs.final-message }}
+        run: printf '%s' "$FINDINGS" > "$RUNNER_TEMP/review/findings.json"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: findings-${{ matrix.agent }}
+          overwrite: true
+          path: |
+            ${{ runner.temp }}/review/findings.json
+          if-no-files-found: ignore
+
+  publish:
+    needs: [setup, context, reviewer]
+    if: always() && !cancelled() && needs.setup.outputs.enabled == 'true' && needs.context.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.15.0'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        continue-on-error: true
+        with:
+          name: findings-claude
+          path: findings/findings-claude
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        continue-on-error: true
+        with:
+          name: findings-codex
+          path: findings/findings-codex
+      - name: Validate and publish findings for the exact head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node script/ai-review/publish.mjs
+
+  review:
+    needs: [setup, context, reviewer, publish]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          SETUP: ${{ needs.setup.result }}
+          CONTEXT: ${{ needs.context.result }}
+          REVIEWER: ${{ needs.reviewer.result }}
+          PUBLISH: ${{ needs.publish.result }}
+        run: |
+          test "$SETUP" = success
+          test "$CONTEXT" = success
+          test "$REVIEWER" = success
+          test "$PUBLISH" = success

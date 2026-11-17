@@ -1,0 +1,12 @@
+# Native adaptation: retain Swift tests and documentation; do not inherit web-only bans.
+pre-commit:
+  parallel: true
+  commands:
+    tooling-lint:
+      glob: '*.{js,mjs,cjs,json}'
+      run: npm run lint
+    automation-tests:
+      glob: '*.{mjs,cjs,json,yml,yaml}'
+      run: npm run test:automation
+    whitespace:
+      run: git diff --cached --check

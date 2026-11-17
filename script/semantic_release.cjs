@@ -3,8 +3,12 @@ const { existsSync, statSync, readdirSync } = require('node:fs');
 const { join } = require('node:path');
 
 function requireReleaseCI(env) {
-  if (env.GITHUB_ACTIONS !== 'true' || env.GITHUB_REPOSITORY !== 'ai-ecoverse/sliccy-app' ||
-      env.GITHUB_EVENT_NAME !== 'push' || env.GITHUB_REF !== 'refs/heads/main') {
+  if (
+    env.GITHUB_ACTIONS !== 'true' ||
+    env.GITHUB_REPOSITORY !== 'ai-ecoverse/sliccy-app' ||
+    env.GITHUB_EVENT_NAME !== 'push' ||
+    env.GITHUB_REF !== 'refs/heads/main'
+  ) {
     throw new Error('Release requires an upstream main push in GitHub Actions');
   }
 }
@@ -13,12 +17,15 @@ function run(command, args, context, input) {
   const started = Date.now();
   console.log(`Release step: ${command} ${args.join(' ')}`);
   const result = spawnSync(command, args, {
-    cwd: context.cwd, env: { ...context.env, SLICCY_RELEASE: '1' },
-    stdio: [input === undefined ? 'inherit' : 'pipe', 'inherit', 'inherit'], input,
+    cwd: context.cwd,
+    env: { ...context.env, SLICCY_RELEASE: '1' },
+    stdio: [input === undefined ? 'inherit' : 'pipe', 'inherit', 'inherit'],
+    input,
   });
   if (result.error) throw result.error;
   console.log(`Release step finished: ${command} (${((Date.now() - started) / 1000).toFixed(1)}s)`);
-  if (result.status !== 0) throw new Error(`Release command failed: ${command} (${result.status ?? result.signal})`);
+  if (result.status !== 0)
+    throw new Error(`Release command failed: ${command} (${result.status ?? result.signal})`);
 }
 
 function verifyAssets(directory, version) {
@@ -31,7 +38,11 @@ function verifyAssets(directory, version) {
   }
   // The publisher uses globs; refuse stale archives rather than upload them.
   for (const name of readdirSync(directory)) {
-    if (/^Sliccy-.*\.(zip|dmg)$/.test(name) && name !== 'Sliccy-notarize.zip' && !expected.includes(name)) {
+    if (
+      /^Sliccy-.*\.(zip|dmg)$/.test(name) &&
+      name !== 'Sliccy-notarize.zip' &&
+      !expected.includes(name)
+    ) {
       throw new Error(`Unexpected release archive: ${name}`);
     }
   }
@@ -40,10 +51,16 @@ function verifyAssets(directory, version) {
 exports.verifyConditions = async (_, context) => requireReleaseCI(context.env);
 async function prepareRelease(context, execute = run) {
   requireReleaseCI(context.env);
-  execute('python3', ['script/semantic_metadata.py'], context, JSON.stringify({
-    version: context.nextRelease.version, notes: context.nextRelease.notes,
-    previousTag: context.lastRelease.gitTag,
-  }));
+  execute(
+    'python3',
+    ['script/semantic_metadata.py'],
+    context,
+    JSON.stringify({
+      version: context.nextRelease.version,
+      notes: context.nextRelease.notes,
+      previousTag: context.lastRelease.gitTag,
+    })
+  );
   execute('npm', ['test'], context);
   execute('python3', ['script/cache_sparkle.py'], context);
   execute('/usr/bin/xcrun', ['swift', 'test'], context);

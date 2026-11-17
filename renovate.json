@@ -1,0 +1,13 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>ai-ecoverse/slicc-shared-web"],
+  "automerge": false,
+  "enabledManagers": ["npm", "github-actions", "swift", "custom.regex"],
+  "packageRules": [
+    {
+      "description": "Native app/toolchain and signing dependencies require review; keep shared age/pin/group rules without automatic merges or releases.",
+      "matchPackageNames": ["*"],
+      "automerge": false
+    }
+  ]
+}

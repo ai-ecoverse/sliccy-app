@@ -117,3 +117,13 @@ The CLI is pinned and checksum/signature-verified by `script/fetch_cli.sh`. This
 In Settings → General, choose **Make Sliccy Default Browser…** and confirm with macOS. Sliccy handles HTTP/HTTPS links by opening new tabs in an attached local SLICC browser first. If none is attached, it starts the preferred browser session, or the first configured local profile, with that session's saved browser and access settings. The preference also breaks ties between attached browsers. No configured profile means setup is required; Sliccy never silently creates a Chrome profile for incoming links.
 
 The setting is optional. Incoming links are queued only in memory while the browser connects; failures are shown rather than forwarded recursively through the OS default browser. Remote sessions and non-web URL schemes are not destinations. The app never changes the OS default without the explicit button and macOS confirmation.
+
+### Development checks and AI review
+
+PRs keep the native macOS tests and add Claude/Codex source reviews adapted from
+`slicc-shared-web`. See [AI reviews and tooling](docs/AI-REVIEWS.md) for the required
+Bedrock secret access, review limitations, and checks. `npm run lint` uses the shared
+Biome preset for release/review tooling; `npm run lint:workflows` uses actionlint.
+Install optional local hooks with `npm run hooks:install`. Shared Renovate rules
+cover applicable dependencies with auto-merge disabled; verified CLI binary pins
+still need a coordinated version/hash change.

@@ -6,7 +6,41 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24.15.0'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - name: Validate GitHub workflows
+        env:
+          # renovate: datasource=github-releases depName=rhysd/actionlint extractVersion=^v(?<version>.+)$
+          ACTIONLINT: '1.7.12'
+        run: |
+          go install "github.com/rhysd/actionlint/cmd/actionlint@v$ACTIONLINT"
+          "$(go env GOPATH)/bin/actionlint"
+      - name: Validate Renovate configuration
+        env:
+          # renovate: datasource=npm depName=renovate
+          RENOVATE: '44.224.1'
+        run: npx --yes --package "renovate@$RENOVATE" -- renovate-config-validator --strict renovate.json
+
   test:
     runs-on: xcode-27
     timeout-minutes: 20
@@ -19,6 +53,28 @@ jobs:
           node-version: '26.13.1'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npm test
-      - run: /usr/bin/xcrun swift test
-      - run: ./script/test_screen_socket.sh
+      - name: Record test source
+        run: |
+          mkdir -p "$RUNNER_TEMP/ci-evidence"
+          git rev-parse HEAD > "$RUNNER_TEMP/ci-evidence/tested-commit.txt"
+      - run: npm test 2>&1 | tee "$RUNNER_TEMP/ci-evidence/tooling.log"
+      - run: /usr/bin/xcrun swift test 2>&1 | tee "$RUNNER_TEMP/ci-evidence/swift.log"
+      - run: ./script/test_screen_socket.sh 2>&1 | tee "$RUNNER_TEMP/ci-evidence/socket.log"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-tests
+          path: ${{ runner.temp }}/ci-evidence/
+          retention-days: 14
+
+  ai-review:
+    needs: [lint, test]
+    if: always() && !cancelled()
+    uses: ./.github/workflows/ai-review.yml
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: write
+      statuses: write
+    secrets:
+      AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
