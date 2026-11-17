@@ -128,10 +128,14 @@ struct LinkWaitTests {
         store.linkWaitSupported.insert(id)
         store.applyLifecycle(try event(waiting), to: id)
         #expect(store.linkWaitReasons[id] == "no SLICC tab is ready to link (2 SLICC tabs open)")
+        #expect(store.session(id)?.connectionMessage == "SLICC: no SLICC tab is ready to link (2 SLICC tabs open).")
         try await waitUntil { store.linkWaiting.contains(id) }
         #expect(store.session(id)?.connectionMessage?.hasSuffix("The CLI reports: no SLICC tab is ready to link (2 SLICC tabs open).") == true)
         store.applyLifecycle(try event(#"{"schema":1,"event":"waiting","reason":"x","message":"Two seven tabs; neither is ready"}"#), to: id)
         #expect(store.session(id)?.connectionMessage?.hasSuffix("The CLI reports: Two seven tabs; neither is ready.") == true)
+        // Shape confirmed by slicc-cli#782: candidates is 0 when no seven tab is open.
+        store.applyLifecycle(try event(#"{"schema":1,"event":"waiting","reason":"no-seven-tab","candidates":0}"#), to: id)
+        #expect(store.linkWaitReasons[id] == "no SLICC tab is open")
         store.clearLiveConnection(id)
         #expect(!store.linkWaiting.contains(id))
         #expect(store.linkWaitReasons[id] == nil)

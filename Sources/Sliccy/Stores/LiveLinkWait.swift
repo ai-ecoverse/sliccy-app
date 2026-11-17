@@ -57,6 +57,13 @@ extension WorkspaceStore {
             let message = linkWaitMessage(id)
             update(id) { $0.connectionMessage = message }
         } else {
+            // The CLI already debounces this event (5–15 s), so show its reason now.
+            // The stall advice still waits for the app's own deadline.
+            let message = "SLICC: " + Self.sentence(linkWaitReasons[id] ?? "")
+            if session(id)?.connectionMessage == nil || session(id)?.connectionMessage == statusMessages[id] {
+                statusMessages[id] = message
+                update(id) { $0.connectionMessage = message }
+            }
             armLinkWait(id)
         }
     }

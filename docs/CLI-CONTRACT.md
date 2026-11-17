@@ -104,7 +104,8 @@ If `linked` doesn't follow seven's `attached`/`launched` within 20 seconds, the
 session shows Waiting for SLICC and explains that the tab hasn't linked, with the
 latest status line, and suggests closing duplicate SLICC tabs and Retry Connection.
 The CLI process is not stopped. When `capabilities --json` lists a `waiting`
-lifecycle event, its `message` (or `reason`/`candidates`) replaces the status line
+lifecycle event (slicc-cli#782: `reason` `no-ready-seven` or `no-seven-tab`,
+`message`, `candidates`), its message is shown at once and replaces the status line
 in that explanation. Older CLIs, including the bundled 1.67.12, use the timer only.
 
 ## Live Feed
