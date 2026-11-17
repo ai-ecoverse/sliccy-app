@@ -56,6 +56,18 @@ final class WorkspaceStore {
     @ObservationIgnored var liveTokens: [UUID: UUID] = [:]
     @ObservationIgnored var localBrowserEndpoints: [UUID: String] = [:]
     @ObservationIgnored var liveExecutables: [UUID: String] = [:]
+    /// Local launches that reached Chrome but have not linked within `linkStallDelay`.
+    var linkWaiting: Set<UUID> = []
+    /// Most recent redacted stderr status lines of each session's own CLI, newest last.
+    @ObservationIgnored var cliStatus: [UUID: [String]] = [:]
+    @ObservationIgnored var linkWaitTasks: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored var linkWaitReasons: [UUID: String] = [:]
+    @ObservationIgnored var linkWaitCodes: [UUID: String] = [:]
+    @ObservationIgnored var linkWaitSupported: Set<UUID> = []
+    /// The connection message last derived from status lines, so newer lines can replace it
+    /// without overwriting a message from the JSON contract.
+    @ObservationIgnored var statusMessages: [UUID: String] = [:]
+    @ObservationIgnored var linkStallDelay: Duration = .seconds(20)
     let isDemo: Bool
     private var storageKey: String { isDemo ? Self.legacyStorageKey : "sliccy.sessions.v1" }
     private static let legacyStorageKey = "sliccy.demo.sessions.v1"

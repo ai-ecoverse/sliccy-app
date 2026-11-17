@@ -87,6 +87,9 @@ extension WorkspaceStore {
         liveTokens[id] = token
         let executable = cliExecutable
         credentialAccess[id] = .init()
+        clearLinkWait(id)
+        cliStatus[id] = nil
+        linkWaitSupported.remove(id)
         update(id) { $0.connection = .connecting; $0.connectionMessage = nil }
         connections[id] = Task { [weak self] in
             guard let self else { return }
@@ -107,6 +110,7 @@ extension WorkspaceStore {
                 if self.credentialOffers.contains(id), !capabilities.supportsCredentialLeases { throw CLIError.incompatible }
                 if capabilities.supportsCredentialLeases { self.leaseSupported.insert(id) }
                 else { self.leaseSupported.remove(id) }
+                if profile != nil, capabilities.supportsLinkWaitEvent { self.linkWaitSupported.insert(id) }
                 if profile == nil, capabilities.supportsResumableWatch {
                     self.watchSupported.insert(id)
                 } else {
@@ -126,7 +130,16 @@ extension WorkspaceStore {
                 } else if let join {
                     invocation = .follow(join: join, offerCredentials: self.credentialOffers.contains(id))
                 } else { return }
-                let stream = try child.start(executable: executable, invocation: invocation)
+                // Redact each complete stderr line in the reader, before it is truncated.
+                let secret = join ?? ""
+                let capture = CLIStatusCapture(redact: { secret.isEmpty ? $0 : $0.replacingOccurrences(of: secret, with: "<join URL>") },
+                                               changed: {
+                    Task { @MainActor [weak self] in
+                        guard let self, self.liveTokens[id] == token else { return }
+                        self.drainStatus(id)
+                    }
+                })
+                let stream = try child.start(executable: executable, invocation: invocation, status: capture)
                 for try await data in stream {
                     guard !Task.isCancelled, self.liveTokens[id] == token else { return }
                     for event in try decoder.append(data) { self.applyLifecycle(event, to: id) }
@@ -135,7 +148,10 @@ extension WorkspaceStore {
                 for event in try decoder.finish() { self.applyLifecycle(event, to: id) }
             } catch {
                 guard !Task.isCancelled, self.liveTokens[id] == token else { return }
-                let message = self.redacted(error.localizedDescription, id: id)
+                // The stream finishes only after stderr is buffered, so the final line is here.
+                self.drainStatus(id)
+                var message = self.redacted(error.localizedDescription, id: id)
+                if let status = self.cliStatus[id]?.last { message += " Last CLI status: " + Self.sentence(status) }
                 self.update(id) { $0.connectionMessage = message }
                 self.notice(message, id: id)
             }
@@ -162,7 +178,9 @@ extension WorkspaceStore {
                     attachedBrowsers[id] = .init(id: browser, name: name, role: event.role!, owned: event.launched == true)
                 }
                 startInventory(id)
+                armLinkWait(id)
             }
+        case CLIInvocation.linkWaitEvent: applyLinkWait(event, to: id)
         case "connecting": update(id) { $0.connection = .connecting }
         case "reconnecting", "link-lost":
             stopInventory(id)
@@ -181,6 +199,7 @@ extension WorkspaceStore {
             let local = session(id)?.localBrowserProfile != nil
             let resources = event.resources ?? (local ? (session(id)?.localAccess ?? .init()).resources(from: event, browser: attachedBrowsers[id]) : nil)
             if local, let tab = event.tab, BrowserTabClient.isSLICCTab(tab) { localTabURLs[id] = tab }
+            clearLinkWait(id)
             update(id) {
                 $0.connection = .connected
                 $0.connectionMessage = nil
@@ -207,6 +226,7 @@ extension WorkspaceStore {
 
     func clearLiveConnection(_ id: UUID) {
         stopInventory(id)
+        clearLinkWait(id)
         localBrowserEndpoints[id] = nil
         attachedBrowsers[id] = nil
         localTabURLs[id] = nil

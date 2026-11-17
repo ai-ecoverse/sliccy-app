@@ -6,8 +6,23 @@ import Testing
 struct LocalBrowserTests {
     @Test func invocationUsesExistingProfileAndPreservesBrowserOnTermination() {
         let invocation = CLIInvocation.localBrowser(profile: "six")
-        #expect(invocation.arguments == ["--browser", "chrome", "--profile", "six", "--page", "https://www.sliccy.ai", "--json", "--keep-browsers", "--no-fallback", "--no-jerk"])
+        // Six's profile uses the CLI's own page (/7/), which only adopts tabs on six's app routes.
+        #expect(invocation.arguments == ["--browser", "chrome", "--profile", "six", "--origin", "https://www.sliccy.ai", "--json", "--keep-browsers", "--no-fallback", "--no-jerk"])
+        #expect(!invocation.arguments.contains("--page"))
+        #expect(CLIInvocation.localBrowser(profile: "six:9333").arguments.contains("--page") == false)
         #expect(invocation.input.isEmpty)
+    }
+
+    @Test func otherProfilesOpenTheDocumentedPageNotTheRedirectingOrigin() throws {
+        let invocation = CLIInvocation.localBrowser(profile: "work", browser: .edge)
+        let page = try #require(invocation.arguments.firstIndex(of: "--page"))
+        #expect(invocation.arguments[page + 1] == "https://www.sliccy.ai/7/")
+        #expect(!invocation.arguments.contains("--origin"))
+        // The page, inventory origin and tab matcher all agree on one origin.
+        #expect(BrowserTabClient.isSLICCTab(CLIInvocation.localPage))
+        #expect(BrowserTabClient.isSLICCTab(CLIInvocation.localOrigin))
+        #expect(URL(string: CLIInvocation.localPage)?.host == URL(string: CLIInvocation.localOrigin)?.host)
+        #expect(CLIInvocation.agents(cdp: "http://127.0.0.1:1").arguments.contains(CLIInvocation.localOrigin))
     }
 
     @Test func browserSelectionKeepsSafeDefaultsAndPersists() throws {
