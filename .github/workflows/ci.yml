@@ -38,7 +38,7 @@ jobs:
       - name: Validate Renovate configuration
         env:
           # renovate: datasource=npm depName=renovate
-          RENOVATE: '44.224.1'
+          RENOVATE: '44.225.1'
         run: npx --yes --package "renovate@$RENOVATE" -- renovate-config-validator --strict renovate.json
 
   test:
