@@ -2,7 +2,9 @@
 
 ## Local development
 
-Requires macOS 27 and Xcode 27 / Swift 6.2 or newer. Start with:
+The production app targets macOS 26 or newer on Apple silicon. Builds are tested
+with Xcode 27 / Swift 6.2 or newer; the build toolchain and SDK requirement is
+separate from the installed app’s minimum OS. Start with:
 
 ```sh
 ./script/local_build.sh --check
@@ -11,7 +13,7 @@ open dist/Sliccy.app
 ```
 
 The first command checks the OS and selected SDK without downloading, compiling,
-signing or launching. The second fetches checksum-pinned CLI 1.59.0 and uses
+signing or launching. The second fetches checksum-pinned CLI 1.67.12 and uses
 `script/build_and_run.sh --build` to build and ad-hoc sign the app. It does not
 launch, install, notarize or upload anything. It rejects all proof-build flags.
 If the wrong SDK is selected, choose Xcode 27 in Xcode Settings → Locations or set

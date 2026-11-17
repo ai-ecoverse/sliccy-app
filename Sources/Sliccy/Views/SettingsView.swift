@@ -61,7 +61,7 @@ struct SettingsView: View {
                             .disabled(store.checkingCLI)
                         if let version = store.cliVersion { Label("slicc \(version)", systemImage: "checkmark.circle.fill").foregroundStyle(.green) }
                     }
-                    LabeledContent("Platform", value: "Native SwiftUI · macOS 27")
+                    LabeledContent("Platform", value: "Native SwiftUI · macOS 26")
                     Text("Launch SLICC in its Chrome profile on this Mac, or connect to a remote instance with a join URL. Local sessions offer Chrome and network access; remote connections offer no Mac resources by default.")
                         .font(.callout).foregroundStyle(.secondary)
                 }

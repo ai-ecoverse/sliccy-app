@@ -1,7 +1,7 @@
 {
   "version": "7.1.0",
   "build": "70100",
-  "minimumSystemVersion": "27.0",
+  "minimumSystemVersion": "26.0",
   "feedURL": "https://github.com/ai-ecoverse/sliccy-app/releases/latest/download/appcast.xml",
   "publicEDKey": "ASRUINtaNk6+LwXVY4eBQe53B6DSR799s4iHQpH9OJM="
 }
