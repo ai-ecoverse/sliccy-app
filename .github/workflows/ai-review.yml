@@ -109,7 +109,7 @@ jobs:
         if: matrix.agent == 'claude'
         env:
           # renovate: datasource=npm depName=@anthropic-ai/claude-code
-          CLAUDE_CODE: 2.1.319
+          CLAUDE_CODE: 2.1.322
         run: |
           npm install --prefix "$RUNNER_TEMP/claude-code" --no-save --no-audit --no-fund "@anthropic-ai/claude-code@$CLAUDE_CODE"
           "$RUNNER_TEMP/claude-code/node_modules/.bin/claude" --version
