@@ -107,25 +107,28 @@ enum CLIError: LocalizedError {
 }
 
 /// Splits the CLI's human stderr into short, printable status lines.
-/// Bounded: an overlong line is cut and the rest of it skipped, so a chatty or
-/// hostile child cannot grow memory. Text is display-only and never controls state.
+/// Bounded: a raw line longer than 8 KiB is dropped whole, so no partial text is shown.
+/// Each complete line is redacted before it is cleaned and cut to `lineLimit`, so a
+/// secret can't survive as a truncated prefix. Text is display-only and never controls state.
 struct CLIStatusLines {
     static let lineLimit = 240
-    private static let byteLimit = 1024
+    static let byteLimit = 8 * 1024
+    var redact: @Sendable (String) -> String = { $0 }
     private var buffer = Data()
     private var skipping = false
+
+    init(redact: @escaping @Sendable (String) -> String = { $0 }) { self.redact = redact }
 
     mutating func append(_ data: Data) -> [String] {
         var lines: [String] = []
         for byte in data {
             if byte == 10 {
-                if let line = Self.clean(buffer) { lines.append(line) }
+                if !skipping, let line = clean(buffer) { lines.append(line) }
                 buffer.removeAll(keepingCapacity: true)
                 skipping = false
             } else if !skipping {
                 buffer.append(byte)
-                if buffer.count >= Self.byteLimit {
-                    if let line = Self.clean(buffer) { lines.append(line) }
+                if buffer.count > Self.byteLimit {
                     buffer.removeAll(keepingCapacity: true)
                     skipping = true
                 }
@@ -136,21 +139,65 @@ struct CLIStatusLines {
 
     mutating func finish() -> [String] {
         defer { buffer.removeAll(); skipping = false }
-        return Self.clean(buffer).map { [$0] } ?? []
+        return skipping ? [] : clean(buffer).map { [$0] } ?? []
     }
 
-    static func clean(_ bytes: Data) -> String? {
-        var text = String(decoding: bytes, as: UTF8.self)
+    func clean(_ bytes: Data) -> String? {
+        // Redact the whole raw line first, and again after control characters are removed.
+        var text = redact(String(decoding: bytes, as: UTF8.self))
         // Drop ANSI escapes and other control characters before display.
         text = text.replacingOccurrences(of: "\u{1B}\\[[0-9;?]*[ -/]*[@-~]", with: "", options: .regularExpression)
         text = String(text.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) || $0 == "\t" }
             .map(Character.init)).replacingOccurrences(of: "\t", with: " ")
-        text = text.trimmingCharacters(in: .whitespaces)
+        text = redact(text).trimmingCharacters(in: .whitespaces)
         if text.hasPrefix("slicc: ") { text.removeFirst("slicc: ".count) }
         // The app pins its bundled CLI; its self-update hint is not a connection status.
         guard !text.isEmpty, !text.hasSuffix("run `slicc update`") else { return nil }
-        return text.count > lineLimit ? String(text.prefix(lineLimit - 1)) + "…" : text
+        return text.count > Self.lineLimit ? String(text.prefix(Self.lineLimit - 1)) + "…" : text
     }
+}
+
+/// Asks a child to capture stderr as status lines. `changed` is called at most once
+/// per drain, so a noisy child cannot queue unbounded main-actor work.
+struct CLIStatusCapture: Sendable {
+    var redact: @Sendable (String) -> String = { $0 }
+    var changed: @Sendable () -> Void = {}
+}
+
+/// Thread-safe, bounded hand-off of status lines from the stderr reader.
+final class CLIStatusBuffer: @unchecked Sendable {
+    static let keep = 3
+    private let lock = NSLock()
+    private var recentLines: [String] = []
+    private var pendingLines: [String] = []
+    private var scheduled = false
+
+    /// The newest lines, complete once the stream has finished.
+    var recent: [String] { lock.withLock { recentLines } }
+
+    /// Returns true when the consumer has to be woken for a drain.
+    func push(_ lines: [String]) -> Bool {
+        guard !lines.isEmpty else { return false }
+        return lock.withLock {
+            recentLines = Array((recentLines + lines).suffix(Self.keep))
+            pendingLines = Array((pendingLines + lines).suffix(Self.keep))
+            defer { scheduled = true }
+            return !scheduled
+        }
+    }
+
+    func drain() -> [String] {
+        lock.withLock {
+            defer { pendingLines = []; scheduled = false }
+            return pendingLines
+        }
+    }
+
+    private let finished = DispatchSemaphore(value: 0)
+    /// Called by the stderr reader once its last line is buffered.
+    func finish() { finished.signal() }
+    /// Blocks the calling reader thread (never the main actor) until stderr is drained.
+    func waitUntilFinished(seconds: Double) { _ = finished.wait(timeout: .now() + seconds) }
 }
 
 /// Owns one child process. Pipe reads and writes run off the UI thread.
@@ -163,35 +210,39 @@ final class CLIProcess {
     private let input = Pipe()
     private var reader: Task<Void, Never>?
     private var statusReader: Task<Void, Never>?
+    /// Present when stderr is captured.
+    private(set) var status: CLIStatusBuffer?
     private var timeout: Task<Void, Never>?
     var runningPID: Int32? { process.isRunning ? process.processIdentifier : nil }
 
     func start(executable: String, invocation: CLIInvocation, deadline: Duration? = nil,
-               status: (@Sendable (String) -> Void)? = nil) throws -> AsyncThrowingStream<Data, Error> {
+               status capture: CLIStatusCapture? = nil) throws -> AsyncThrowingStream<Data, Error> {
         guard FileManager.default.isExecutableFile(atPath: executable) else { throw CLIError.missing }
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = invocation.arguments
         process.standardOutput = output
-        let errors = status.map { _ in Pipe() }
+        let errors = capture.map { _ in Pipe() }
         process.standardError = errors ?? FileHandle.nullDevice
         process.standardInput = input
         try process.run()
         // Close the parent's duplicates, so EOF follows child exit.
         try? output.fileHandleForWriting.close()
         try? input.fileHandleForReading.close()
-        if let errors, let status {
+        let buffer = capture.map { _ in CLIStatusBuffer() }
+        status = buffer
+        if let errors, let capture, let buffer {
             try? errors.fileHandleForWriting.close()
             let handle = errors.fileHandleForReading
             // Always drain, so a blocked stderr write can never stall the child.
             statusReader = Task.detached {
-                defer { try? handle.close() }
-                var lines = CLIStatusLines()
+                defer { try? handle.close(); buffer.finish() }
+                var lines = CLIStatusLines(redact: capture.redact)
                 while true {
                     let bytes = handle.availableData
                     if bytes.isEmpty { break }
-                    for line in lines.append(bytes) { status(line) }
+                    if buffer.push(lines.append(bytes)) { capture.changed() }
                 }
-                for line in lines.finish() { status(line) }
+                if buffer.push(lines.finish()) { capture.changed() }
             }
         }
         let handle = output.fileHandleForReading
@@ -212,6 +263,9 @@ final class CLIProcess {
                         if case .dropped = continuation.yield(bytes) { throw CLIError.oversized }
                     }
                     process.waitUntilExit()
+                    // Report exit only after the final stderr line is buffered. A descendant
+                    // that inherited stderr can hold it open, so don't wait for long.
+                    buffer?.waitUntilFinished(seconds: 1)
                     if process.terminationStatus == 0 { continuation.finish() }
                     else { continuation.finish(throwing: CLIError.exit(process.terminationStatus)) }
                 } catch {

@@ -130,12 +130,16 @@ extension WorkspaceStore {
                 } else if let join {
                     invocation = .follow(join: join, offerCredentials: self.credentialOffers.contains(id))
                 } else { return }
-                let stream = try child.start(executable: executable, invocation: invocation, status: { line in
+                // Redact each complete stderr line in the reader, before it is truncated.
+                let secret = join ?? ""
+                let capture = CLIStatusCapture(redact: { secret.isEmpty ? $0 : $0.replacingOccurrences(of: secret, with: "<join URL>") },
+                                               changed: {
                     Task { @MainActor [weak self] in
                         guard let self, self.liveTokens[id] == token else { return }
-                        self.applyStatus(line, to: id)
+                        self.drainStatus(id)
                     }
                 })
+                let stream = try child.start(executable: executable, invocation: invocation, status: capture)
                 for try await data in stream {
                     guard !Task.isCancelled, self.liveTokens[id] == token else { return }
                     for event in try decoder.append(data) { self.applyLifecycle(event, to: id) }
@@ -144,6 +148,8 @@ extension WorkspaceStore {
                 for event in try decoder.finish() { self.applyLifecycle(event, to: id) }
             } catch {
                 guard !Task.isCancelled, self.liveTokens[id] == token else { return }
+                // The stream finishes only after stderr is buffered, so the final line is here.
+                self.drainStatus(id)
                 var message = self.redacted(error.localizedDescription, id: id)
                 if let status = self.cliStatus[id]?.last { message += " Last CLI status: " + Self.sentence(status) }
                 self.update(id) { $0.connectionMessage = message }

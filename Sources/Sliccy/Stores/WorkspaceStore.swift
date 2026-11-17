@@ -62,6 +62,7 @@ final class WorkspaceStore {
     @ObservationIgnored var cliStatus: [UUID: [String]] = [:]
     @ObservationIgnored var linkWaitTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored var linkWaitReasons: [UUID: String] = [:]
+    @ObservationIgnored var linkWaitCodes: [UUID: String] = [:]
     @ObservationIgnored var linkWaitSupported: Set<UUID> = []
     /// The connection message last derived from status lines, so newer lines can replace it
     /// without overwriting a message from the JSON contract.

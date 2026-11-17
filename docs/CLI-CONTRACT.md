@@ -85,11 +85,17 @@ saved locally. Every live session restores disconnected; no implicit reconnect.
 
 The subprocess adapter drains stdout off the main thread, limits buffers, accepts
 arbitrary UTF-8 boundaries, and reports nonzero exits. The local-browser and follow
-children also drain human stderr into bounded, printable, redacted status lines
-(240 characters each, the last three kept in memory). Status lines are display-only:
-they never change lifecycle state and never replace a message from the JSON contract.
-While a link is pending the latest line is shown as the connection message, and a
-nonzero exit includes the last line. Other children still discard stderr.
+children also drain human stderr into bounded, printable status lines. Each complete
+line is redacted before it is cleaned and cut to 240 characters; a raw line over 8 KiB
+is dropped whole. The reader keeps the last three lines and wakes the main actor at
+most once per drain. The output stream reports exit only after stderr reaches EOF
+(waiting at most one second), so a nonzero exit includes the final line. Other
+children still discard stderr.
+
+Status lines are display-only and never change lifecycle state. Text the app derives
+(status lines, the CLI's waiting reason, stall advice) only replaces an empty
+connection message or one it derived itself; a JSON-contract message such as an
+`error` stays until the contract clears it. The saved stall notice omits stderr.
 
 ## Local browser launch and stalled links
 
@@ -103,6 +109,7 @@ tab activation use the same origin.
 If `linked` doesn't follow seven's `attached`/`launched` within 20 seconds, the
 session shows Waiting for SLICC and explains that the tab hasn't linked, with the
 latest status line, and suggests closing duplicate SLICC tabs and Retry Connection.
+For `no-seven-tab` it says that the browser has no SLICC tab instead.
 The CLI process is not stopped. When `capabilities --json` lists a `waiting`
 lifecycle event (slicc-cli#782: `reason` `no-ready-seven` or `no-seven-tab`,
 `message`, `candidates`), its message is shown at once and replaces the status line

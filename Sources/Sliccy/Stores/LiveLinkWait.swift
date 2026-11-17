@@ -3,12 +3,20 @@ import Foundation
 /// Explains a local launch that reached the browser but never linked, instead of
 /// leaving it at "Connecting" with no cause. Nothing here stops the CLI process:
 /// the user decides whether to close duplicate tabs or retry.
+///
+/// Message precedence: text the app derives here (stderr status, the CLI's waiting
+/// reason, stall advice) only replaces an empty connection message or one it derived
+/// itself. A message from the JSON contract, such as an `error`, stays visible until
+/// the contract clears it; the stall is still shown by the status label and a notice.
 extension WorkspaceStore {
-    static let statusLineCount = 3
+    static let statusLineCount = CLIStatusBuffer.keep
+
+    /// Moves pending status lines from the session's own CLI into the store.
+    func drainStatus(_ id: UUID) {
+        for line in liveProcesses[id]?.status?.drain() ?? [] { applyStatus(line, to: id) }
+    }
 
     /// Records one redacted stderr status line from the session's own CLI process.
-    /// It may replace a message derived from an earlier status line, never one
-    /// reported through the JSON contract.
     func applyStatus(_ line: String, to id: UUID) {
         let line = redacted(line, id: id)
         var lines = cliStatus[id] ?? []
@@ -17,15 +25,17 @@ extension WorkspaceStore {
         cliStatus[id] = lines
         guard let session = session(id), session.isLive,
               session.connection == .connecting || session.connection == .reconnecting else { return }
-        if linkWaiting.contains(id) {
-            let message = linkWaitMessage(id)
-            update(id) { $0.connectionMessage = message }
-            return
-        }
-        guard session.connectionMessage == nil || session.connectionMessage == statusMessages[id] else { return }
-        let message = "SLICC: " + line
+        showDerivedMessage(linkWaiting.contains(id) ? linkWaitMessage(id) : "SLICC: " + line, id: id)
+    }
+
+    /// Shows app-derived text unless the connection message came from the JSON contract.
+    @discardableResult
+    func showDerivedMessage(_ message: String, id: UUID) -> Bool {
+        guard let session = session(id) else { return false }
+        guard session.connectionMessage == nil || session.connectionMessage == statusMessages[id] else { return false }
         statusMessages[id] = message
         update(id) { $0.connectionMessage = message }
+        return true
     }
 
     /// Starts the stall timer once seven's browser is reported. Later browser
@@ -41,9 +51,9 @@ extension WorkspaceStore {
             guard let connection = self.session(id)?.connection,
                   connection == .connecting || connection == .reconnecting else { return }
             self.linkWaiting.insert(id)
-            let message = self.linkWaitMessage(id)
-            self.update(id) { $0.connectionMessage = message }
-            self.notice(message, id: id)
+            self.showDerivedMessage(self.linkWaitMessage(id), id: id)
+            // The saved notice carries only contract text, never stderr.
+            self.notice(self.linkWaitMessage(id, status: false), id: id)
             self.save()
         }
     }
@@ -53,17 +63,13 @@ extension WorkspaceStore {
         guard linkWaitSupported.contains(id), session(id)?.localBrowserProfile != nil,
               session(id)?.connection != .connected else { return }
         linkWaitReasons[id] = redacted(Self.linkWaitReason(event), id: id)
+        linkWaitCodes[id] = event.reason
         if linkWaiting.contains(id) {
-            let message = linkWaitMessage(id)
-            update(id) { $0.connectionMessage = message }
+            showDerivedMessage(linkWaitMessage(id), id: id)
         } else {
             // The CLI already debounces this event (5–15 s), so show its reason now.
             // The stall advice still waits for the app's own deadline.
-            let message = "SLICC: " + Self.sentence(linkWaitReasons[id] ?? "")
-            if session(id)?.connectionMessage == nil || session(id)?.connectionMessage == statusMessages[id] {
-                statusMessages[id] = message
-                update(id) { $0.connectionMessage = message }
-            }
+            showDerivedMessage("SLICC: " + Self.sentence(linkWaitReasons[id] ?? ""), id: id)
             armLinkWait(id)
         }
     }
@@ -72,14 +78,17 @@ extension WorkspaceStore {
         linkWaitTasks.removeValue(forKey: id)?.cancel()
         linkWaiting.remove(id)
         linkWaitReasons[id] = nil
+        linkWaitCodes[id] = nil
         statusMessages[id] = nil
     }
 
-    func linkWaitMessage(_ id: UUID) -> String {
+    func linkWaitMessage(_ id: UUID, status: Bool = true) -> String {
         let browser = session(id)?.localBrowserChoice.name ?? "the browser"
-        var message = "SLICC is open in \(browser) but hasn't linked. Close duplicate SLICC tabs, then choose Retry Connection."
+        var message = linkWaitCodes[id] == "no-seven-tab"
+            ? "\(browser) is open but has no SLICC tab to link. Open SLICC in that browser or choose Retry Connection."
+            : "SLICC is open in \(browser) but hasn't linked. Close duplicate SLICC tabs, then choose Retry Connection."
         if let reason = linkWaitReasons[id] { message += " The CLI reports: " + Self.sentence(reason) }
-        else if let status = cliStatus[id]?.last { message += " Last CLI status: " + Self.sentence(status) }
+        else if status, let line = cliStatus[id]?.last { message += " Last CLI status: " + Self.sentence(line) }
         return message
     }
 
