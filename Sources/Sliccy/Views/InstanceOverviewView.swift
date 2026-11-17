@@ -57,6 +57,7 @@ struct InstanceOverviewView: View {
                 Divider()
                 entitlement("SFTP", detail: "File transfer · Also enables shell access", symbol: "arrow.up.arrow.down", value: session.access.sftp, kind: .sftp)
             }
+            if local { CuaAccessView(store: store, session: session) }
             if showsScreenDemo {
                 section("Screen access") {
                     switchRow("Full screen", detail: "All eligible apps · View only", symbol: "display", binding: Binding(

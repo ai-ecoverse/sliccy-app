@@ -7,7 +7,7 @@ are not part of the launcher UI.
 
 ## Local build
 
-Requires macOS 27 and Xcode 27 / Swift 6.2 or newer. No Swift package dependencies.
+Requires macOS 27 and Xcode 27 / Swift 6.2 or newer. SwiftPM resolves Sparkle for app updates.
 
 ```sh
 ./script/local_build.sh --check  # macOS / selected Xcode prerequisites only
@@ -63,7 +63,12 @@ with newer CLI releases. Updating it is separate from getting this local build r
   SLICC must support inventory (bios#1240); unsupported instances show an unavailable
   message and Retry. No names are invented, and missing models stay unreported.
 - Complete vault inventories are not reported; lease metadata is not vault contents.
-- Screen selection remains demo-only. No screen is captured or OS capture permission requested.
+- Optional [computer access via externally installed Cua](docs/CUA.md) is available
+  for connected local browser sessions. It is off by default; Cua owns its screen
+  and input permissions. Register the temporary bridge in SLICC with the copyable
+  setup command. Disconnecting or quitting closes that route.
+- Native screen selection remains demo-only. Sliccy itself does not capture a screen
+  or request OS capture permission.
   Credential controls send metadata-only requests to the app-owned CLI; the app never reads tokens.
 - Instance settings and sample grants persist locally. Join URLs stay in app memory
   and pass to the CLI via stdin; reconnect after relaunch asks for the URL again.
