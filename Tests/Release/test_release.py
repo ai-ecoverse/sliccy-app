@@ -24,17 +24,22 @@ class ReleaseTests(unittest.TestCase):
             'url': f'https://github.com/ai-ecoverse/sliccy-app/releases/download/v{config["version"]}/{archive}',
             'length': '12345', 'type': 'application/octet-stream', f'{{{SPARKLE}}}edSignature': signature})
         self.assertEqual(item.find(f'{{{SPARKLE}}}version').text, config['build'])
-        self.assertEqual(item.find(f'{{{SPARKLE}}}minimumSystemVersion').text, '27.0')
+        self.assertEqual(item.find(f'{{{SPARKLE}}}minimumSystemVersion').text, '26.0')
         self.assertEqual(item.find(f'{{{SPARKLE}}}hardwareRequirements').text, 'arm64')
         for signature, size in [('invalid', 10), (base64.b64encode(bytes(64)).decode(), 0)]:
             with self.assertRaises(ValueError):
                 make_appcast(config, 'test.zip', size, signature)
 
+    def test_package_and_release_deployment_targets_agree(self):
+        minimum = configuration()['minimumSystemVersion']
+        self.assertEqual(minimum, '26.0')
+        self.assertIn(f'platforms: [.macOS("{minimum}")]', (ROOT / 'Package.swift').read_text())
+
     def test_only_release_bundle_enables_updater(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / 'Info.plist'
             for mode in ['development', 'release', 'proof']:
-                path.write_bytes(plistlib.dumps({'CFBundleVersion':'17','CFBundleShortVersionString':'0.1.0'}))
+                path.write_bytes(plistlib.dumps({'CFBundleVersion':'17','CFBundleShortVersionString':'0.1.0','LSMinimumSystemVersion':'27.0'}))
                 subprocess.run([sys.executable, str(ROOT/'script/release_metadata.py'), str(path), mode], check=True)
                 result = plistlib.loads(path.read_bytes())
                 self.assertEqual(result['SliccyEnableUpdater'], mode == 'release')
@@ -42,8 +47,10 @@ class ReleaseTests(unittest.TestCase):
                 self.assertFalse(result['SUAllowsAutomaticUpdates'])
                 self.assertFalse(result['SUSendProfileInfo'])
                 if mode == 'proof':
+                    self.assertEqual(result['LSMinimumSystemVersion'], '27.0')
                     self.assertNotIn('CFBundleURLTypes', result)
                 else:
+                    self.assertEqual(result['LSMinimumSystemVersion'], '26.0')
                     self.assertEqual(result['CFBundleURLTypes'][0]['CFBundleURLSchemes'], ['http','https'])
                     self.assertTrue(result['SliccyHandlesWebLinks'])
 

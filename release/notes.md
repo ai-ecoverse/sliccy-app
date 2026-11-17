@@ -1,6 +1,6 @@
 # Sliccy 7.1.0
 
-Sliccy can now be your default web browser. Requires **macOS 27 or newer on Apple silicon**.
+Sliccy can now be your default web browser. Requires **macOS 26 or newer on Apple silicon**.
 
 - Opt in from **Settings → General → Make Sliccy Default Browser…**, then confirm with macOS.
 - Web links open in an attached local SLICC browser first. If none is attached, Sliccy starts your preferred session or the first configured local profile.

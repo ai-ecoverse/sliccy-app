@@ -18,9 +18,9 @@ for flag in SLICCY_NATIVE_SCREEN_PROOF SLICCY_UNIVERSAL_SLICE_PROOF SLICCY_SNAPS
   value="${!flag:-0}"
   [[ "$value" == 0 ]] || { echo "Unset $flag for a local app build." >&2; exit 2; }
 done
-[[ "$(uname -s)" == Darwin ]] || { echo 'Sliccy requires macOS 27 or newer.' >&2; exit 2; }
+[[ "$(uname -s)" == Darwin ]] || { echo 'Sliccy requires macOS 26 or newer.' >&2; exit 2; }
 os_version="$(/usr/bin/sw_vers -productVersion)"
-[[ "${os_version%%.*}" -ge 27 ]] || { echo "macOS 27 or newer is required (found $os_version)." >&2; exit 2; }
+[[ "${os_version%%.*}" -ge 26 ]] || { echo "macOS 26 or newer is required (found $os_version)." >&2; exit 2; }
 /usr/bin/xcrun --find swift >/dev/null || { echo 'Select Xcode 27 or newer in Xcode Settings → Locations.' >&2; exit 2; }
 sdk_version="$(/usr/bin/xcrun --sdk macosx --show-sdk-version)"
 [[ "${sdk_version%%.*}" -ge 27 ]] || { echo "Select Xcode 27 or newer (selected macOS SDK: $sdk_version)." >&2; exit 2; }
