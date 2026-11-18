@@ -86,7 +86,8 @@ stop only when `stoppable` is true; missing flags mean not offered. Notification
 Allow once (requiring an unlocked Mac) and Deny only. Their body is the item's scrubbed
 detail, which macOS may show on the lock screen depending on preview settings. Guest message text is a prompt and is never displayed.
 `Tests/SliccyTests/Fixtures/approvals.ndjson` and `capabilities-approvals.json` are copied
-from slicc-cli#803's `test/integration/testdata/native/`. When the CLI reports `agent.ops`,
+from slicc-cli v1.68.0's `test/integration/testdata/native/`; the released binary's
+`capabilities --json` lists `approvals` and `decide` as events commands and agent ops. When the CLI reports `agent.ops`,
 it must also list `approvals` and `decide`.
 
 Prompts use `slicc - prompt --json [--steer] -`, with the join URL on stdin's first
@@ -133,7 +134,7 @@ For `no-seven-tab` it says that the browser has no SLICC tab instead.
 The CLI process is not stopped. When `capabilities --json` lists a `waiting`
 lifecycle event (slicc-cli#782: `reason` `no-ready-seven` or `no-seven-tab`,
 `message`, `candidates`), its message is shown at once and replaces the status line
-in that explanation. Older CLIs, including the bundled 1.67.12, use the timer only.
+in that explanation. Older CLIs, such as 1.67.12, use the timer only; the bundled 1.68.0 lists it.
 
 ## Live Feed
 
@@ -169,7 +170,7 @@ watch replay across process restarts versus reconnects, gap notices, and cursor 
 The bundled release's actual capabilities response was also checked. No real
 seven join credential was supplied for end-to-end live connection testing.
 
-`script/fetch_cli.sh` downloads v1.58.1 with pinned per-architecture SHA-256
+`script/fetch_cli.sh` downloads v1.68.0 with pinned per-architecture SHA-256
 checksums and verifies its Developer ID role and Team ID. This bundling pin does
 not enable native screen grants; runtime screen pins and capture scopes remain
 disabled pending native validation. The build script bundles it if present;

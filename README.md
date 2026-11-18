@@ -12,7 +12,7 @@ Xcode 27 / Swift 6.2 or newer. SwiftPM resolves Sparkle for app updates.
 
 ```sh
 ./script/local_build.sh --check  # macOS / selected Xcode prerequisites only
-./script/local_build.sh          # fetch pinned CLI v1.67.12, build; do not launch
+./script/local_build.sh          # fetch pinned CLI v1.68.0, build; do not launch
 open dist/Sliccy.app             # launch when ready
 ```
 

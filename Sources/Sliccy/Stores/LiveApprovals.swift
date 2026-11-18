@@ -42,7 +42,7 @@ extension WorkspaceStore {
                 guard !Task.isCancelled, self.approvalTokens[id] == token else { return }
                 let message: String
                 if case CLIError.exit(1) = error {
-                    message = "Approvals are unavailable. SLICC may need an update to share approvals with linked devices."
+                    message = "Approvals are unavailable. The link may have failed, or SLICC may need an update to share approvals with linked devices."
                 } else if case CLIError.exit(3) = error {
                     message = "Allow agent access for this device in SLICC’s Linked devices to see and answer approvals."
                 } else if error is DecodingError {
@@ -128,7 +128,7 @@ extension WorkspaceStore {
             } catch CLIError.exit(1) {
                 events = Self.decideEvents(output)
                 let sentence = events.last { $0.kind == "error" }?.message?.trimmingCharacters(in: .whitespacesAndNewlines)
-                refusal = sentence.flatMap { $0.isEmpty ? nil : self?.redacted($0, id: id) } ?? "SLICC refused this answer."
+                refusal = sentence.flatMap { $0.isEmpty ? nil : self?.redacted($0, id: id) } ?? "The answer wasn’t delivered. Check the connection, or answer in SLICC."
             } catch {
                 refusal = self?.redacted(error.localizedDescription, id: id) ?? error.localizedDescription
             }

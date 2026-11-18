@@ -13,13 +13,13 @@ struct CLICapabilities: Decodable, Sendable {
     var agent: Agent?
     var events: Events?
 
-    /// Newer CLIs explain why a local launch has not linked yet. Older CLIs (1.67.12)
+    /// Newer CLIs explain why a local launch has not linked yet. Older CLIs (1.67.12 and before)
     /// don't advertise the event, and the app falls back to its own timer.
     var supportsLinkWaitEvent: Bool {
         supportsLocalBrowser && events?.names.contains(CLIInvocation.linkWaitEvent) == true
     }
 
-    /// `approvals --json --watch` and `decide --json` (slicc-cli#801). Seven support is reported by the commands' exits.
+    /// `approvals --json --watch` and `decide --json` (slicc-cli#801, v1.68.0). Seven support is reported by the commands' exits.
     var supportsApprovals: Bool {
         commands["approvals"]?.json == "events" && commands["decide"]?.json == "events" &&
         (agent?.ops.map { ["approvals", "decide"].allSatisfy($0.contains) } ?? true)
