@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Security
 
 /// Where Sliccy keeps the join URL of each remote session between launches.
@@ -41,17 +42,25 @@ final class KeychainJoinURLVault: JoinURLVault {
 
     func write(_ joinURL: String, for session: UUID) {
         let data = Data(joinURL.utf8)
-        let status = SecItemUpdate(query(session) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        guard status == errSecItemNotFound else { return }
-        var item = query(session)
-        item[kSecValueData as String] = data
-        item[kSecAttrLabel as String] = "Sliccy join URL"
-        SecItemAdd(item as CFDictionary, nil)
+        var status = SecItemUpdate(query(session) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if status == errSecItemNotFound {
+            var item = query(session)
+            item[kSecValueData as String] = data
+            item[kSecAttrLabel as String] = "Sliccy join URL"
+            status = SecItemAdd(item as CFDictionary, nil)
+        }
+        // Only the status is logged, never the URL.
+        if status != errSecSuccess { Self.log.error("Saving a join URL failed: OSStatus \(status, privacy: .public)") }
     }
 
     func delete(_ session: UUID) {
-        SecItemDelete(query(session) as CFDictionary)
+        let status = SecItemDelete(query(session) as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            Self.log.error("Deleting a join URL failed: OSStatus \(status, privacy: .public)")
+        }
     }
+
+    private static let log = Logger(subsystem: "ai.sliccy.mac", category: "JoinURLs")
 }
 
 @MainActor

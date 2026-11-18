@@ -126,6 +126,8 @@ final class WorkspaceStore {
             }
         } else { sessions = preview ? DemoData.sessions() : [] }
         restoreSavedJoins()
+        // A session's URL may reach iCloud after launch, from another device.
+        joinSync?.onExternalChange = { [weak self] in self?.restoreSavedJoins() }
     }
 
     var connectedCount: Int { sessions.filter { $0.connection == .connected }.count }
@@ -183,6 +185,7 @@ final class WorkspaceStore {
     func reconnect(_ id: UUID) {
         guard !reconfiguring.contains(id), let session = session(id), session.connection == .disconnected else { return }
         if session.isLive {
+            if session.localBrowserProfile == nil && joinCredentials[id] == nil { restoreSavedJoins() }
             guard session.localBrowserProfile != nil || joinCredentials[id] != nil else { credentialSession = id; return }
             connectLive(id)
             return

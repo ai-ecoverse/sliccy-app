@@ -202,4 +202,88 @@ struct SavedJoinsTests {
         #expect(new.credentialSession == nil)
         #expect(new.session(unsaved.id)?.entries.last?.text.contains("not saved") == true)
     }
+
+    @Test func aMatchingURLThatReachesICloudAfterLaunchIsRestoredAndOffered() async throws {
+        let (defaults, domain) = try suite()
+        defer { defaults.removePersistentDomain(forName: domain) }
+        var session = remote("Known", connection: .disconnected)
+        session.watchIdentity = Session.joinIdentity(Self.join)
+        let seed = WorkspaceStore(defaults: defaults)
+        seed.sessions = [session]
+        seed.save()
+
+        let backend = InMemoryKeyValueBackend()
+        let vault = MemoryJoinURLVault()
+        let store = WorkspaceStore(defaults: defaults, joinVault: vault, joinSync: sync(backend))
+        #expect(store.joinCredentials[session.id] == nil)
+        // Reconnect offers nothing yet and asks for the URL.
+        #expect(store.iCloudSuggestions(reconnecting: session.id).isEmpty)
+
+        // Another Mac's record arrives through iCloud after launch.
+        sync(backend, device: "MAC-2").record(joinURL: Self.join, label: "Work")
+        backend.deliverExternalChange()
+        #expect(store.iCloudSuggestions(reconnecting: session.id).map(\.joinUrl) == [Self.join])
+        // New Session still hides URLs that belong to a session.
+        #expect(store.iCloudSuggestions.isEmpty)
+        #expect(store.joinCredentials[session.id] == Self.join)
+        #expect(vault.items[session.id] == Self.join)
+        store.reconnect(session.id)
+        #expect(store.credentialSession == nil)
+        #expect(store.liveTokens[session.id] != nil)
+    }
+
+    @Test func reconnectLooksInICloudBeforeAskingForTheURL() throws {
+        let (defaults, domain) = try suite()
+        defer { defaults.removePersistentDomain(forName: domain) }
+        var session = remote("Known", connection: .disconnected)
+        session.watchIdentity = Session.joinIdentity(Self.join)
+        let seed = WorkspaceStore(defaults: defaults)
+        seed.sessions = [session]
+        seed.save()
+        let backend = InMemoryKeyValueBackend()
+        let store = WorkspaceStore(defaults: defaults, joinVault: MemoryJoinURLVault(), joinSync: sync(backend))
+        // Written without a change notification, e.g. before the observer saw it.
+        sync(backend, device: "MAC-2").record(joinURL: Self.join, label: "")
+        store.joinSync?.reload()
+        store.reconnect(session.id)
+        #expect(store.credentialSession == nil)
+        #expect(store.liveTokens[session.id] != nil)
+    }
+
+    @Test func turningICloudOnSharesSavedURLsOfDisconnectedSessions() throws {
+        let (defaults, domain) = try suite()
+        defer { defaults.removePersistentDomain(forName: domain) }
+        let backend = InMemoryKeyValueBackend()
+        let vault = MemoryJoinURLVault()
+        let store = WorkspaceStore(defaults: defaults, joinVault: vault, joinSync: sync(backend))
+        store.iCloudJoins = false
+        let session = remote()
+        store.sessions = [session]
+        store.bindCredential(Self.join, to: session.id)
+        store.applyLifecycle(try linked(), to: session.id)
+        store.disconnectLive(session.id)
+        // A URL typed but never linked is not shared.
+        let typed = remote("Typed", connection: .disconnected)
+        store.sessions.append(typed)
+        store.joinCredentials[typed.id] = "https://www.sliccy.ai/join/never-linked"
+        #expect(backend.storage["recentJoins.v1.MAC-1"] == nil)
+
+        store.iCloudJoins = true
+        let own = try JSONDecoder().decode([RecentJoinRecord].self, from: try #require(backend.storage["recentJoins.v1.MAC-1"]))
+        #expect(own.map(\.joinUrl) == [Self.join])
+    }
+
+    @Test func futureDatedICloudRecordsAreIgnored() throws {
+        let backend = InMemoryKeyValueBackend()
+        let now = Date()
+        func recent(_ url: String, offset: TimeInterval) -> RecentJoinRecord {
+            .init(id: Session.joinIdentity(url), joinUrl: url, label: "", deviceId: "PHONE", deviceName: "iPhone",
+                  firstConnectedAt: now.addingTimeInterval(offset), lastConnectedAt: now.addingTimeInterval(offset))
+        }
+        backend.storage["recentJoins.v1.PHONE"] = try JSONEncoder().encode([
+            recent("https://www.sliccy.ai/join/skewed", offset: 60),
+            recent("https://www.sliccy.ai/join/future", offset: ICloudJoinSync.clockSkew + 60),
+        ])
+        #expect(sync(backend, now: now).joins.map(\.joinUrl) == ["https://www.sliccy.ai/join/skewed"])
+    }
 }

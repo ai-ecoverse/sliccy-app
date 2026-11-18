@@ -156,8 +156,8 @@ struct ReconnectView: View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Reconnect to SLICC").font(.title2).fontWeight(.semibold)
             Text("Enter the join URL again. " + store.joinStorageSummary).foregroundStyle(.secondary)
-            if !store.iCloudSuggestions.isEmpty {
-                ICloudJoinPicker(joins: store.iCloudSuggestions) { join = $0.joinUrl }
+            if !store.iCloudSuggestions(reconnecting: id).isEmpty {
+                ICloudJoinPicker(joins: store.iCloudSuggestions(reconnecting: id)) { join = $0.joinUrl }
             }
             SecureField("Join URL", text: $join)
             HStack {

@@ -14,10 +14,15 @@ extension WorkspaceStore {
     /// Whether join URLs are shared through iCloud. Only possible when the build can sync.
     var syncsJoinsWithICloud: Bool { joinSync != nil && iCloudJoins }
 
-    /// Records the linked sessions' join URLs after the user turns iCloud sync on.
+    /// After the user turns iCloud sync on, shares every join URL that linked before:
+    /// connected sessions, and saved ones whose URL still has the session's fingerprint.
     func iCloudJoinsChanged() {
         guard syncsJoinsWithICloud else { return }
-        for session in sessions where session.connection == .connected { rememberJoin(session.id) }
+        for session in sessions where session.isLive && session.localBrowserProfile == nil {
+            guard let url = joinCredentials[session.id] else { continue }
+            if session.connection == .connected || session.watchIdentity == Session.joinIdentity(url) { rememberJoin(session.id) }
+        }
+        restoreSavedJoins()
     }
 
     /// How this build keeps join URLs, for the join URL fields.
@@ -28,10 +33,15 @@ extension WorkspaceStore {
     }
 
     /// iCloud join URLs not already bound to a session here, for New Session.
-    var iCloudSuggestions: [ICloudJoin] {
+    var iCloudSuggestions: [ICloudJoin] { iCloudSuggestions(reconnecting: nil) }
+
+    /// For Reconnect: the same list, plus the session's own URL first when iCloud has it.
+    func iCloudSuggestions(reconnecting id: UUID?) -> [ICloudJoin] {
         guard syncsJoinsWithICloud, let joinSync else { return [] }
-        let used = Set(sessions.compactMap(\.watchIdentity))
-        return joinSync.joins.filter { !used.contains($0.id) }
+        let own = id.flatMap { session($0)?.watchIdentity }
+        let used = Set(sessions.compactMap(\.watchIdentity)).subtracting(own.map { [$0] } ?? [])
+        let joins = joinSync.joins.filter { !used.contains($0.id) }
+        return joins.filter { $0.id == own } + joins.filter { $0.id != own }
     }
 
     /// Restores each remote session's join URL from the keychain, or from iCloud when

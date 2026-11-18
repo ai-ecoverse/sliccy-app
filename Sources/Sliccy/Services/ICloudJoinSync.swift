@@ -35,7 +35,10 @@ final class InMemoryKeyValueBackend: KeyValueSyncBackend {
     func setData(_ data: Data?, forKey key: String) { storage[key] = data }
     func keys(withPrefix prefix: String) -> [String] { storage.keys.filter { $0.hasPrefix(prefix) } }
     @discardableResult func synchronize() -> Bool { true }
-    var externalChange: (name: Notification.Name, object: AnyObject?)? { nil }
+    static let changed = Notification.Name("ai.sliccy.mac.InMemoryKeyValueBackend.changed")
+    var externalChange: (name: Notification.Name, object: AnyObject?)? { (Self.changed, self) }
+    /// Stands in for iCloud delivering another device's write.
+    func deliverExternalChange() { NotificationCenter.default.post(name: Self.changed, object: self) }
 }
 
 /// A join URL known to this iCloud account, from Sliccy, Sliccstart or the iOS follower.
@@ -97,6 +100,8 @@ final class ICloudJoinSync {
     static let recentTTL: TimeInterval = 30 * 24 * 60 * 60
     static let trayTTL: TimeInterval = 12 * 60 * 60
     static let maxOwn = 5
+    /// How far another device's clock may run ahead before its records are ignored.
+    static let clockSkew: TimeInterval = 5 * 60
     static let maxPooled = 20
 
     /// Merged entries from every device, newest first.
@@ -106,6 +111,8 @@ final class ICloudJoinSync {
     @ObservationIgnored private let backend: KeyValueSyncBackend
     @ObservationIgnored private let clock: () -> Date
     @ObservationIgnored private var observer: NSObjectProtocol?
+    /// Called after another device changed the store and `joins` was reloaded.
+    @ObservationIgnored var onExternalChange: (() -> Void)?
     private var ownKey: String { Self.recentPrefix + deviceId }
 
     init(backend: KeyValueSyncBackend, deviceId: String, deviceName: String, clock: @escaping () -> Date = Date.init) {
@@ -115,7 +122,7 @@ final class ICloudJoinSync {
         self.clock = clock
         if let external = backend.externalChange {
             observer = NotificationCenter.default.addObserver(forName: external.name, object: external.object, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.reload() }
+                MainActor.assumeIsolated { self?.reload(); self?.onExternalChange?() }
             }
         }
         backend.synchronize()
@@ -155,14 +162,14 @@ final class ICloudJoinSync {
         }
         for key in backend.keys(withPrefix: Self.recentPrefix) {
             for record in decode([RecentJoinRecord].self, key) where Self.valid(record.id, record.joinUrl)
-                && now.timeIntervalSince(record.lastConnectedAt) <= Self.recentTTL {
+                && Self.fresh(record.lastConnectedAt, ttl: Self.recentTTL, now: now) {
                 keep(.init(id: record.id, joinUrl: record.joinUrl, label: record.label, deviceId: record.deviceId,
                            deviceName: record.deviceName, lastSeen: record.lastConnectedAt, live: false))
             }
         }
         for key in backend.keys(withPrefix: Self.trayPrefix) {
             for record in decode([TraySessionRecord].self, key) where Self.valid(record.id, record.joinUrl)
-                && now.timeIntervalSince(record.lastSeenAt) <= Self.trayTTL {
+                && Self.fresh(record.lastSeenAt, ttl: Self.trayTTL, now: now) {
                 keep(.init(id: record.id, joinUrl: record.joinUrl, label: record.label, deviceId: record.deviceId ?? "",
                            deviceName: record.deviceName, lastSeen: record.lastSeenAt, live: true))
             }
@@ -192,7 +199,7 @@ final class ICloudJoinSync {
     }
 
     private func persistOwn(_ list: [RecentJoinRecord], now: Date) {
-        let kept = list.filter { now.timeIntervalSince($0.lastConnectedAt) <= Self.recentTTL }
+        let kept = list.filter { Self.fresh($0.lastConnectedAt, ttl: Self.recentTTL, now: now) }
             .sorted { $0.lastConnectedAt > $1.lastConnectedAt }.prefix(Self.maxOwn)
         if kept.isEmpty { backend.setData(nil, forKey: ownKey) }
         else if let data = try? JSONEncoder().encode(Array(kept)) { backend.setData(data, forKey: ownKey) }
@@ -203,6 +210,13 @@ final class ICloudJoinSync {
     private func decode<T: Decodable>(_ type: [T].Type, _ key: String) -> [T] {
         guard let data = backend.data(forKey: key) else { return [] }
         return (try? JSONDecoder().decode(type, from: data)) ?? []
+    }
+
+    /// Within the TTL and not dated in the future beyond `clockSkew`, so a device whose
+    /// clock runs ahead can't keep a record alive or pin it to the top of the pool.
+    static func fresh(_ date: Date, ttl: TimeInterval, now: Date) -> Bool {
+        let age = now.timeIntervalSince(date)
+        return age >= -clockSkew && age <= ttl
     }
 
     /// Accepts only HTTPS join URLs without credentials whose id matches, as the
