@@ -74,8 +74,19 @@ with newer CLI releases. Updating it is separate from getting this local build r
 - Complete vault inventories are not reported; lease metadata is not vault contents.
 - Screen selection remains demo-only. No screen is captured or OS capture permission requested.
   Credential controls send metadata-only requests to the app-owned CLI; the app never reads tokens.
-- Instance settings and sample grants persist locally. Join URLs stay in app memory
-  and pass to the CLI via stdin; reconnect after relaunch asks for the URL again.
+- Instance settings and sample grants persist locally. Join URLs pass to the CLI via
+  stdin. A join URL is saved only after it links: in the login keychain (one item per
+  session, service `ai.sliccy.mac.join-url`), so reconnecting after a relaunch needs no
+  re-entry. Removing the session deletes it. Never in UserDefaults, argv or logs.
+- Signed releases with iCloud enabled also sync linked join URLs through iCloud
+  key-value storage (container `S8LB56P782.ai.sliccy.trays`), in the format of slicc's
+  `RecentJoinStore`, shared with Sliccstart and the iOS follower. Each device writes
+  only its own key, with its five newest join URLs for 30 days. New Session and
+  Reconnect offer join URLs from other devices and Sliccstart's running tray sessions,
+  showing names, devices and hosts but never the URL. A missing keychain item is
+  restored from iCloud only for the same URL fingerprint. Settings → General can turn
+  sync off. iCloud key-value storage is not end-to-end encrypted unless Advanced Data
+  Protection is on. Builds without the entitlement never write join URLs to it.
 - Closing the window keeps the menu-bar app running. Quitting disconnects live
   links and leaves the browser open. Live connections and simulated screen sharing
   never resume automatically after a quit.
@@ -89,7 +100,8 @@ with newer CLI releases. Updating it is separate from getting this local build r
   to exit. Then it links the same sessions again with their saved access settings.
   If an old process is still running at the deadline, the session stays disconnected
   with a message rather than running a second CLI. A record older than 10 minutes
-  is ignored. Join URLs are never written, so remote sessions ask for theirs again.
+  is ignored. The record holds no join URL. Remote sessions resume with the join URL
+  saved in the keychain; one that never linked asks for it again.
 
 Native view-only components remain disabled. The bounded hosted capture trial is
 closed with [explicit limitations](https://github.com/ai-ecoverse/sliccy-app/issues/11);

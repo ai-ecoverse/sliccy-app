@@ -43,6 +43,16 @@ struct SettingsView: View {
                 }
                 .onAppear { defaultBrowser.refresh() }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in defaultBrowser.refresh() }
+                if !store.isDemo {
+                    Section("Join URLs") {
+                        Toggle("Sync join URLs with iCloud", isOn: Binding(get: { store.iCloudJoins }, set: { store.iCloudJoins = $0 }))
+                            .disabled(store.joinSync == nil)
+                        Text(store.joinSync == nil
+                             ? "Join URLs are saved in your keychain on this Mac. iCloud sync needs a signed release with iCloud enabled."
+                             : "Join URLs that connected are saved in your keychain and shared through iCloud key-value storage with Sliccy, Sliccstart and SLICC on your other devices. Turning this off stops sharing new ones.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
                 Section("Instance management") {
                     Text("Inspect agents, models, credentials, and access from the instance overview. Live inventory appears when the connected runtime reports it.")
                         .foregroundStyle(.secondary)

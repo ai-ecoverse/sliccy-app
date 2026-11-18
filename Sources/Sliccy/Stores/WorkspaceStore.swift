@@ -61,6 +61,13 @@ final class WorkspaceStore {
     @ObservationIgnored var credentialTasks: [UUID: Task<Void, Never>] = [:]
     var credentialSession: UUID?
     @ObservationIgnored var joinCredentials: [UUID: String] = [:]
+    /// Keychain storage of remote join URLs; nil in previews and tests that do not inject one.
+    @ObservationIgnored let joinVault: JoinURLVault?
+    /// iCloud sync of join URLs with slicc's Apple apps; nil without the iCloud entitlement.
+    @ObservationIgnored let joinSync: ICloudJoinSync?
+    var iCloudJoins: Bool {
+        didSet { defaults?.set(iCloudJoins, forKey: "sliccy.joins.icloud"); iCloudJoinsChanged() }
+    }
     @ObservationIgnored var liveProcesses: [UUID: CLIProcess] = [:]
     @ObservationIgnored var promptProcesses: [UUID: CLIProcess] = [:]
     @ObservationIgnored var liveTokens: [UUID: UUID] = [:]
@@ -82,10 +89,14 @@ final class WorkspaceStore {
     private var storageKey: String { isDemo ? Self.legacyStorageKey : "sliccy.sessions.v1" }
     private static let legacyStorageKey = "sliccy.demo.sessions.v1"
 
-    init(preview: Bool = false, runtime: any SessionRuntime = MockRuntime(), defaults: UserDefaults? = .standard) {
+    init(preview: Bool = false, runtime: any SessionRuntime = MockRuntime(), defaults: UserDefaults? = .standard,
+         joinVault: JoinURLVault? = nil, joinSync: ICloudJoinSync? = nil) {
         self.isDemo = preview
         self.runtime = runtime
         self.defaults = defaults
+        self.joinVault = preview ? nil : joinVault
+        self.joinSync = preview ? nil : joinSync
+        self.iCloudJoins = defaults?.object(forKey: "sliccy.joins.icloud") as? Bool ?? true
         self.linkSessionID = defaults?.string(forKey: "sliccy.links.session").flatMap(UUID.init(uuidString:))
         self.cliExecutable = defaults?.string(forKey: "sliccy.cli.path") ?? CLIClient.defaultExecutable
         let key = preview ? Self.legacyStorageKey : "sliccy.sessions.v1"
@@ -114,6 +125,7 @@ final class WorkspaceStore {
                 return restored
             }
         } else { sessions = preview ? DemoData.sessions() : [] }
+        restoreSavedJoins()
     }
 
     var connectedCount: Int { sessions.filter { $0.connection == .connected }.count }
@@ -296,7 +308,7 @@ final class WorkspaceStore {
     }
 
     func remove(_ id: UUID) {
-        if session(id)?.isLive == true { disconnectLive(id); joinCredentials[id] = nil }
+        if session(id)?.isLive == true { disconnectLive(id); forgetJoin(id); joinCredentials[id] = nil }
         cancelStream(id)
         connections[id]?.cancel()
         connections[id] = nil

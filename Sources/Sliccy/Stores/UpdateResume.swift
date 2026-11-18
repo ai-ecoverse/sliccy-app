@@ -8,8 +8,9 @@ import Foundation
 /// process links the same sessions again with the same settings. The record is read
 /// once and only by a different build than the one that wrote it, so an ordinary
 /// quit, or an update that did not install, resumes nothing. It grants nothing the
-/// user had not already turned on. Join URLs are never written, so remote sessions
-/// still ask for theirs.
+/// user had not already turned on. The record holds no join URL: a remote session
+/// resumes only with the join URL it saved in the keychain after it last linked
+/// (`SavedJoins`).
 struct UpdateResume: Codable, Equatable, Sendable {
     struct Link: Codable, Equatable, Sendable {
         var id: UUID
@@ -69,14 +70,15 @@ extension WorkspaceStore {
         var resumed: [UUID] = []
         for link in record.links {
             guard let session = session(link.id), session.isLive, session.connection == .disconnected,
-                  !reconfiguring.contains(link.id) else { continue }
-            if link.local, session.localBrowserProfile != nil {
-                if link.offerCredentials { credentialOffers.insert(link.id) }
-                notice("Sliccy was updated. Linking SLICC again in the browser that stayed open.", id: link.id)
-                resumed.append(link.id)
-            } else if !link.local {
-                notice("Sliccy was updated. Join URLs are not saved, so connect again with this instance’s join URL.", id: link.id)
+                  !reconfiguring.contains(link.id), link.local == (session.localBrowserProfile != nil) else { continue }
+            guard link.local || joinCredentials[link.id] != nil else {
+                notice("Sliccy was updated. This join URL was not saved, so connect again with it.", id: link.id)
+                continue
             }
+            if link.offerCredentials { credentialOffers.insert(link.id) }
+            notice(link.local ? "Sliccy was updated. Linking SLICC again in the browser that stayed open."
+                              : "Sliccy was updated. Connecting to SLICC again with the saved join URL.", id: link.id)
+            resumed.append(link.id)
         }
         save()
         guard !resumed.isEmpty else { return nil }
@@ -84,7 +86,7 @@ extension WorkspaceStore {
         var tasks: [Task<Void, Never>] = []
         for id in resumed {
             reconfiguring.insert(id)
-            update(id) { $0.connection = .connecting; $0.connectionMessage = "Sliccy was updated. Waiting for the previous link to detach… Your browser stays open." }
+            update(id) { $0.connection = .connecting; $0.connectionMessage = $0.localBrowserProfile != nil ? "Sliccy was updated. Waiting for the previous link to detach… Your browser stays open." : "Sliccy was updated. Waiting for the previous link to detach…" }
             let task = Task { [weak self] in
                 let deadline = ContinuousClock.now.advanced(by: detachWait)
                 while pids.contains(where: Self.processExists), ContinuousClock.now < deadline {

@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 
 extension WorkspaceStore {
     func checkCLI() async {
@@ -56,7 +55,7 @@ extension WorkspaceStore {
 
     func bindCredential(_ join: String, to id: UUID) {
         let credential = join.trimmingCharacters(in: .whitespacesAndNewlines)
-        let identity = SHA256.hash(data: Data(credential.utf8)).map { String(format: "%02x", $0) }.joined()
+        let identity = Session.joinIdentity(credential)
         update(id) { session in
             if let previous = session.watchIdentity, previous != identity {
                 // Keep old visible activity, but never reuse its cursor or ids for a different URL.
@@ -210,6 +209,7 @@ extension WorkspaceStore {
                 $0.access = resources?.access ?? .init(browser: nil, network: false)
             }
             notice("Connected to SLICC. Access shows the resources reported by the CLI.", id: id)
+            if !local { rememberJoin(id) }
             // Launcher UI does not subscribe to agent transcripts.
             refreshCredentials(id)
             startInventory(id)

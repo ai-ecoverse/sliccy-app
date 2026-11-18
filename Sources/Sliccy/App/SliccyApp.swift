@@ -5,9 +5,13 @@ import OSLog
 struct SliccyApp: App {
     @StateObject private var updater = AppUpdater()
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @State private var store = WorkspaceStore(
-        preview: ProcessInfo.processInfo.arguments.contains("--preview"),
-        defaults: ProcessInfo.processInfo.arguments.contains("--preview") ? nil : .standard)
+    @State private var store = SliccyApp.makeStore()
+
+    private static func makeStore() -> WorkspaceStore {
+        let preview = ProcessInfo.processInfo.arguments.contains("--preview")
+        guard !preview else { return WorkspaceStore(preview: true, defaults: nil) }
+        return WorkspaceStore(defaults: .standard, joinVault: KeychainJoinURLVault(), joinSync: ICloudJoinSync.app())
+    }
 
     var body: some Scene {
         WindowGroup("Sliccy", id: "workspace") {

@@ -49,7 +49,14 @@ files are private temporary files deleted on exit. Signing scripts reject events
 refs and repositories outside the upstream push-to-main path.
 
 The app uses identifier `ai.sliccy.mac`, the version in `release/version.json`, Developer ID, hardened
-runtime and empty entitlements. The bundled CLI retains its upstream signature and
+runtime and empty entitlements. The exception is a release signed while the optional
+`SLICCY_MAC_PROVISIONING_PROFILE_BASE64` secret exists. That secret is a Developer ID
+provisioning profile for `ai.sliccy.mac` with iCloud key-value storage.
+`script/icloud_entitlements.py` checks the profile's team, app, expiry and container.
+The script then embeds the profile and adds only the application and team identifiers
+and `com.apple.developer.ubiquity-kvstore-identifier` =
+`S8LB56P782.ai.sliccy.trays`, the container Sliccstart and the iOS follower use.
+Proof builds and helpers never get these entitlements. The bundled CLI retains its upstream signature and
 bytes. The workflow notarizes and staples the app, verifies its signature and
 Gatekeeper assessment, and uploads only the app ZIP, SHA-256 checksum and public
 signing metadata. It does not upload signing keys, certificates or diagnostic logs.

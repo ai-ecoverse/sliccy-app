@@ -62,8 +62,14 @@ struct NewSessionView: View {
                     Text("Pairing connects SLICC to your Mac without enabling browser automation.")
                         .font(.caption).foregroundStyle(.secondary)
                 } else {
+                    if live, !store.iCloudSuggestions.isEmpty {
+                        ICloudJoinPicker(joins: store.iCloudSuggestions) { join in
+                            joinURL = join.joinUrl
+                            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { name = join.label }
+                        }
+                    }
                     SecureField("Join URL", text: $joinURL, prompt: Text("https://…"))
-                    Text(live ? "The join URL stays in memory for this app session. You’ll enter it again after relaunching Sliccy." : "Use an HTTPS join URL. In this preview it is discarded after creating the session; it is never saved or opened.")
+                    Text(live ? store.joinStorageSummary : "Use an HTTPS join URL. In this preview it is discarded after creating the session; it is never saved or opened.")
                         .font(.caption).foregroundStyle(.secondary)
                     if !joinURL.isEmpty && !validJoinURL {
                         Text("Enter a valid HTTPS URL without a username or password.").font(.caption).foregroundStyle(.red)
@@ -115,6 +121,28 @@ struct SheetHeader: View {
     }
 }
 
+/// Join URLs from this iCloud account. Shows names, devices and hosts, never the URL.
+struct ICloudJoinPicker: View {
+    let joins: [ICloudJoin]
+    let choose: (ICloudJoin) -> Void
+    @State private var selection: String?
+    var body: some View {
+        Picker("From iCloud", selection: $selection) {
+            Text("Choose a session…").tag(nil as String?)
+            ForEach(joins) { join in
+                Text(Self.title(join)).tag(Optional(join.id))
+            }
+        }
+        .onChange(of: selection) { _, id in
+            if let join = joins.first(where: { $0.id == id }) { choose(join) }
+        }
+    }
+    static func title(_ join: ICloudJoin) -> String {
+        let name = join.label.isEmpty ? join.displayHost : join.label
+        return [name, join.deviceName, join.live ? "running" : nil].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+}
+
 struct ReconnectView: View {
     let store: WorkspaceStore
     let id: UUID
@@ -127,7 +155,10 @@ struct ReconnectView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Reconnect to SLICC").font(.title2).fontWeight(.semibold)
-            Text("Enter the join URL again. Sliccy keeps it in memory only.").foregroundStyle(.secondary)
+            Text("Enter the join URL again. " + store.joinStorageSummary).foregroundStyle(.secondary)
+            if !store.iCloudSuggestions.isEmpty {
+                ICloudJoinPicker(joins: store.iCloudSuggestions) { join = $0.joinUrl }
+            }
             SecureField("Join URL", text: $join)
             HStack {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
