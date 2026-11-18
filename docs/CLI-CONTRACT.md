@@ -69,6 +69,27 @@ or unparseable timestamps do not create a fresh count. Exit 1 gives an honest
 update/start-agent suggestion; exit 3 explains Linked devices permission. There is
 no stderr parsing, automatic permission grant or transcript subscription.
 
+Approvals run in another separate child, `slicc - approvals --json --watch` (or
+`approvals --cdp <endpoint> --origin … --json --watch` for local sessions), started on
+`linked` and stopped on link loss or disconnect. It is gated on `capabilities --json`
+listing `approvals` (events) and `decide`. Each `approvals` event is a whole snapshot of
+seven's pending `user`-tier items; an item that leaves it has settled, and its
+notification is withdrawn. Items are kept in memory only. `reconnecting`, `error` and
+process exit mark the list not live and disable answers. Exit 1 from the watcher means
+seven doesn't support approvals; exit 3 explains the Linked devices permission.
+
+Each answer runs `slicc - decide --json -- <id> once|always|deny|stop` and waits for it.
+Exit 0 with a `decided` line is answered (the row waits for the next snapshot). Exit 1
+shows the `error` line's `message`, the agent's refusal sentence, and exit 3 (`EACCES`)
+explains Linked devices. stderr is not read. Always is offered only when the item's `always` is true, Deny and
+stop only when `stoppable` is true; missing flags mean not offered. Notifications offer
+Allow once (requiring an unlocked Mac) and Deny only. Their body is the item's scrubbed
+detail, which macOS may show on the lock screen depending on preview settings. Guest message text is a prompt and is never displayed.
+`Tests/SliccyTests/Fixtures/approvals.ndjson` and `capabilities-approvals.json` are copied
+from slicc-cli v1.68.0's `test/integration/testdata/native/`; the released binary's
+`capabilities --json` lists `approvals` and `decide` as events commands and agent ops. When the CLI reports `agent.ops`,
+it must also list `approvals` and `decide`.
+
 Prompts use `slicc - prompt --json [--steer] -`, with the join URL on stdin's first
 line and prompt text afterward. Text deltas group by opaque transcript entry id;
 there are no run ids. Follow-ups queue locally until the current prompt completes.
@@ -113,7 +134,7 @@ For `no-seven-tab` it says that the browser has no SLICC tab instead.
 The CLI process is not stopped. When `capabilities --json` lists a `waiting`
 lifecycle event (slicc-cli#782: `reason` `no-ready-seven` or `no-seven-tab`,
 `message`, `candidates`), its message is shown at once and replaces the status line
-in that explanation. Older CLIs, including the bundled 1.67.12, use the timer only.
+in that explanation. Older CLIs, such as 1.67.12, use the timer only; the bundled 1.68.0 lists it.
 
 ## Live Feed
 
@@ -149,7 +170,7 @@ watch replay across process restarts versus reconnects, gap notices, and cursor 
 The bundled release's actual capabilities response was also checked. No real
 seven join credential was supplied for end-to-end live connection testing.
 
-`script/fetch_cli.sh` downloads v1.58.1 with pinned per-architecture SHA-256
+`script/fetch_cli.sh` downloads v1.68.0 with pinned per-architecture SHA-256
 checksums and verifies its Developer ID role and Team ID. This bundling pin does
 not enable native screen grants; runtime screen pins and capture scopes remain
 disabled pending native validation. The build script bundles it if present;

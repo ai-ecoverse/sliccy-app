@@ -13,7 +13,7 @@ open dist/Sliccy.app
 ```
 
 The first command checks the OS and selected SDK without downloading, compiling,
-signing or launching. The second fetches checksum-pinned CLI 1.67.12 and uses
+signing or launching. The second fetches checksum-pinned CLI 1.68.0 and uses
 `script/build_and_run.sh --build` to build and ad-hoc sign the app. It does not
 launch, install, notarize or upload anything. It rejects all proof-build flags.
 If the wrong SDK is selected, choose Xcode 27 in Xcode Settings → Locations or set

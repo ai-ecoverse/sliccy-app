@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import AppKit
 
 @MainActor @Observable
 final class WorkspaceStore {
@@ -48,6 +49,15 @@ final class WorkspaceStore {
     @ObservationIgnored var inventoryProcesses: [UUID: CLIProcess] = [:]
     @ObservationIgnored var inventoryTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored var inventoryTokens: [UUID: UUID] = [:]
+    var approvals: [UUID: ApprovalQueue] = [:]
+    @ObservationIgnored var approvalsSupported: Set<UUID> = []
+    @ObservationIgnored var approvalProcesses: [UUID: CLIProcess] = [:]
+    @ObservationIgnored var approvalTasks: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored var approvalTokens: [UUID: UUID] = [:]
+    @ObservationIgnored var decideProcesses: [DecideKey: CLIProcess] = [:]
+    @ObservationIgnored lazy var approvalNotifier: (any ApprovalNotifying)? = isDemo ? nil : ApprovalNotifier.make(
+        answer: { [weak self] session, item, answer in self?.decide(item, answer: answer, for: session) },
+        open: { [weak self] session in self?.requestedSelection = session; NSApp.activate(ignoringOtherApps: true) })
     @ObservationIgnored var credentialTasks: [UUID: Task<Void, Never>] = [:]
     var credentialSession: UUID?
     @ObservationIgnored var joinCredentials: [UUID: String] = [:]

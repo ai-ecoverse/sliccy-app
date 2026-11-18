@@ -40,6 +40,9 @@ struct InstanceOverviewView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 20) { deviceColumn; accessColumn }
                 }
+                if session.isLive {
+                    section("Approvals") { ApprovalsView(store: store, session: session) }
+                }
                 agentsSection
             }.padding(24)
         }

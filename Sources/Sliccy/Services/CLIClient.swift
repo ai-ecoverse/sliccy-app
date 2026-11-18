@@ -2,7 +2,7 @@ import Foundation
 
 struct CLICapabilities: Decodable, Sendable {
     struct Command: Decodable, Sendable { var json: String }
-    struct Agent: Decodable, Sendable { var own: [String]? }
+    struct Agent: Decodable, Sendable { var own: [String]?; var ops: [String]? }
     struct Control: Decodable, Sendable { var v: Int; var ops: [String] }
     struct Events: Decodable, Sendable { var schema: Int?; var names: [String] }
     var schema: Int
@@ -13,10 +13,16 @@ struct CLICapabilities: Decodable, Sendable {
     var agent: Agent?
     var events: Events?
 
-    /// Newer CLIs explain why a local launch has not linked yet. Older CLIs (1.67.12)
+    /// Newer CLIs explain why a local launch has not linked yet. Older CLIs (1.67.12 and before)
     /// don't advertise the event, and the app falls back to its own timer.
     var supportsLinkWaitEvent: Bool {
         supportsLocalBrowser && events?.names.contains(CLIInvocation.linkWaitEvent) == true
+    }
+
+    /// `approvals --json --watch` and `decide --json` (slicc-cli#801, v1.68.0). Seven support is reported by the commands' exits.
+    var supportsApprovals: Bool {
+        commands["approvals"]?.json == "events" && commands["decide"]?.json == "events" &&
+        (agent?.ops.map { ["approvals", "decide"].allSatisfy($0.contains) } ?? true)
     }
 
     var supportsCredentialLeases: Bool {
@@ -91,6 +97,19 @@ struct CLIInvocation: Sendable {
     }
     static func agents(join: String) -> Self {
         .init(arguments: ["-", "agents", "--json", "--watch"], input: Data((join + "\n").utf8))
+    }
+    static func approvals(join: String) -> Self {
+        .init(arguments: ["-", "approvals", "--json", "--watch"], input: Data((join + "\n").utf8))
+    }
+    static func approvals(cdp: String) -> Self {
+        .init(arguments: ["approvals", "--cdp", cdp, "--origin", localOrigin, "--json", "--watch"])
+    }
+    /// Flags come before the id and answer; `--` ends them, so an id is never read as a flag.
+    static func decide(join: String, id: String, answer: ApprovalAnswer) -> Self {
+        .init(arguments: ["-", "decide", "--json", "--", id, answer.rawValue], input: Data((join + "\n").utf8))
+    }
+    static func decide(cdp: String, id: String, answer: ApprovalAnswer) -> Self {
+        .init(arguments: ["decide", "--cdp", cdp, "--origin", localOrigin, "--json", "--", id, answer.rawValue])
     }
 }
 

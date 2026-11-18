@@ -43,6 +43,7 @@ struct CLIEvent: Decodable, Equatable, Sendable {
     var seq: UInt64?
     var reportedAt: InventoryTime?
     var receivedAt: InventoryTime?
+    var approvals: ApprovalList?
     var kind: String { event ?? t ?? "unknown" }
 }
 
