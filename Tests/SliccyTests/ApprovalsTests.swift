@@ -94,7 +94,7 @@ struct ApprovalsTests {
         let item = try #require(store.approvals[id]?.items.first)
         store.decide(item.id, answer: .once, for: id)
         #expect(store.decideProcesses.isEmpty)
-        #expect(store.approvals[id]?.message == "That request is no longer pending.")
+        #expect(store.approvals[id]?.message?.contains("aren’t live") == true)
     }
 
     @Test func invocationsKeepTheJoinURLOnStdin() {

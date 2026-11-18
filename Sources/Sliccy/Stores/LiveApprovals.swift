@@ -37,7 +37,7 @@ extension WorkspaceStore {
                 }
                 guard !Task.isCancelled, self.approvalTokens[id] == token else { return }
                 for event in try decoder.finish() { self.applyApprovals(event, to: id) }
-                self.approvals[id]?.message = "The approvals stream stopped."
+                if self.approvals[id]?.message == nil { self.approvals[id]?.message = "The approvals stream stopped." }
             } catch {
                 guard !Task.isCancelled, self.approvalTokens[id] == token else { return }
                 let message: String
@@ -91,7 +91,12 @@ extension WorkspaceStore {
     /// Runs `slicc decide <id> <answer>` and waits for it. Exit 1 shows the CLI's sentence.
     func decide(_ item: String, answer: ApprovalAnswer, for id: UUID) {
         guard var queue = approvals[id] else { return }
-        guard queue.active, let listed = queue.items.first(where: { $0.id == item }) else {
+        guard queue.active else {
+            queue.message = "Approvals aren’t live. Answer in SLICC, or wait for Sliccy to reconnect."
+            approvals[id] = queue
+            return
+        }
+        guard let listed = queue.items.first(where: { $0.id == item }) else {
             queue.message = "That request is no longer pending."
             approvals[id] = queue
             return

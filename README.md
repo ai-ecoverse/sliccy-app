@@ -67,7 +67,9 @@ with newer CLI releases. Updating it is separate from getting this local build r
   `user`-tier items for a live connection, with kind, agent, detail, the judge's verdict
   and time left. Allow once and Deny are always offered; Always only when the item allows
   it, Deny and stop only when it is stoppable. macOS notifications offer Allow once and
-  Deny, never Always. Guest message text is not shown. A stopped or reconnecting stream
+  Deny, never Always; Allow once needs an unlocked Mac. Their body is the item's detail
+  (for example a sudo command), which macOS may show on the lock screen depending on
+  notification preview settings. Guest message text is not shown. A stopped or reconnecting stream
   is labelled and can't be answered. Older CLIs or sevens show an update message.
 - Complete vault inventories are not reported; lease metadata is not vault contents.
 - Screen selection remains demo-only. No screen is captured or OS capture permission requested.

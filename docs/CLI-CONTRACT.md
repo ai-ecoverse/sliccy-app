@@ -83,7 +83,8 @@ Each answer runs `slicc - decide <id> once|always|deny|stop` and waits for its e
 the agent's refusal sentence, and 3 explains Linked devices. That sentence is the only
 stderr the app reads. Always is offered only when the item's `always` is true, Deny and
 stop only when `stoppable` is true; missing flags mean not offered. Notifications offer
-Allow once and Deny only. Guest message text is a prompt and is never displayed.
+Allow once (requiring an unlocked Mac) and Deny only. Their body is the item's scrubbed
+detail, which macOS may show on the lock screen depending on preview settings. Guest message text is a prompt and is never displayed.
 `Tests/SliccyTests/Fixtures/approvals.ndjson` and `capabilities-approvals.json` are copied
 from slicc-cli#803's `test/integration/testdata/native/`. When the CLI reports `agent.ops`,
 it must also list `approvals` and `decide`.

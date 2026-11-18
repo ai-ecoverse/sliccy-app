@@ -15,6 +15,8 @@ struct SliccyApp: App {
                 .onAppear {
                     delegate.attachWebLinks({ store.incomingLinks.receive($0) }, overflow: { store.errorMessage = "Too many links arrived during startup. Open them in smaller groups." })
                     delegate.shutdown = { store.incomingLinks.cancel(); store.shutdown() }
+                    // Set the notification delegate at launch, so answers to earlier approval notifications arrive.
+                    _ = store.approvalNotifier
                 }
         }
         .defaultSize(width: 1120, height: 780)

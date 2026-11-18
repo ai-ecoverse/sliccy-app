@@ -17,6 +17,8 @@ final class ApprovalNotifier: NSObject, ApprovalNotifying, UNUserNotificationCen
     private let answer: @MainActor (UUID, String, ApprovalAnswer) -> Void
     private let open: @MainActor (UUID) -> Void
     private var authorization: Task<Bool, Never>?
+    /// Posted identifiers not yet withdrawn. A post waiting for authorization is dropped once withdrawn.
+    private var pending: Set<String> = []
 
     /// Notification Center needs a bundled app; tests and `swift run` get no notifier.
     static func make(answer: @escaping @MainActor (UUID, String, ApprovalAnswer) -> Void,
@@ -32,7 +34,8 @@ final class ApprovalNotifier: NSObject, ApprovalNotifying, UNUserNotificationCen
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         let actions = Self.answers.map { answer in
-            UNNotificationAction(identifier: answer.rawValue, title: answer.title, options: answer == .deny ? [.destructive] : [])
+            // Allowing from a locked Mac needs the user to unlock; a fast Deny stays possible.
+            UNNotificationAction(identifier: answer.rawValue, title: answer.title, options: answer == .deny ? [.destructive] : [.authenticationRequired])
         }
         center.setNotificationCategories([UNNotificationCategory(identifier: Self.category, actions: actions, intentIdentifiers: [])])
     }
@@ -47,19 +50,22 @@ final class ApprovalNotifier: NSObject, ApprovalNotifying, UNUserNotificationCen
         content.body = detail.count > 200 ? String(detail.prefix(199)) + "…" : detail
         content.categoryIdentifier = Self.category
         content.userInfo = ["session": session.uuidString, "item": item.id]
-        let request = UNNotificationRequest(identifier: Self.identifier(item.id, session: session), content: content, trigger: nil)
+        let identifier = Self.identifier(item.id, session: session)
+        pending.insert(identifier)
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
         if authorization == nil {
             authorization = Task { (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) ?? false }
         }
         let authorization = authorization
-        Task {
-            guard await authorization?.value == true else { return }
+        Task { [weak self] in
+            guard await authorization?.value == true, self?.pending.contains(identifier) == true else { return }
             try? await UNUserNotificationCenter.current().add(request)
         }
     }
 
     func withdraw(_ items: [String], session: UUID) {
         let ids = items.map { Self.identifier($0, session: session) }
+        pending.subtract(ids)
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: ids)
         center.removeDeliveredNotifications(withIdentifiers: ids)
