@@ -48,6 +48,21 @@ cat > "$artifact_dir/entitlements.plist" <<'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict/></plist>
 PLIST
+# Releases may add iCloud key-value storage so join URLs sync with Sliccstart and the
+# iOS follower. That needs an embedded Developer ID profile for ai.sliccy.mac with
+# iCloud; without the optional secret the app keeps empty entitlements and saves
+# join URLs in the keychain only. Proof builds never get it.
+app_entitlements="$artifact_dir/entitlements.plist"
+if [[ "${SLICCY_RELEASE:-0}" == 1 && -n "${SLICCY_MAC_PROVISIONING_PROFILE_BASE64:-}" ]]; then
+  profile_dir=$(mktemp -d "$RUNNER_TEMP/sliccy-profile.XXXXXX")
+  printf '%s' "$SLICCY_MAC_PROVISIONING_PROFILE_BASE64" | /usr/bin/base64 --decode > "$profile_dir/profile.provisionprofile"
+  /usr/bin/security cms -D -i "$profile_dir/profile.provisionprofile" > "$profile_dir/profile.plist"
+  python3 "$(dirname "$0")/icloud_entitlements.py" "$profile_dir/profile.plist" "$artifact_dir/app-entitlements.plist"
+  /usr/bin/ditto "$profile_dir/profile.provisionprofile" "$signed_app/Contents/embedded.provisionprofile"
+  rm -rf "$profile_dir"
+  app_entitlements="$artifact_dir/app-entitlements.plist"
+fi
+unset SLICCY_MAC_PROVISIONING_PROFILE_BASE64
 identity="Developer ID Application: Lars Trieloff ($APPLE_TEAM_ID)"
 sparkle="$signed_app/Contents/Frameworks/Sparkle.framework"
 if [[ -d "$sparkle" ]]; then
@@ -76,7 +91,7 @@ if [[ -e "$surface_app" ]]; then
   python3 "$(dirname "$0")/surface_pin.py" "$surface_app"
 fi
 /usr/bin/codesign --force --options runtime --timestamp --sign "$identity" \
-  --entitlements "$artifact_dir/entitlements.plist" "$signed_app"
+  --entitlements "$app_entitlements" "$signed_app"
 # Preserve the upstream CLI signature and exact artifact bytes; never re-sign it.
 /usr/bin/cmp "$input_app/Contents/Resources/slicc" "$signed_app/Contents/Resources/slicc"
 if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == 8 ]]; then
