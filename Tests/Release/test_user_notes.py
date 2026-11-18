@@ -84,6 +84,7 @@ class UserNotesTests(unittest.TestCase):
         self.assertEqual(user_notes.user_notes(SEMANTIC, [], env=env, call=outage), user_notes.fallback(SEMANTIC))
         self.assertEqual(user_notes.user_notes(SEMANTIC, [], env={}, call=outage), user_notes.fallback(SEMANTIC))
         self.assertEqual(user_notes.parse_reply('{"notes": []}'), [user_notes.GENERIC])
+        self.assertEqual(user_notes.parse_reply('Here: {"notes": ["Fixed it."]} Hope that helps {}'), ['Fixed it.'])
         for reply in ['{"notes": "x"}', '{"notes": [1]}', json.dumps({'notes': ['x'] * 9})]:
             with self.assertRaises(ValueError):
                 user_notes.parse_reply(reply)

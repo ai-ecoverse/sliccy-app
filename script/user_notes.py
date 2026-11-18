@@ -100,10 +100,12 @@ def prompt(notes, commits):
 
 
 def parse_reply(text):
-    match = re.search(r'\{.*\}', text, re.S)
-    if not match:
+    start = text.find('{')
+    if start < 0:
         raise ValueError('no JSON in reply')
-    notes = json.loads(match.group(0))['notes']
+    # Decode only the first object; prose or braces after it must not spoil a valid reply.
+    reply, _ = json.JSONDecoder().raw_decode(text, start)
+    notes = reply.get('notes') if isinstance(reply, dict) else None
     if not isinstance(notes, list) or len(notes) > MAX_NOTES or not all(isinstance(n, str) for n in notes):
         raise ValueError('invalid notes list')
     return [clean(n) for n in notes] or [GENERIC]
