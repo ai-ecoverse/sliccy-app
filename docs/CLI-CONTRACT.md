@@ -78,10 +78,10 @@ notification is withdrawn. Items are kept in memory only. `reconnecting`, `error
 process exit mark the list not live and disable answers. Exit 1 from the watcher means
 seven doesn't support approvals; exit 3 explains the Linked devices permission.
 
-Each answer runs `slicc - decide <id> once|always|deny|stop` and waits for its exit:
-0 is answered (the row waits for the next snapshot), 1 shows the CLI's last stderr line,
-the agent's refusal sentence, and 3 explains Linked devices. That sentence is the only
-stderr the app reads. Always is offered only when the item's `always` is true, Deny and
+Each answer runs `slicc - decide --json -- <id> once|always|deny|stop` and waits for it.
+Exit 0 with a `decided` line is answered (the row waits for the next snapshot). Exit 1
+shows the `error` line's `message`, the agent's refusal sentence, and exit 3 (`EACCES`)
+explains Linked devices. stderr is not read. Always is offered only when the item's `always` is true, Deny and
 stop only when `stoppable` is true; missing flags mean not offered. Notifications offer
 Allow once (requiring an unlocked Mac) and Deny only. Their body is the item's scrubbed
 detail, which macOS may show on the lock screen depending on preview settings. Guest message text is a prompt and is never displayed.

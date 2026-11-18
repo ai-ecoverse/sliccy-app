@@ -126,13 +126,13 @@ struct ApprovalsTests {
         let watch = CLIInvocation.approvals(join: secret)
         #expect(watch.arguments == ["-", "approvals", "--json", "--watch"])
         let decide = CLIInvocation.decide(join: secret, id: "apr-1", answer: .stop)
-        #expect(decide.arguments == ["-", "decide", "apr-1", "stop"])
+        #expect(decide.arguments == ["-", "decide", "--json", "--", "apr-1", "stop"])
         for call in [watch, decide] {
             #expect(!call.arguments.joined().contains(secret))
             #expect(String(decoding: call.input, as: UTF8.self) == secret + "\n")
         }
         #expect(CLIInvocation.decide(cdp: "http://127.0.0.1:9222", id: "apr-1", answer: .once).arguments ==
-                ["decide", "--cdp", "http://127.0.0.1:9222", "--origin", CLIInvocation.localOrigin, "apr-1", "once"])
+                ["decide", "--cdp", "http://127.0.0.1:9222", "--origin", CLIInvocation.localOrigin, "--json", "--", "apr-1", "once"])
     }
 
     @Test func capabilitiesGateOnApprovalsAndDecide() throws {
@@ -166,14 +166,8 @@ struct ApprovalsTests {
         #expect(ApprovalNotifier.answers == [.once, .deny])
     }
 
-    @Test func decideSentenceIsTheOnlyStderrRead() {
-        #expect(WorkspaceStore.decideSentence("decide: This request was already answered.") == "This request was already answered.")
-        #expect(WorkspaceStore.decideSentence("Only a person can stop a turn.") == "Only a person can stop a turn.")
-        #expect(WorkspaceStore.decideSentence("  ") == nil)
-    }
-
-    /// A fake CLI records its arguments and stdin, prints `stderr` and exits with `status`.
-    func fakeCLI(status: Int32, stderr: String, stdout: URL? = nil) throws -> (path: String, dir: URL) {
+    /// A fake CLI records its arguments and stdin, prints `stderr` and `line`, and exits with `status`.
+    func fakeCLI(status: Int32, stderr: String, stdout: URL? = nil, line: String? = nil) throws -> (path: String, dir: URL) {
         let dir = FileManager.default.temporaryDirectory.appending(path: "sliccy-approvals-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let script = dir.appending(path: "slicc")
@@ -183,15 +177,16 @@ struct ApprovalsTests {
         printf '%s\\n' "$@" > "\(dir.path)/args"
         printf '%s\\n' '\(stderr)' >&2
         \(stdout.map { "cat '\($0.path)'" } ?? "")
+        \(line.map { "printf '%s\\n' '\($0)'" } ?? "")
         exit \(status)
         """.write(to: script, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
         return (script.path, dir)
     }
 
-    func decided(status: Int32, stderr: String, answer: ApprovalAnswer = .deny) async throws -> (ApprovalQueue?, URL) {
+    func decided(status: Int32, stderr: String, line: String?, answer: ApprovalAnswer = .deny) async throws -> (ApprovalQueue?, URL) {
         let secret = "https://example.invalid/#join=private"
-        let (path, dir) = try fakeCLI(status: status, stderr: stderr)
+        let (path, dir) = try fakeCLI(status: status, stderr: stderr, line: line)
         let store = WorkspaceStore(preview: true, defaults: nil)
         let id = store.sessions[0].id
         store.update(id) { $0.usesLiveRuntime = true; $0.connection = .connected }
@@ -204,7 +199,7 @@ struct ApprovalsTests {
         let deadline = Date().addingTimeInterval(10)
         while store.approvals[id]?.deciding.isEmpty == false, Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
         #expect(String(decoding: try Data(contentsOf: dir.appending(path: "stdin")), as: UTF8.self) == secret + "\n")
-        #expect(String(decoding: try Data(contentsOf: dir.appending(path: "args")), as: UTF8.self) == "-\ndecide\n\(item.id)\n\(answer.rawValue)\n")
+        #expect(String(decoding: try Data(contentsOf: dir.appending(path: "args")), as: UTF8.self) == "-\ndecide\n--json\n--\n\(item.id)\n\(answer.rawValue)\n")
         return (store.approvals[id], dir)
     }
 
@@ -229,21 +224,28 @@ struct ApprovalsTests {
     }
 
     @Test func decideWaitsForTheAnswer() async throws {
-        let (queue, dir) = try await decided(status: 0, stderr: "", answer: .stop)
+        let (queue, dir) = try await decided(status: 0, stderr: "slicc: denied it and stopped the turn", line: #"{"schema":1,"event":"decided","id":"x","answer":"stop"}"#, answer: .stop)
         defer { try? FileManager.default.removeItem(at: dir) }
         #expect(queue?.answered.count == 1)
         #expect(queue?.refusals.isEmpty == true)
     }
 
     @Test func refusalShowsTheAgentSentence() async throws {
-        let (queue, dir) = try await decided(status: 1, stderr: "This request was already answered.")
+        let (queue, dir) = try await decided(status: 1, stderr: "stderr is not read", line: #"{"schema":1,"event":"error","message":"This request was already answered.","code":"EINVAL","retryable":false}"#)
         defer { try? FileManager.default.removeItem(at: dir) }
         #expect(queue?.answered.isEmpty == true)
         #expect(queue?.refusals.values.first == "This request was already answered.")
     }
 
+    @Test func exitWithoutDecidedIsNotAnAnswer() async throws {
+        let (queue, dir) = try await decided(status: 0, stderr: "", line: nil)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        #expect(queue?.answered.isEmpty == true)
+        #expect(queue?.refusals.values.first?.contains("didn’t confirm") == true)
+    }
+
     @Test func permissionRefusalExplainsLinkedDevices() async throws {
-        let (queue, dir) = try await decided(status: 3, stderr: "slicc decide: not allowed")
+        let (queue, dir) = try await decided(status: 3, stderr: "slicc decide: not allowed", line: #"{"schema":1,"event":"error","message":"not allowed","code":"EACCES","retryable":false}"#)
         defer { try? FileManager.default.removeItem(at: dir) }
         #expect(queue?.refusals.values.first?.contains("Linked devices") == true)
         #expect(queue?.refusals.values.first?.contains("not allowed") == false)

@@ -104,12 +104,12 @@ struct CLIInvocation: Sendable {
     static func approvals(cdp: String) -> Self {
         .init(arguments: ["approvals", "--cdp", cdp, "--origin", localOrigin, "--json", "--watch"])
     }
-    /// Flags come before the id and answer; the CLI stops reading flags at the first argument.
+    /// Flags come before the id and answer; `--` ends them, so an id is never read as a flag.
     static func decide(join: String, id: String, answer: ApprovalAnswer) -> Self {
-        .init(arguments: ["-", "decide", id, answer.rawValue], input: Data((join + "\n").utf8))
+        .init(arguments: ["-", "decide", "--json", "--", id, answer.rawValue], input: Data((join + "\n").utf8))
     }
     static func decide(cdp: String, id: String, answer: ApprovalAnswer) -> Self {
-        .init(arguments: ["decide", "--cdp", cdp, "--origin", localOrigin, id, answer.rawValue])
+        .init(arguments: ["decide", "--cdp", cdp, "--origin", localOrigin, "--json", "--", id, answer.rawValue])
     }
 }
 
