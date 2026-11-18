@@ -25,7 +25,7 @@ final class WorkspaceStore {
     var localTabURLs: [UUID: String] = [:]
     var errorMessage: String?
     @ObservationIgnored private let runtime: any SessionRuntime
-    @ObservationIgnored private let defaults: UserDefaults?
+    @ObservationIgnored let defaults: UserDefaults?
     @ObservationIgnored var runs: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored var connections: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored var generations: [UUID: UUID] = [:]
@@ -44,6 +44,8 @@ final class WorkspaceStore {
     var credentialAccess: [UUID: CredentialAccess] = [:]
     var leaseSupported: Set<UUID> = []
     var credentialOffers: Set<UUID> = []
+    /// Sessions waiting to link again after an update relaunch; a disconnect cancels it.
+    @ObservationIgnored var resumingLinks: Set<UUID> = []
     var inventories: [UUID: AgentInventory] = [:]
     @ObservationIgnored var inventorySupported: Set<UUID> = []
     @ObservationIgnored var inventoryProcesses: [UUID: CLIProcess] = [:]

@@ -9,7 +9,13 @@ final class AppUpdater: ObservableObject {
         didSet { controller?.updater.automaticallyChecksForUpdates = automaticChecks }
     }
     let available: Bool
+    /// Runs right before Sparkle quits Sliccy to relaunch an installed update.
+    var willRelaunch: (() -> Void)? {
+        get { relaunchDelegate.willRelaunch }
+        set { relaunchDelegate.willRelaunch = newValue }
+    }
     private var controller: SPUStandardUpdaterController?
+    private let relaunchDelegate = RelaunchDelegate()
 
     init() {
         #if SLICCY_NATIVE_SCREEN_PROOF
@@ -19,7 +25,7 @@ final class AppUpdater: ObservableObject {
             !ProcessInfo.processInfo.arguments.contains("--preview")
         #endif
         guard available else { return }
-        let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: relaunchDelegate, userDriverDelegate: nil)
         self.controller = controller
         automaticChecks = controller.updater.automaticallyChecksForUpdates
         controller.updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheck)
@@ -28,6 +34,15 @@ final class AppUpdater: ObservableObject {
     }
 
     func check() { controller?.checkForUpdates(nil) }
+}
+
+/// Lets an update relaunch keep live links, as the CLI's own update does: see `UpdateResume`.
+@MainActor
+final class RelaunchDelegate: NSObject, SPUUpdaterDelegate {
+    var willRelaunch: (() -> Void)?
+    nonisolated func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
+        MainActor.assumeIsolated { willRelaunch?() }
+    }
 }
 
 struct UpdateSettingsView: View {
