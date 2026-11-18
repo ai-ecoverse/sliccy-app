@@ -107,6 +107,8 @@ extension WorkspaceStore {
                 self.cliVersion = capabilities.version
                 if capabilities.commands["agents"]?.json == "events" { self.inventorySupported.insert(id) }
                 else { self.inventorySupported.remove(id) }
+                if capabilities.supportsApprovals { self.approvalsSupported.insert(id) }
+                else { self.approvalsSupported.remove(id) }
                 if self.credentialOffers.contains(id), !capabilities.supportsCredentialLeases { throw CLIError.incompatible }
                 if capabilities.supportsCredentialLeases { self.leaseSupported.insert(id) }
                 else { self.leaseSupported.remove(id) }
@@ -184,6 +186,7 @@ extension WorkspaceStore {
         case "connecting": update(id) { $0.connection = .connecting }
         case "reconnecting", "link-lost":
             stopInventory(id)
+            stopApprovals(id)
             let details = [event.reason, event.message].compactMap { $0 }.filter { !$0.isEmpty }
             let explanation = details.isEmpty ? "" : " " + redacted(details.joined(separator: ": "), id: id)
             let message = event.kind == "link-lost"
@@ -210,6 +213,7 @@ extension WorkspaceStore {
             // Launcher UI does not subscribe to agent transcripts.
             refreshCredentials(id)
             startInventory(id)
+            startApprovals(id)
         case "credential":
             var access = credentialAccess[id] ?? .init()
             access.apply(event)
@@ -226,6 +230,7 @@ extension WorkspaceStore {
 
     func clearLiveConnection(_ id: UUID) {
         stopInventory(id)
+        stopApprovals(id)
         clearLinkWait(id)
         localBrowserEndpoints[id] = nil
         attachedBrowsers[id] = nil

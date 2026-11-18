@@ -19,6 +19,11 @@ struct CLICapabilities: Decodable, Sendable {
         supportsLocalBrowser && events?.names.contains(CLIInvocation.linkWaitEvent) == true
     }
 
+    /// `approvals --json --watch` and `decide` (slicc-cli#801). Seven support is reported by the commands' exits.
+    var supportsApprovals: Bool {
+        commands["approvals"]?.json == "events" && commands["decide"] != nil
+    }
+
     var supportsCredentialLeases: Bool {
         schema == 1 && contract == 1 && control.v == 1 &&
         ["leases", "unseal", "seal-off", "seal-on"].allSatisfy(control.ops.contains)
@@ -91,6 +96,19 @@ struct CLIInvocation: Sendable {
     }
     static func agents(join: String) -> Self {
         .init(arguments: ["-", "agents", "--json", "--watch"], input: Data((join + "\n").utf8))
+    }
+    static func approvals(join: String) -> Self {
+        .init(arguments: ["-", "approvals", "--json", "--watch"], input: Data((join + "\n").utf8))
+    }
+    static func approvals(cdp: String) -> Self {
+        .init(arguments: ["approvals", "--cdp", cdp, "--origin", localOrigin, "--json", "--watch"])
+    }
+    /// Flags come before the id and answer; the CLI stops reading flags at the first argument.
+    static func decide(join: String, id: String, answer: ApprovalAnswer) -> Self {
+        .init(arguments: ["-", "decide", id, answer.rawValue], input: Data((join + "\n").utf8))
+    }
+    static func decide(cdp: String, id: String, answer: ApprovalAnswer) -> Self {
+        .init(arguments: ["decide", "--cdp", cdp, "--origin", localOrigin, id, answer.rawValue])
     }
 }
 

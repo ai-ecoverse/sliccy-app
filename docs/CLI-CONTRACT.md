@@ -69,6 +69,24 @@ or unparseable timestamps do not create a fresh count. Exit 1 gives an honest
 update/start-agent suggestion; exit 3 explains Linked devices permission. There is
 no stderr parsing, automatic permission grant or transcript subscription.
 
+Approvals run in another separate child, `slicc - approvals --json --watch` (or
+`approvals --cdp <endpoint> --origin … --json --watch` for local sessions), started on
+`linked` and stopped on link loss or disconnect. It is gated on `capabilities --json`
+listing `approvals` (events) and `decide`. Each `approvals` event is a whole snapshot of
+seven's pending `user`-tier items; an item that leaves it has settled, and its
+notification is withdrawn. Items are kept in memory only. `reconnecting`, `error` and
+process exit mark the list not live and disable answers. Exit 1 from the watcher means
+seven doesn't support approvals; exit 3 explains the Linked devices permission.
+
+Each answer runs `slicc - decide <id> once|always|deny|stop` and waits for its exit:
+0 is answered (the row waits for the next snapshot), 1 shows the CLI's last stderr line,
+the agent's refusal sentence, and 3 explains Linked devices. That sentence is the only
+stderr the app reads. Always is offered only when the item's `always` is true, Deny and
+stop only when `stoppable` is true; missing flags mean not offered. Notifications offer
+Allow once and Deny only. Guest message text is a prompt and is never displayed.
+`Tests/SliccyTests/Fixtures/approvals.ndjson` follows the issue's protocol until the CLI
+publishes its fixture.
+
 Prompts use `slicc - prompt --json [--steer] -`, with the join URL on stdin's first
 line and prompt text afterward. Text deltas group by opaque transcript entry id;
 there are no run ids. Follow-ups queue locally until the current prompt completes.

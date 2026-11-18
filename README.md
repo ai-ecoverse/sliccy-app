@@ -63,6 +63,12 @@ with newer CLI releases. Updating it is separate from getting this local build r
   replace rows, including after agent restarts. Stale/disconnected data is labeled.
   SLICC must support inventory (bios#1240); unsupported instances show an unavailable
   message and Retry. No names are invented, and missing models stay unreported.
+- Approvals use `approvals --json --watch` and `decide` (slicc-cli#801): seven's pending
+  `user`-tier items for a live connection, with kind, agent, detail, the judge's verdict
+  and time left. Allow once and Deny are always offered; Always only when the item allows
+  it, Deny and stop only when it is stoppable. macOS notifications offer Allow once and
+  Deny, never Always. Guest message text is not shown. A stopped or reconnecting stream
+  is labelled and can't be answered. Older CLIs or sevens show an update message.
 - Complete vault inventories are not reported; lease metadata is not vault contents.
 - Screen selection remains demo-only. No screen is captured or OS capture permission requested.
   Credential controls send metadata-only requests to the app-owned CLI; the app never reads tokens.
