@@ -108,9 +108,16 @@ test('signing and update verification failures abort preparation', async () => {
           env,
           nextRelease: { version: '7.2.0', notes: 'Notes' },
           lastRelease: { gitTag: 'v7.1.0' },
+          commits: [{ message: 'fix: keep links' }],
         },
-        (command, args) => {
+        (command, args, _context, input, options) => {
           calls.push([command, ...args]);
+          if (args.includes('script/semantic_metadata.py')) {
+            assert.deepEqual(JSON.parse(input).commits, ['fix: keep links']);
+            assert.deepEqual(options, { modelAccess: true });
+          } else {
+            assert.equal(options, undefined);
+          }
           if ([command, ...args].includes(failingStep))
             throw new Error('injected verification failure');
         }
@@ -123,6 +130,15 @@ test('signing and update verification failures abort preparation', async () => {
       assert.ok(!calls.some((args) => args.includes('script/prepare_release.py')));
     }
   }
+});
+
+test('only the metadata step receives the release-notes model token', () => {
+  const env = { AWS_BEARER_TOKEN_BEDROCK: 'synthetic', SPARKLE_PRIVATE_KEY: 'kept' };
+  assert.equal(plugin.stepEnv(env).AWS_BEARER_TOKEN_BEDROCK, undefined);
+  assert.equal(plugin.stepEnv(env).SPARKLE_PRIVATE_KEY, 'kept');
+  assert.equal(plugin.stepEnv(env).SLICCY_RELEASE, '1');
+  assert.equal(plugin.stepEnv(env, { modelAccess: true }).AWS_BEARER_TOKEN_BEDROCK, 'synthetic');
+  assert.equal(env.AWS_BEARER_TOKEN_BEDROCK, 'synthetic');
 });
 
 test('semantic-release plans from a published tag without writing a tag in dry-run', async () => {

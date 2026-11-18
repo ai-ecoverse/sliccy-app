@@ -8,6 +8,7 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from release_metadata import ROOT, configuration
+import user_notes
 
 SPARKLE = '{http://www.andymatuschak.org/xml-namespaces/sparkle}'
 
@@ -46,6 +47,10 @@ def main():
     # Never commit generated metadata or add a second release commit.
     (ROOT / 'release/version.json').write_text(json.dumps(config, indent=2) + '\n')
     (ROOT / 'release/notes.md').write_text(request['notes'] + '\n')
+    current = user_notes.entry(config['version'], config['build'],
+                               user_notes.user_notes(request['notes'], request.get('commits', [])))
+    history = user_notes.next_history(current, user_notes.previous_history(feed))
+    (ROOT / 'release/update-notes.json').write_text(json.dumps(history, indent=2) + '\n')
     print(f'Sliccy {config["version"]}, Sparkle build {config["build"]}')
 
 

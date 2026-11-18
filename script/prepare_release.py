@@ -2,6 +2,7 @@
 """Validate the production bundle, sign its ZIP, and generate the GitHub appcast."""
 import base64
 import hashlib
+import json
 import os
 from pathlib import Path
 import plistlib
@@ -9,13 +10,17 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from release_metadata import ROOT, configuration
+import user_notes
 
 SPARKLE = "http://www.andymatuschak.org/xml-namespaces/sparkle"
 ET.register_namespace("sparkle", SPARKLE)
 
-def make_appcast(config, name, size, signature):
+def make_appcast(config, name, size, signature, history):
     if len(base64.b64decode(signature, validate=True)) != 64 or size <= 0:
         raise ValueError("invalid archive signature or length")
+    history = [user_notes.entry(**item) for item in history]
+    if not history or history[0]["version"] != config["version"] or history[0]["build"] != config["build"]:
+        raise ValueError("update notes do not describe this release")
     rss = ET.Element("rss", version="2.0")
     channel = ET.SubElement(rss, "channel")
     ET.SubElement(channel, "title").text = "Sliccy updates"
@@ -25,7 +30,12 @@ def make_appcast(config, name, size, signature):
     ET.SubElement(item, f"{{{SPARKLE}}}shortVersionString").text = config["version"]
     ET.SubElement(item, f"{{{SPARKLE}}}minimumSystemVersion").text = config["minimumSystemVersion"]
     ET.SubElement(item, f"{{{SPARKLE}}}hardwareRequirements").text = "arm64"
-    ET.SubElement(item, "description").text = "A new Sliccy release is available. Installing restarts Sliccy and disconnects its local links; browser windows remain open."
+    ET.SubElement(item, "link").text = f'https://github.com/ai-ecoverse/sliccy-app/releases/tag/v{config["version"]}'
+    ET.SubElement(item, f"{{{SPARKLE}}}fullReleaseNotesLink").text = "https://github.com/ai-ecoverse/sliccy-app/releases"
+    # HTML with escaped notes; Sparkle's WebView runs no page JavaScript.
+    ET.SubElement(item, "description").text = user_notes.render_html(history)
+    # Structured copy the next release reads back to extend the history.
+    item.append(user_notes.history_element(history))
     ET.SubElement(item, "enclosure", {
         "url": f'https://github.com/ai-ecoverse/sliccy-app/releases/download/v{config["version"]}/{name}',
         "length": str(size), "type": "application/octet-stream",
@@ -60,7 +70,8 @@ def prepare(directory):
     signature = subprocess.check_output([str(tools / "sign_update"), "--ed-key-file", "-", "-p", str(archive)], input=secret, text=True).strip()
     del secret
     subprocess.run(["/usr/bin/xcrun", "swift", str(ROOT / "script/verify_update.swift"), config["publicEDKey"], signature, str(archive)], check=True)
-    (directory / "appcast.xml").write_bytes(make_appcast(config, archive.name, archive.stat().st_size, signature))
+    history = json.loads((ROOT / "release/update-notes.json").read_text())
+    (directory / "appcast.xml").write_bytes(make_appcast(config, archive.name, archive.stat().st_size, signature, history))
     (directory / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n" for path in [archive, directory / f'Sliccy-{config["version"]}.dmg', directory / "appcast.xml"]))
 
 if __name__ == "__main__":

@@ -13,12 +13,21 @@ function requireReleaseCI(env) {
   }
 }
 
-function run(command, args, context, input) {
+// Only the metadata step calls the notes model; builds and signing never see its token.
+const MODEL_ENV = ['AWS_BEARER_TOKEN_BEDROCK'];
+
+function stepEnv(env, { modelAccess = false } = {}) {
+  const result = { ...env, SLICCY_RELEASE: '1' };
+  if (!modelAccess) for (const name of MODEL_ENV) delete result[name];
+  return result;
+}
+
+function run(command, args, context, input, options) {
   const started = Date.now();
   console.log(`Release step: ${command} ${args.join(' ')}`);
   const result = spawnSync(command, args, {
     cwd: context.cwd,
-    env: { ...context.env, SLICCY_RELEASE: '1' },
+    env: stepEnv(context.env, options),
     stdio: [input === undefined ? 'inherit' : 'pipe', 'inherit', 'inherit'],
     input,
   });
@@ -59,7 +68,9 @@ async function prepareRelease(context, execute = run) {
       version: context.nextRelease.version,
       notes: context.nextRelease.notes,
       previousTag: context.lastRelease.gitTag,
-    })
+      commits: (context.commits ?? []).map((commit) => commit.message),
+    }),
+    { modelAccess: true }
   );
   execute('npm', ['test'], context);
   execute('python3', ['script/cache_sparkle.py'], context);
@@ -74,3 +85,4 @@ exports.prepare = async (_, context) => prepareRelease(context);
 exports.prepareRelease = prepareRelease;
 exports.requireReleaseCI = requireReleaseCI;
 exports.verifyAssets = verifyAssets;
+exports.stepEnv = stepEnv;
