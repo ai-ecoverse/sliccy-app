@@ -20,6 +20,10 @@ struct ApprovalsView: View {
                 if let message = queue.message {
                     Text(message).font(.callout).foregroundStyle(.secondary)
                 }
+                if queue.skipped > 0 {
+                    Text("\(queue.skipped) pending \(queue.skipped == 1 ? "request" : "requests") can’t be shown here. Answer in SLICC, or update Sliccy.")
+                        .font(.callout).foregroundStyle(.orange)
+                }
                 if queue.items.isEmpty {
                     Text(queue.received ? "No pending approvals." : "No approvals received. Transcripts and prompts are not requested.")
                         .font(.callout).foregroundStyle(.secondary)

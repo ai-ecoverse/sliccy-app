@@ -78,6 +78,8 @@ extension WorkspaceStore {
         for key in decideProcesses.keys where key.session == id { decideProcesses.removeValue(forKey: key)?.terminate() }
         withdrawApprovalNotifications(id)
         guard approvals[id] != nil else { return }
+        // Their notifications are withdrawn, so items still pending after a reconnect notify again.
+        approvals[id]?.notified = []
         approvals[id]?.active = false
         approvals[id]?.deciding = []
         approvals[id]?.message = "Approvals disconnected."

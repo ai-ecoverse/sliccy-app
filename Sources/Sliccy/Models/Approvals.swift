@@ -130,6 +130,23 @@ struct ApprovalItem: Decodable, Equatable, Identifiable, Sendable {
     }
 }
 
+/// A snapshot's items, decoded one by one. An item that doesn't decode is counted, not
+/// shown, so one unexpected item can't stop the stream or be answered from partial data.
+struct ApprovalList: Decodable, Equatable, Sendable, ExpressibleByArrayLiteral {
+    private struct Skip: Decodable {}
+    var items: [ApprovalItem]
+    var skipped = 0
+    init(arrayLiteral items: ApprovalItem...) { self.items = items }
+    init(from decoder: any Decoder) throws {
+        var list = try decoder.unkeyedContainer()
+        items = []
+        while !list.isAtEnd {
+            if let item = try? list.decode(ApprovalItem.self) { items.append(item) }
+            else { _ = try list.decode(Skip.self); skipped += 1 }
+        }
+    }
+}
+
 enum ApprovalAnswer: String, CaseIterable, Sendable {
     case once, always, deny, stop
     var title: String {
@@ -148,6 +165,8 @@ struct ApprovalQueue {
     var received = false
     var active = false
     var message: String?
+    /// Pending items in the last snapshot that this version can't show.
+    var skipped = 0
     /// Items with a decide in flight, or answered and waiting to leave the snapshot.
     var deciding: Set<String> = []
     var answered: Set<String> = []
@@ -162,9 +181,11 @@ struct ApprovalQueue {
         guard event.schema == 1 else { return [] }
         switch event.kind {
         case "approvals":
-            guard let items = event.approvals, Set(items.map(\.id)).count == items.count else {
+            guard let list = event.approvals, Set(list.items.map(\.id)).count == list.items.count else {
                 active = false; message = "SLICC returned incompatible approvals."; return []
             }
+            let items = list.items
+            skipped = list.skipped
             let ids = Set(items.map(\.id))
             let fresh = items.filter { !notified.contains($0.id) }
             self.items = items; received = true; active = true; message = nil

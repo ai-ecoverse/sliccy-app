@@ -19,7 +19,7 @@ struct ApprovalsTests {
     }
 
     @Test func cliFixtureItemsOfferOnlyTheAnswersTheyAllow() throws {
-        let items = try #require(try events()[0].approvals)
+        let items = try #require(try events()[0].approvals?.items)
         let sudo = items[0], tool = items[1], capture = items[2]
         #expect(sudo.answers == [.once, .always, .deny, .stop])
         #expect(tool.answers == [.once, .deny, .stop])
@@ -67,7 +67,7 @@ struct ApprovalsTests {
         store.applyApprovals(events[1], to: id)
         #expect(store.approvals[id]?.items.map(\.kind) == ["guest-tool", "capture"])
         #expect(notifier.posted.count == 3)
-        #expect(notifier.withdrawn == [events[0].approvals![0].id])
+        #expect(notifier.withdrawn == [events[0].approvals!.items[0].id])
         store.applyApprovals(events[2], to: id)
         #expect(store.approvals[id]?.active == false)
         #expect(store.approvals[id]?.message?.contains("Reconnecting") == true)
@@ -81,6 +81,30 @@ struct ApprovalsTests {
         store.applyApprovals(empty, to: id)
         #expect(store.approvals[id]?.items.isEmpty == true)
         #expect(notifier.withdrawn.count == 3)
+    }
+
+    @Test func reconnectNotifiesStillPendingItemsAgain() throws {
+        let store = WorkspaceStore(preview: true, defaults: nil)
+        let notifier = RecordingNotifier()
+        store.approvalNotifier = notifier
+        let id = store.sessions[0].id
+        store.applyApprovals(try events()[1], to: id)
+        #expect(notifier.posted.count == 2)
+        store.stopApprovals(id)
+        #expect(notifier.withdrawn.count == 2)
+        store.applyApprovals(try events()[3], to: id)
+        #expect(notifier.posted.count == 4)
+    }
+
+    @Test func undecodableItemsAreCountedNotShown() throws {
+        let line = #"{"schema":1,"event":"approvals","approvals":[{"id":"apr-ok","kind":"sudo","requester":{"kind":"agent","name":"cone"},"detail":{"command":"ls"},"tier":"user","always":false,"stoppable":false,"createdAt":1,"expiresAt":2},{"id":"apr-bad","kind":"future"}]}"#
+        var decoder = NDJSONDecoder()
+        let event = try #require(try decoder.append(Data((line + "\n").utf8)).first)
+        var queue = ApprovalQueue()
+        queue.apply(event)
+        #expect(queue.active)
+        #expect(queue.items.map(\.id) == ["apr-ok"])
+        #expect(queue.skipped == 1)
     }
 
     @Test func stoppedStreamIsNotLiveAndCannotBeAnswered() throws {
