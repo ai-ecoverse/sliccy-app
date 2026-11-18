@@ -83,8 +83,12 @@ with newer CLI releases. Updating it is separate from getting this local build r
   does. Right before Sparkle relaunches, Sliccy records the sessions that are linked
   or linking and whether each one offered credentials. It then detaches them with
   `--keep-browsers`, so Chrome and its SLICC tab stay open. The updated app reads the
-  record once, waits up to 8 s for the old CLI processes to exit, and links the same
-  sessions again with their saved access settings. A record older than 10 minutes
+  record once. Only a build other than the one that wrote the record uses it, so an
+  update that didn't install resumes nothing. The app then shows those sessions as
+  connecting, where Disconnect cancels, and waits up to 8 s for the old CLI processes
+  to exit. Then it links the same sessions again with their saved access settings.
+  If an old process is still running at the deadline, the session stays disconnected
+  with a message rather than running a second CLI. A record older than 10 minutes
   is ignored. Join URLs are never written, so remote sessions ask for theirs again.
 
 Native view-only components remain disabled. The bounded hosted capture trial is

@@ -254,7 +254,6 @@ extension WorkspaceStore {
     func disconnectLive(_ id: UUID) {
         configurationTasks.removeValue(forKey: id)?.cancel()
         reconfiguring.remove(id)
-        resumingLinks.remove(id)
         credentialOffers.remove(id)
         leaseSupported.remove(id)
         liveTokens[id] = nil

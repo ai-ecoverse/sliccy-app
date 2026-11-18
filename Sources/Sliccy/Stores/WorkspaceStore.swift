@@ -44,8 +44,6 @@ final class WorkspaceStore {
     var credentialAccess: [UUID: CredentialAccess] = [:]
     var leaseSupported: Set<UUID> = []
     var credentialOffers: Set<UUID> = []
-    /// Sessions waiting to link again after an update relaunch; a disconnect cancels it.
-    @ObservationIgnored var resumingLinks: Set<UUID> = []
     var inventories: [UUID: AgentInventory] = [:]
     @ObservationIgnored var inventorySupported: Set<UUID> = []
     @ObservationIgnored var inventoryProcesses: [UUID: CLIProcess] = [:]
