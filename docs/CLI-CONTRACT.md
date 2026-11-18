@@ -84,8 +84,9 @@ the agent's refusal sentence, and 3 explains Linked devices. That sentence is th
 stderr the app reads. Always is offered only when the item's `always` is true, Deny and
 stop only when `stoppable` is true; missing flags mean not offered. Notifications offer
 Allow once and Deny only. Guest message text is a prompt and is never displayed.
-`Tests/SliccyTests/Fixtures/approvals.ndjson` follows the issue's protocol until the CLI
-publishes its fixture.
+`Tests/SliccyTests/Fixtures/approvals.ndjson` and `capabilities-approvals.json` are copied
+from slicc-cli#803's `test/integration/testdata/native/`. When the CLI reports `agent.ops`,
+it must also list `approvals` and `decide`.
 
 Prompts use `slicc - prompt --json [--steer] -`, with the join URL on stdin's first
 line and prompt text afterward. Text deltas group by opaque transcript entry id;

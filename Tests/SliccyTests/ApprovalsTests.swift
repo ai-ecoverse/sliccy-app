@@ -18,31 +18,28 @@ struct ApprovalsTests {
         return try decoder.append(data)
     }
 
-    @Test func itemsOfferOnlyTheAnswersTheyAllow() throws {
+    @Test func cliFixtureItemsOfferOnlyTheAnswersTheyAllow() throws {
         let items = try #require(try events()[0].approvals)
-        let sudo = items[0], tool = items[1]
+        let sudo = items[0], tool = items[1], capture = items[2]
         #expect(sudo.answers == [.once, .always, .deny, .stop])
-        #expect(tool.answers == [.once, .deny])
-        #expect(sudo.detailText.contains("apt-get install -y jq"))
-        #expect(sudo.verdictText.contains("level 2"))
+        #expect(tool.answers == [.once, .deny, .stop])
+        #expect(capture.answers == [.once, .deny])
+        #expect(sudo.detailText == "apt-get install -y ripgrep  (in /workspace)")
+        #expect(sudo.verdictText == "Judge: level 2 · it installs software")
         #expect(sudo.agentLabel == "cone · cone")
-        #expect(tool.detailText.hasPrefix("bash · "))
-        #expect(tool.detailText.contains("ls /workspace"))
+        #expect(tool.detailText == "bash · curl https://example.com")
         #expect(tool.verdictText == "Judge checking…")
-        #expect(tool.agentLabel.contains("Ada · sliccy.test"))
+        #expect(tool.agentLabel == "research · Ada · sliccy.com")
+        #expect(capture.detailText == "screen video · 30 s · by record")
+        #expect(capture.verdictText == "No verdict: the judge gave no verdict")
+        #expect(capture.agentLabel == "owner")
         let now = Date(timeIntervalSince1970: 1767268800)
-        #expect(sudo.timeLeft(at: now) == "5:00 left")
-        #expect(sudo.timeLeft(at: now.addingTimeInterval(301)) == "Expired")
+        #expect(sudo.timeLeft(at: now) == "2:00 left")
+        #expect(sudo.timeLeft(at: now.addingTimeInterval(121)) == "Expired")
     }
 
-    @Test func captureAndGuestMessagesNeverShowPrompts() throws {
-        let items = try #require(try events()[1].approvals)
-        let capture = items[1], message = items[2]
-        #expect(capture.detailText.contains("screen video"))
-        #expect(capture.detailText.contains("system audio"))
-        #expect(capture.detailText.contains("by record"))
-        #expect(capture.verdictText.contains("the judge is not configured"))
-        #expect(capture.agentLabel.hasPrefix("Agent x3Lk9aQe"))
+    @Test func guestMessagesNeverShowPrompts() throws {
+        let message = try JSONDecoder().decode(ApprovalItem.self, from: Data(#"{"id":"apr-m","kind":"guest-message","requester":{"kind":"guest","name":"Ada"},"detail":{"text":"private guest prompt","attachments":[{"name":"notes.txt","mimeType":"text/plain","size":12}]},"tier":"user","always":true,"stoppable":false,"createdAt":1,"expiresAt":2}"#.utf8))
         #expect(!message.detailText.contains("private guest prompt"))
         #expect(message.detailText.contains("1 attachments"))
         #expect(message.answers == [.once, .always, .deny])
@@ -65,21 +62,25 @@ struct ApprovalsTests {
         let events = try events()
         store.applyApprovals(events[0], to: id)
         #expect(store.approvals[id]?.active == true)
-        #expect(store.approvals[id]?.items.count == 2)
-        #expect(notifier.posted.count == 2)
+        #expect(store.approvals[id]?.items.count == 3)
+        #expect(notifier.posted.count == 3)
         store.applyApprovals(events[1], to: id)
-        #expect(store.approvals[id]?.items.map(\.kind) == ["guest-tool", "capture", "guest-message"])
-        #expect(notifier.posted.count == 4)
+        #expect(store.approvals[id]?.items.map(\.kind) == ["guest-tool", "capture"])
+        #expect(notifier.posted.count == 3)
         #expect(notifier.withdrawn == [events[0].approvals![0].id])
         store.applyApprovals(events[2], to: id)
         #expect(store.approvals[id]?.active == false)
         #expect(store.approvals[id]?.message?.contains("Reconnecting") == true)
-        #expect(store.approvals[id]?.items.count == 3)
+        #expect(store.approvals[id]?.items.count == 2)
+        // The same items after a reconnect are not new and are not notified again.
         store.applyApprovals(events[3], to: id)
         #expect(store.approvals[id]?.active == true)
+        #expect(store.approvals[id]?.items.count == 2)
+        #expect(notifier.posted.count == 3)
+        var empty = events[3]; empty.approvals = []
+        store.applyApprovals(empty, to: id)
         #expect(store.approvals[id]?.items.isEmpty == true)
-        #expect(notifier.posted.count == 4)
-        #expect(notifier.withdrawn.count == 4)
+        #expect(notifier.withdrawn.count == 3)
     }
 
     @Test func stoppedStreamIsNotLiveAndCannotBeAnswered() throws {
@@ -118,6 +119,12 @@ struct ApprovalsTests {
         #expect(!capabilities.supportsApprovals)
         capabilities.commands["decide"] = .init(json: "none")
         #expect(capabilities.supportsApprovals)
+        let cli = try Data(contentsOf: Bundle.module.resourceURL!.appending(path: "Fixtures/capabilities-approvals.json"))
+        capabilities = try JSONDecoder().decode(CLICapabilities.self, from: cli)
+        #expect(capabilities.supportsApprovals)
+        #expect(capabilities.supportsRemoteWorkspace)
+        capabilities.agent?.ops = ["prompt", "watch", "abort", "inventory", "approvals"]
+        #expect(!capabilities.supportsApprovals)
     }
 
     @Test func olderCLIShowsUpdateMessage() throws {
@@ -205,7 +212,7 @@ struct ApprovalsTests {
     }
 
     @Test func refusalShowsTheAgentSentence() async throws {
-        let (queue, dir) = try await decided(status: 1, stderr: "slicc decide: This request was already answered.")
+        let (queue, dir) = try await decided(status: 1, stderr: "This request was already answered.")
         defer { try? FileManager.default.removeItem(at: dir) }
         #expect(queue?.answered.isEmpty == true)
         #expect(queue?.refusals.values.first == "This request was already answered.")

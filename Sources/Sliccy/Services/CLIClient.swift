@@ -2,7 +2,7 @@ import Foundation
 
 struct CLICapabilities: Decodable, Sendable {
     struct Command: Decodable, Sendable { var json: String }
-    struct Agent: Decodable, Sendable { var own: [String]? }
+    struct Agent: Decodable, Sendable { var own: [String]?; var ops: [String]? }
     struct Control: Decodable, Sendable { var v: Int; var ops: [String] }
     struct Events: Decodable, Sendable { var schema: Int?; var names: [String] }
     var schema: Int
@@ -21,7 +21,8 @@ struct CLICapabilities: Decodable, Sendable {
 
     /// `approvals --json --watch` and `decide` (slicc-cli#801). Seven support is reported by the commands' exits.
     var supportsApprovals: Bool {
-        commands["approvals"]?.json == "events" && commands["decide"] != nil
+        commands["approvals"]?.json == "events" && commands["decide"] != nil &&
+        (agent?.ops.map { ["approvals", "decide"].allSatisfy($0.contains) } ?? true)
     }
 
     var supportsCredentialLeases: Bool {
