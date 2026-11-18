@@ -17,6 +17,8 @@ struct SliccyApp: App {
                     delegate.shutdown = { store.incomingLinks.cancel(); store.shutdown() }
                     // Set the notification delegate at launch, so answers to earlier approval notifications arrive.
                     _ = store.approvalNotifier
+                    updater.willRelaunch = { store.prepareUpdateRelaunch() }
+                    store.resumeAfterUpdate()
                 }
         }
         .defaultSize(width: 1120, height: 780)

@@ -102,7 +102,14 @@ close one. Browser-preserving default-run detach is deferred with browser launch
 Credentials stay in memory, never argv, UserDefaults or logs. Reconnecting after
 app relaunch requests the join URL again. The CLI itself maintains its own
 pairing/device state according to its contract. Session activity and drafts are
-saved locally. Every live session restores disconnected; no implicit reconnect.
+saved locally. Every live session restores disconnected; no implicit reconnect,
+except after an in-app update relaunch. That case follows the CLI's dashboard
+update (`SLICC_RESUME`): the old app detaches local links with `--keep-browsers`
+and records only session IDs, credential-offer state and the old CLI PIDs (never a
+join URL) with the old build number. The new app consumes the record once. It
+ignores a record from its own build or one older than 10 minutes. It waits for the old
+PIDs as an access change does, and links those local sessions again only if the old
+PIDs exited. See `UpdateResume`.
 
 The subprocess adapter drains stdout off the main thread, limits buffers, accepts
 arbitrary UTF-8 boundaries, and reports nonzero exits. The local-browser and follow

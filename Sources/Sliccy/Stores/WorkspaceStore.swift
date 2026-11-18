@@ -25,7 +25,7 @@ final class WorkspaceStore {
     var localTabURLs: [UUID: String] = [:]
     var errorMessage: String?
     @ObservationIgnored private let runtime: any SessionRuntime
-    @ObservationIgnored private let defaults: UserDefaults?
+    @ObservationIgnored let defaults: UserDefaults?
     @ObservationIgnored var runs: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored var connections: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored var generations: [UUID: UUID] = [:]

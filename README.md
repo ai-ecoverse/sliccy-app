@@ -77,7 +77,19 @@ with newer CLI releases. Updating it is separate from getting this local build r
 - Instance settings and sample grants persist locally. Join URLs stay in app memory
   and pass to the CLI via stdin; reconnect after relaunch asks for the URL again.
 - Closing the window keeps the menu-bar app running. Quitting disconnects live
-  links. Live connections and simulated screen sharing never resume automatically.
+  links and leaves the browser open. Live connections and simulated screen sharing
+  never resume automatically after a quit.
+- Updating in place keeps local browser links, as the CLI's dashboard update (`u`)
+  does. Right before Sparkle relaunches, Sliccy records the sessions that are linked
+  or linking and whether each one offered credentials. It then detaches them with
+  `--keep-browsers`, so Chrome and its SLICC tab stay open. The updated app reads the
+  record once. Only a build other than the one that wrote the record uses it, so an
+  update that didn't install resumes nothing. The app then shows those sessions as
+  connecting, where Disconnect cancels, and waits up to 8 s for the old CLI processes
+  to exit. Then it links the same sessions again with their saved access settings.
+  If an old process is still running at the deadline, the session stays disconnected
+  with a message rather than running a second CLI. A record older than 10 minutes
+  is ignored. Join URLs are never written, so remote sessions ask for theirs again.
 
 Native view-only components remain disabled. The bounded hosted capture trial is
 closed with [explicit limitations](https://github.com/ai-ecoverse/sliccy-app/issues/11);
