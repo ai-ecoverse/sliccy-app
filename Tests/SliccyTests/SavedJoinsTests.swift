@@ -262,15 +262,17 @@ struct SavedJoinsTests {
         store.bindCredential(Self.join, to: session.id)
         store.applyLifecycle(try linked(), to: session.id)
         store.disconnectLive(session.id)
-        // A URL typed but never linked is not shared.
+        // A URL entered but never linked is not shared, though bindCredential set its fingerprint.
         let typed = remote("Typed", connection: .disconnected)
         store.sessions.append(typed)
-        store.joinCredentials[typed.id] = "https://www.sliccy.ai/join/never-linked"
+        store.bindCredential("https://www.sliccy.ai/join/never-linked", to: typed.id)
+        #expect(store.session(typed.id)?.watchIdentity == Session.joinIdentity("https://www.sliccy.ai/join/never-linked"))
         #expect(backend.storage["recentJoins.v1.MAC-1"] == nil)
 
         store.iCloudJoins = true
         let own = try JSONDecoder().decode([RecentJoinRecord].self, from: try #require(backend.storage["recentJoins.v1.MAC-1"]))
         #expect(own.map(\.joinUrl) == [Self.join])
+        #expect(vault.items[typed.id] == nil)
     }
 
     @Test func futureDatedICloudRecordsAreIgnored() throws {

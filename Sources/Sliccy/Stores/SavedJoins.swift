@@ -15,12 +15,15 @@ extension WorkspaceStore {
     var syncsJoinsWithICloud: Bool { joinSync != nil && iCloudJoins }
 
     /// After the user turns iCloud sync on, shares every join URL that linked before:
-    /// connected sessions, and saved ones whose URL still has the session's fingerprint.
+    /// connected sessions, and disconnected ones whose URL the keychain already holds.
+    /// The keychain is written only on `linked`; `watchIdentity` is set as soon as a URL
+    /// is entered, so it proves nothing about a link.
     func iCloudJoinsChanged() {
-        guard syncsJoinsWithICloud else { return }
+        guard syncsJoinsWithICloud, let joinSync else { return }
         for session in sessions where session.isLive && session.localBrowserProfile == nil {
             guard let url = joinCredentials[session.id] else { continue }
-            if session.connection == .connected || session.watchIdentity == Session.joinIdentity(url) { rememberJoin(session.id) }
+            if session.connection == .connected { rememberJoin(session.id) }
+            else if joinVault?.read(session.id) == url { joinSync.record(joinURL: url, label: session.name) }
         }
         restoreSavedJoins()
     }
