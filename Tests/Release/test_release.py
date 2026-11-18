@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'script'))
 from prepare_release import make_appcast, SPARKLE
+from user_notes import NOTES, previous_history
 from release_metadata import configuration
 
 class ReleaseTests(unittest.TestCase):
@@ -19,16 +20,29 @@ class ReleaseTests(unittest.TestCase):
         config = configuration()
         archive = f'Sliccy-{config["version"]}.zip'
         signature = base64.b64encode(bytes(range(64))).decode()
-        item = ET.fromstring(make_appcast(config, archive, 12345, signature)).find('channel/item')
+        history = [{'version': config['version'], 'build': config['build'], 'notes': ['You can now <b>sync</b>.']},
+                   {'version': '0.0.1', 'build': '1', 'notes': ['First release.']}]
+        feed = make_appcast(config, archive, 12345, signature, history)
+        item = ET.fromstring(feed).find('channel/item')
         self.assertEqual(item.find('enclosure').attrib, {
             'url': f'https://github.com/ai-ecoverse/sliccy-app/releases/download/v{config["version"]}/{archive}',
             'length': '12345', 'type': 'application/octet-stream', f'{{{SPARKLE}}}edSignature': signature})
         self.assertEqual(item.find(f'{{{SPARKLE}}}version').text, config['build'])
         self.assertEqual(item.find(f'{{{SPARKLE}}}minimumSystemVersion').text, '26.0')
         self.assertEqual(item.find(f'{{{SPARKLE}}}hardwareRequirements').text, 'arm64')
+        description = item.find('description').text
+        self.assertIn(f'<section data-sparkle-version="{config["build"]}"><h3>Sliccy {config["version"]}</h3>', description)
+        self.assertIn('You can now &lt;b&gt;sync&lt;/b&gt;.', description)
+        self.assertIn('<section data-sparkle-version="1">', description)
+        self.assertEqual(item.find(f'{{{SPARKLE}}}fullReleaseNotesLink').text, 'https://github.com/ai-ecoverse/sliccy-app/releases')
+        self.assertEqual(item.find('link').text, f'https://github.com/ai-ecoverse/sliccy-app/releases/tag/v{config["version"]}')
+        self.assertEqual(previous_history(feed), history)
         for signature, size in [('invalid', 10), (base64.b64encode(bytes(64)).decode(), 0)]:
             with self.assertRaises(ValueError):
-                make_appcast(config, 'test.zip', size, signature)
+                make_appcast(config, 'test.zip', size, signature, history)
+        for stale in [[], history[1:], [{**history[0], 'build': '2'}]]:
+            with self.assertRaises(ValueError):
+                make_appcast(config, archive, 12345, base64.b64encode(bytes(range(64))).decode(), stale)
 
     def test_package_and_release_deployment_targets_agree(self):
         minimum = configuration()['minimumSystemVersion']

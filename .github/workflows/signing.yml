@@ -44,6 +44,12 @@ jobs:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           # Optional: Developer ID profile for ai.sliccy.mac with iCloud key-value storage.
           SLICCY_MAC_PROVISIONING_PROFILE_BASE64: ${{ secrets.SLICCY_MAC_PROVISIONING_PROFILE_BASE64 }}
+          # Optional: rewrites update-dialog notes for users. Only the metadata
+          # step receives it; without it the notes are cleaned deterministically.
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          SLICCY_NOTES_AWS_REGION: ${{ vars.CERT_AWS_REGION || 'us-west-2' }}
+          SLICCY_NOTES_MODEL: ${{ vars.CERT_BEDROCK_MODEL || 'global.anthropic.claude-opus-5-5' }}
+          SLICCY_NOTES_FALLBACK_MODEL: ${{ vars.CERT_BEDROCK_FALLBACK_MODEL || 'global.anthropic.claude-sonnet-5-5' }}
         run: npm run release
       - name: Retain release assets and generated metadata
         if: always()
@@ -59,5 +65,6 @@ jobs:
             artifacts/signed/signing.txt
             release/version.json
             release/notes.md
+            release/update-notes.json
           if-no-files-found: error
           retention-days: 30
