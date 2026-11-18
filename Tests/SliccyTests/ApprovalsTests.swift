@@ -105,6 +105,18 @@ struct ApprovalsTests {
         #expect(queue.active)
         #expect(queue.items.map(\.id) == ["apr-ok"])
         #expect(queue.skipped == 1)
+        let odd = #"{"schema":1,"event":"approvals","approvals":[null,"x",3]}"# + "\n" + #"{"schema":1,"event":"inventory","approvals":{"future":true}}"# + "\n"
+        let events = try decoder.append(Data(odd.utf8))
+        queue.apply(events[0])
+        #expect(queue.active && queue.items.isEmpty && queue.skipped == 3)
+        #expect(events[1].approvals?.invalid == true)
+        queue.apply(events[1])
+        #expect(queue.active)
+    }
+
+    @Test func decideOutputToleratesNoiseAndMissingNewline() {
+        let output = Data(("not json\n" + #"{"schema":1,"event":"error","message":"Gone.","code":"ENOENT"}"#).utf8)
+        #expect(WorkspaceStore.decideEvents(output).map(\.message) == ["Gone."])
     }
 
     @Test func stoppedStreamIsNotLiveAndCannotBeAnswered() throws {
@@ -142,6 +154,8 @@ struct ApprovalsTests {
         capabilities.commands["approvals"] = .init(json: "events")
         #expect(!capabilities.supportsApprovals)
         capabilities.commands["decide"] = .init(json: "none")
+        #expect(!capabilities.supportsApprovals)
+        capabilities.commands["decide"] = .init(json: "events")
         #expect(capabilities.supportsApprovals)
         let cli = try Data(contentsOf: Bundle.module.resourceURL!.appending(path: "Fixtures/capabilities-approvals.json"))
         capabilities = try JSONDecoder().decode(CLICapabilities.self, from: cli)

@@ -55,6 +55,7 @@ extension WorkspaceStore {
             self.approvalProcesses.removeValue(forKey: id)?.terminate()
             self.approvalTasks[id] = nil
             self.withdrawApprovalNotifications(id)
+            self.approvals[id]?.notified = []
         }
     }
 
@@ -114,17 +115,18 @@ extension WorkspaceStore {
         Task { [weak self] in
             // `decide --json` prints `decided` or an `error` line with the agent's sentence and a code.
             // stderr is not read.
+            var output = Data()
             var events: [CLIEvent] = []
             var refusal: String?
             do {
-                var decoder = NDJSONDecoder()
                 let stream = try child.start(executable: executable, invocation: invocation, deadline: .seconds(65))
-                for try await chunk in stream { events += try decoder.append(chunk) }
-                events += try decoder.finish()
+                for try await chunk in stream { output.append(chunk); guard output.count <= 64 * 1024 else { throw CLIError.oversized } }
+                events = Self.decideEvents(output)
                 if !events.contains(where: { $0.kind == "decided" }) { refusal = "SLICC didn’t confirm this answer." }
             } catch CLIError.exit(3) {
                 refusal = "Allow agent access for this device in SLICC’s Linked devices to answer approvals."
             } catch CLIError.exit(1) {
+                events = Self.decideEvents(output)
                 let sentence = events.last { $0.kind == "error" }?.message?.trimmingCharacters(in: .whitespacesAndNewlines)
                 refusal = sentence.flatMap { $0.isEmpty ? nil : self?.redacted($0, id: id) } ?? "SLICC refused this answer."
             } catch {
@@ -137,6 +139,13 @@ extension WorkspaceStore {
             if let refusal { self.approvals[id]?.refusals[item] = refusal }
             else { self.approvals[id]?.answered.insert(item) }
         }
+    }
+}
+
+extension WorkspaceStore {
+    /// decide's stdout lines, skipping any that aren't JSON, including a last line without a newline.
+    nonisolated static func decideEvents(_ output: Data) -> [CLIEvent] {
+        output.split(separator: 10, omittingEmptySubsequences: true).compactMap { try? JSONDecoder().decode(CLIEvent.self, from: Data($0)) }
     }
 }
 

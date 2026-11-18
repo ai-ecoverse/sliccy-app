@@ -133,13 +133,17 @@ struct ApprovalItem: Decodable, Equatable, Identifiable, Sendable {
 /// A snapshot's items, decoded one by one. An item that doesn't decode is counted, not
 /// shown, so one unexpected item can't stop the stream or be answered from partial data.
 struct ApprovalList: Decodable, Equatable, Sendable, ExpressibleByArrayLiteral {
-    private struct Skip: Decodable {}
+    /// Accepts any JSON value.
+    private struct Skip: Decodable { init(from decoder: any Decoder) throws { _ = try decoder.singleValueContainer() } }
     var items: [ApprovalItem]
     var skipped = 0
+    /// The value wasn't a list.
+    var invalid = false
     init(arrayLiteral items: ApprovalItem...) { self.items = items }
     init(from decoder: any Decoder) throws {
-        var list = try decoder.unkeyedContainer()
         items = []
+        // Another stream's non-array `approvals` key must not break that stream's line.
+        guard var list = try? decoder.unkeyedContainer() else { invalid = true; return }
         while !list.isAtEnd {
             if let item = try? list.decode(ApprovalItem.self) { items.append(item) }
             else { _ = try list.decode(Skip.self); skipped += 1 }
@@ -181,7 +185,7 @@ struct ApprovalQueue {
         guard event.schema == 1 else { return [] }
         switch event.kind {
         case "approvals":
-            guard let list = event.approvals, Set(list.items.map(\.id)).count == list.items.count else {
+            guard let list = event.approvals, !list.invalid, Set(list.items.map(\.id)).count == list.items.count else {
                 active = false; message = "SLICC returned incompatible approvals."; return []
             }
             let items = list.items

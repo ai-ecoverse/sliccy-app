@@ -19,9 +19,9 @@ struct CLICapabilities: Decodable, Sendable {
         supportsLocalBrowser && events?.names.contains(CLIInvocation.linkWaitEvent) == true
     }
 
-    /// `approvals --json --watch` and `decide` (slicc-cli#801). Seven support is reported by the commands' exits.
+    /// `approvals --json --watch` and `decide --json` (slicc-cli#801). Seven support is reported by the commands' exits.
     var supportsApprovals: Bool {
-        commands["approvals"]?.json == "events" && commands["decide"] != nil &&
+        commands["approvals"]?.json == "events" && commands["decide"]?.json == "events" &&
         (agent?.ops.map { ["approvals", "decide"].allSatisfy($0.contains) } ?? true)
     }
 
