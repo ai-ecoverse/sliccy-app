@@ -128,6 +128,32 @@ struct LiveRuntimeTests {
         #expect(store.session(id)?.entries.map(\.text) == ["Hello world", "Next entry"])
     }
 
+    @Test(.timeLimit(.minutes(1))) func idleFollowerDoesNotBlockASecondChild() async throws {
+        // A real silent follower with open stdout/stderr. A FIFO keeps it idle
+        // without timers or polling. The second process must make progress while
+        // the first is still alive, even with a one-thread cooperative executor.
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: root) }
+        let pipe = root.appending(path: "hold").path
+        try #require(mkfifo(pipe, 0o600) == 0)
+        let follower = CLIProcess()
+        let stream = try follower.start(executable: "/bin/sh", invocation: .init(arguments: [
+            "-c", #"printf 'linked\n'; IFS= read -r line < "$1""#, "fixture", pipe]), status: .init())
+        defer { follower.terminate() }
+        var reader = stream.makeAsyncIterator()
+        var line = Data()
+        while !line.contains(10), let chunk = try await reader.next() { line.append(chunk) }
+        #expect(String(decoding: line, as: UTF8.self) == "linked\n")
+        let probe = CLIProcess()
+        let input = Data("status\n".utf8)
+        let reply = try probe.start(executable: "/bin/cat", invocation: .init(arguments: [], input: input), deadline: .seconds(5))
+        var output = Data()
+        for try await chunk in reply { output.append(chunk) }
+        #expect(output == input)
+        #expect(follower.runningPID != nil)
+    }
+
     @Test func subprocessPreservesPipeBytesAndExitStatus() async throws {
         let child = CLIProcess()
         let payload = Data(String(repeating: "Unicode 🥐\n", count: 10000).utf8)

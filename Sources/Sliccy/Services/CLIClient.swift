@@ -243,8 +243,10 @@ final class CLIProcess {
     private let process = Process()
     private let output = Pipe()
     private let input = Pipe()
-    private var reader: Task<Void, Never>?
-    private var statusReader: Task<Void, Never>?
+    // A follower can stay silent for its entire lifetime. Blocking FileHandle
+    // reads, writes and waitUntilExit must not occupy Swift cooperative executor
+    // workers: the socket, link timers and cancellation tasks need those workers.
+    private static let pipeIO = DispatchQueue(label: "ai.sliccy.cli.pipe-io", qos: .utility, attributes: .concurrent)
     /// Present when stderr is captured.
     private(set) var status: CLIStatusBuffer?
     private var timeout: Task<Void, Never>?
@@ -269,7 +271,7 @@ final class CLIProcess {
             try? errors.fileHandleForWriting.close()
             let handle = errors.fileHandleForReading
             // Always drain, so a blocked stderr write can never stall the child.
-            statusReader = Task.detached {
+            Self.pipeIO.async {
                 defer { try? handle.close(); buffer.finish() }
                 var lines = CLIStatusLines(redact: capture.redact)
                 while true {
@@ -285,11 +287,11 @@ final class CLIProcess {
         let process = process
         let data = invocation.input
         let stream = AsyncThrowingStream<Data, Error>(bufferingPolicy: .bufferingOldest(256)) { continuation in
-            Task.detached {
+            Self.pipeIO.async {
                 defer { try? writer.close() }
                 try? writer.write(contentsOf: data)
             }
-            reader = Task.detached {
+            Self.pipeIO.async {
                 defer { try? handle.close() }
                 do {
                     while true {

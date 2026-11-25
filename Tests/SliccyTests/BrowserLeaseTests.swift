@@ -119,7 +119,21 @@ struct BrowserLeaseTests {
 
     /// Event driven; no polling a PID, UI, clock or file. Both initial success
     /// and unavailable/failed handshake end the wait.
-    private func settled(_ link: BrowserLeaseLink) async throws {
+    private func settled(_ fixture: Fixture) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            defer { group.cancelAll() }
+            group.addTask { try await Self.observeHandshake(fixture.link) }
+            group.addTask {
+                try await Task.sleep(for: .seconds(15))
+                let ops = (try? fixture.ops()) ?? [] // op names only, never argv or stdin
+                Issue.record("Fixture handshake did not settle. Last recorded ops: \(ops)")
+                throw CLIControlError.timeout
+            }
+            _ = try await group.next()
+        }
+    }
+
+    private static func observeHandshake(_ link: BrowserLeaseLink) async throws {
         let results = Observations {
             if let control = link.control { return !control.busy }
             return link.message.contains("unavailable") || link.message.contains("stopped")
@@ -132,8 +146,8 @@ struct BrowserLeaseTests {
     func exclusiveChildRunsOnlyTheExplicitOwnerDecision(mode: String) async throws {
         let f = try fixture(mode)
         defer { f.close() }
-        try await settled(f.link)
-        let control = try #require(f.link.control)
+        try await settled(f)
+        let control = try #require(f.link.control, "Handshake ended after \((try? f.ops()) ?? [])")
         let first = try #require(control.snapshot?.pending.first)
         #expect(first.ttlSeconds == 3600 && first.parent == nil && first.jkt.count == 43)
         #expect(try f.ops() == ["capabilities", "exclusive-follow", "status", "cdp-lease-list"])
@@ -169,7 +183,7 @@ struct BrowserLeaseTests {
     func absentCapabilityOrNonexclusiveStatusNeverExposesAReview(mode: String) async throws {
         let f = try fixture(mode)
         defer { f.close() }
-        try await settled(f.link)
+        try await settled(f)
         #expect(f.link.control == nil)
         #expect(try f.ops() == (mode == "old" ? ["capabilities"] : ["capabilities", "exclusive-follow", "status"]))
     }
@@ -178,8 +192,8 @@ struct BrowserLeaseTests {
     func staleReviewAndUnconfirmedMutationNeverReplay(mode: String) async throws {
         let f = try fixture(mode)
         defer { f.close() }
-        try await settled(f.link)
-        let control = try #require(f.link.control)
+        try await settled(f)
+        let control = try #require(f.link.control, "Handshake ended after \((try? f.ops()) ?? [])")
         let item = try #require(control.snapshot?.pending.first)
         let revision = control.revision
         if mode == "invalidated" {
