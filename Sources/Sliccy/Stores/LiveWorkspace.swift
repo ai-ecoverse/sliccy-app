@@ -86,6 +86,8 @@ extension WorkspaceStore {
         liveTokens[id] = token
         let executable = cliExecutable
         credentialAccess[id] = .init()
+        stopBrowserLeaseControl(id)
+        browserLeaseCapable.remove(id)
         clearLinkWait(id)
         cliStatus[id] = nil
         linkWaitSupported.remove(id)
@@ -106,6 +108,7 @@ extension WorkspaceStore {
                 self.cliVersion = capabilities.version
                 if capabilities.commands["agents"]?.json == "events" { self.inventorySupported.insert(id) }
                 else { self.inventorySupported.remove(id) }
+                if capabilities.supportsBrowserLeaseControl { self.browserLeaseCapable.insert(id) }
                 if capabilities.supportsApprovals { self.approvalsSupported.insert(id) }
                 else { self.approvalsSupported.remove(id) }
                 if self.credentialOffers.contains(id), !capabilities.supportsCredentialLeases { throw CLIError.incompatible }
@@ -169,6 +172,11 @@ extension WorkspaceStore {
         guard event.schema == nil || event.schema == 1 else { return }
         switch event.kind {
         case "attached", "launched":
+            if event.role == "seven" {
+                stopBrowserLeaseControl(id) // a new browser or epoch requires a new lease-only link
+                attachedBrowsers[id] = nil
+                localBrowserEndpoints[id] = nil
+            }
             // Protocol role is named "seven" by the released CLI. It is not UI branding.
             if session(id)?.localBrowserProfile != nil, event.role == "seven",
                let endpoint = event.cdp, let url = URL(string: endpoint),
@@ -182,8 +190,11 @@ extension WorkspaceStore {
                 armLinkWait(id)
             }
         case CLIInvocation.linkWaitEvent: applyLinkWait(event, to: id)
-        case "connecting": update(id) { $0.connection = .connecting }
+        case "connecting":
+            stopBrowserLeaseControl(id)
+            update(id) { $0.connection = .connecting }
         case "reconnecting", "link-lost":
+            stopBrowserLeaseControl(id)
             stopInventory(id)
             stopApprovals(id)
             let details = [event.reason, event.message].compactMap { $0 }.filter { !$0.isEmpty }
@@ -214,6 +225,9 @@ extension WorkspaceStore {
             refreshCredentials(id)
             startInventory(id)
             startApprovals(id)
+        case "browser-gone":
+            stopBrowserLeaseControl(id)
+            localBrowserEndpoints[id] = nil
         case "credential":
             var access = credentialAccess[id] ?? .init()
             access.apply(event)
@@ -229,6 +243,8 @@ extension WorkspaceStore {
     }
 
     func clearLiveConnection(_ id: UUID) {
+        stopBrowserLeaseControl(id)
+        browserLeaseCapable.remove(id)
         stopInventory(id)
         stopApprovals(id)
         clearLinkWait(id)

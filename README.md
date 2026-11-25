@@ -113,6 +113,13 @@ approved agent-inventory work and proposed credential/screen contracts. The
 [CLI contract](docs/CLI-CONTRACT.md) records released transport capabilities and
 the older internal prototype adapters, now removed from the user-facing flow.
 
+### Scoped browser leases (not released)
+
+Local connections show **Browser leases unavailable** with the bundled CLI.
+A one-tab lease is not the Browser control switch or a Seven approval. The
+[owner review protocol and release gate](docs/CLI-CONTRACT.md#signed-browser-leases-unreleased-disabled)
+explain what must be verified before Sliccy can grant one.
+
 ### Local browser controls
 
 Local sessions report the CLI's live capabilities and network policy. Access changes

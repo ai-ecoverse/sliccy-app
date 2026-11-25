@@ -1,7 +1,19 @@
 import Foundation
 
 struct CLICapabilities: Decodable, Sendable {
-    struct Command: Decodable, Sendable { var json: String }
+    struct Command: Decodable, Sendable {
+        var json: String
+        var cdpLeaseV1: Bool?
+
+        init(json: String, cdpLeaseV1: Bool? = nil) { self.json = json; self.cdpLeaseV1 = cdpLeaseV1 }
+        enum CodingKeys: CodingKey { case json, cdpLeaseV1 }
+        init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            json = try c.decode(String.self, forKey: .json)
+            // Unknown representations cannot enable this feature or break ordinary follow.
+            cdpLeaseV1 = try? c.decode(Bool.self, forKey: .cdpLeaseV1)
+        }
+    }
     struct Agent: Decodable, Sendable { var own: [String]?; var ops: [String]? }
     struct Control: Decodable, Sendable { var v: Int; var ops: [String] }
     struct Events: Decodable, Sendable { var schema: Int?; var names: [String] }
@@ -23,6 +35,10 @@ struct CLICapabilities: Decodable, Sendable {
     var supportsApprovals: Bool {
         commands["approvals"]?.json == "events" && commands["decide"]?.json == "events" &&
         (agent?.ops.map { ["approvals", "decide"].allSatisfy($0.contains) } ?? true)
+    }
+
+    var supportsBrowserLeaseControl: Bool {
+        supportsRemoteWorkspace && commands["follow"]?.cdpLeaseV1 == true && BrowserLeaseControl.hasOperations(control.ops)
     }
 
     var supportsCredentialLeases: Bool {

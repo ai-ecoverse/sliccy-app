@@ -41,6 +41,11 @@ struct InstanceOverviewView: View {
                     VStack(alignment: .leading, spacing: 20) { deviceColumn; accessColumn }
                 }
                 if session.isLive {
+                    if local {
+                        section("Browser leases · one task tab") {
+                            BrowserLeasePanel(store: store, session: session)
+                        }
+                    }
                     section("Approvals") { ApprovalsView(store: store, session: session) }
                 }
                 agentsSection
