@@ -198,7 +198,8 @@ its owned CLI*. It does not launch a browser for a remote job, discover a
 localhost service, or adopt an arbitrary browser. It retains the literal
 loopback HTTP origin (port required) from that process's lifecycle event in
 memory. For a dedicated, previously paired job tray the owner supplies a local
-link label and the HTTPS join URL in a secure field. Comparing device
+link label (`^[a-z][a-z0-9-]{0,47}$`, no normalization) and the HTTPS join URL
+in a secure field. Comparing device
 fingerprints and pinning the peer under that label is a broker prerequisite;
 Sliccy does not perform pairing or silently trust a new peer.
 

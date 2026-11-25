@@ -36,7 +36,13 @@ struct BrowserLeaseTests {
         for bad in ["http://localhost:80", "http://127.0.0.1", "http://user@127.0.0.1:9999", "http://127.1:1234", endpoint + "?token=x", endpoint + "#x", endpoint + "/path", "https://fixture.invalid"] {
             #expect(BrowserLeaseRoute(endpoint: bad, label: "job") == nil)
         }
-        #expect(BrowserLeaseRoute(endpoint: endpoint, label: join) == nil)
+        // Same local identifier as `lease pair --link` and exclusive `follow --name` (slicc-cli#933).
+        for label in ["work-2", String(repeating: "a", count: 48)] {
+            #expect(BrowserLeaseRoute(endpoint: endpoint, label: label)?.label == label)
+        }
+        for invalid in ["", "9work", "-job", "Work", "work_2", "work team", "work.team", "work\n", String(repeating: "a", count: 49), join] {
+            #expect(BrowserLeaseRoute(endpoint: endpoint, label: invalid) == nil)
+        }
         #expect(route.invocation(join: join + "\n--other") == nil)
         #expect(route.invocation(join: "http://fixture.invalid/insecure") == nil)
     }

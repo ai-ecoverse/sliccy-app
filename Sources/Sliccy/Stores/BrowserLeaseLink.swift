@@ -18,7 +18,7 @@ struct BrowserLeaseRoute: Equatable, Sendable {
 
     init?(endpoint: String, label: String) {
         guard let origin = Self.loopbackOrigin(endpoint),
-              label.range(of: #"\A[A-Za-z0-9][A-Za-z0-9_-]{0,47}\z"#, options: .regularExpression) != nil else { return nil }
+              label.range(of: #"\A[a-z][a-z0-9-]{0,47}\z"#, options: .regularExpression) != nil else { return nil }
         self.endpoint = origin
         self.label = label
     }

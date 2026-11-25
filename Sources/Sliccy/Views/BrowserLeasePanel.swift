@@ -40,7 +40,7 @@ struct BrowserLeasePanel: View {
                 Text("Connect a lease-only link").font(.title2.bold())
                 Text(verbatim: "Use \(browserLabel). No task tab opens until you approve a specific job.")
                 TextField("Local link label", text: $linkLabel, prompt: Text("ledger-job"))
-                Text("Use the paired link’s local label: letters, numbers, hyphens or underscores.").font(.caption)
+                Text("Enter the paired link’s exact label: start with a lowercase letter; use up to 48 lowercase letters, digits or hyphens.").font(.caption)
                 SecureField("Job’s dedicated tray join URL", text: $join)
                 Text("In the requester’s Seven, choose Network → Link a device. Use only that job’s dedicated tray. The broker must already trust the verified peer fingerprint under this local link label. Sliccy does not pair devices or save this join URL.")
                     .font(.callout).foregroundStyle(.secondary)
