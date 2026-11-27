@@ -27,7 +27,7 @@ struct SettingsView: View {
                             Text("Session removed — choose a destination").tag(Optional(id))
                         }
                     }
-                    Text("Web links go to an attached local browser first. If none is attached, Sliccy starts the preferred session, or the first configured profile, with its saved browser and access settings. The preference also chooses between attached browsers.")
+                    Text("Web links and local files sent to Sliccy go to an attached local browser first. If none is attached, Sliccy starts the preferred session, or the first configured profile, with its saved browser and access settings. The preference also chooses between attached browsers.")
                         .font(.caption).foregroundStyle(.secondary)
                     if defaultBrowser.isDefault {
                         Label("Sliccy is your default web browser", systemImage: "checkmark.circle.fill")

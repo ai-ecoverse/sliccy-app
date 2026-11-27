@@ -47,44 +47,31 @@ import Testing
         #expect(request.url?.host == "127.0.0.1")
         #expect(request.url?.path == "/json/new")
         #expect(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.percentEncodedQuery?.removingPercentEncoding == url.absoluteString)
-        for bad in ["file:///etc/passwd", "javascript:alert(1)", "data:text/html,test", "https://user:secret@example.com", "slicc://join/test"] {
+        for bad in ["javascript:alert(1)", "data:text/html,test", "https://user:secret@example.com", "slicc://join/test"] {
             #expect(!IncomingWebLinks.accepts(URL(string: bad)!))
         }
         #expect(throws: (any Error).self) { try BrowserTabClient.openRequest(url, endpoint: "https://evil.example") }
     }
-    @Test func globalProtectPostFormOpensUnchangedButOtherFilesDoNot() throws {
-        let files = FileManager.default
-        let support = files.temporaryDirectory.appending(path: "App Support \(UUID())", directoryHint: .isDirectory)
-        let directory = support.appending(path: "PaloAltoNetworks/GlobalProtect", directoryHint: .isDirectory)
-        try files.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? files.removeItem(at: support) }
-        let form = directory.appending(path: "_samlpost_123.html")
-        try Data().write(to: form)
-        func request(_ url: URL) throws -> URLRequest {
-            try BrowserTabClient.openRequest(url, endpoint: "http://127.0.0.1:9222", applicationSupport: support)
-        }
-        let localhost = try #require(URL(string: "file://localhost" + form.path(percentEncoded: true)))
-        for url in [form, localhost] {
-            let put = try request(url)
-            #expect(put.httpMethod == "PUT")
+    @Test func localFilesFromAnyAppReachTheBrowserUnchanged() throws {
+        for link in ["file:///Users/example/Library/Application%20Support/PaloAltoNetworks/GlobalProtect/_samlpost_123.html",
+                     "file://localhost/tmp/Some%20App/report.pdf#page=3", "file:///tmp/a%23b%25.png",
+                     "file:///Users/example/Documents/README", "file:///tmp/login.htm?mode=post#start"] {
+            let url = try #require(URL(string: link))
+            let put = try BrowserTabClient.openRequest(url, endpoint: "http://127.0.0.1:9222")
             let target = try #require(put.url.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false) })
+            #expect(put.httpMethod == "PUT")
             #expect(target.host == "127.0.0.1" && target.path == "/json/new")
-            #expect(target.percentEncodedQuery?.removingPercentEncoding == url.absoluteString)
+            #expect(target.percentEncodedQuery?.removingPercentEncoding == link)
         }
-        let wrongDirectory = support.appending(path: form.lastPathComponent)
-        let wrongName = directory.appending(path: "_samlpost_test.html")
-        try Data().write(to: wrongDirectory); try Data().write(to: wrongName)
-        for url in [wrongDirectory, wrongName, directory.appending(path: "_samlpost_404.html"),
-                    URL(string: "file://remote.example" + form.path(percentEncoded: true))!,
-                    URL(string: form.absoluteString + "?token=synthetic")!, URL(string: form.absoluteString + "#fragment")!] {
-            #expect(throws: BrowserTabClient.Failure.invalid) { try request(url) }
+    }
+    @Test func nonlocalAndMalformedFileLinksAreRefused() throws {
+        for link in ["file://server.example/share/a.pdf", "file:////server/share/a.pdf", "file:relative.txt",
+                     "file://localhost", "file://localhost:8080/tmp/a", "file://user:secret@localhost/tmp/a"] {
+            let url = try #require(URL(string: link))
+            #expect(throws: BrowserTabClient.Failure.invalid) {
+                try BrowserTabClient.openRequest(url, endpoint: "http://127.0.0.1:9222")
+            }
         }
-        try files.removeItem(at: form)
-        try files.createSymbolicLink(at: form, withDestinationURL: wrongDirectory)
-        #expect(throws: BrowserTabClient.Failure.invalid) { try request(form) }
-        try files.removeItem(at: directory)
-        try files.createSymbolicLink(at: directory, withDestinationURL: support)
-        #expect(throws: BrowserTabClient.Failure.invalid) { try request(form) }
     }
     @Test func burstQueuePreservesOrderAndDoesNotReplayOnFailure() async {
         var opened: [URL] = []; var errors: [String] = []

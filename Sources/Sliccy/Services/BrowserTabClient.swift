@@ -1,7 +1,7 @@
 import Foundation
 
 /// Uses only the loopback endpoint reported by our local CLI.
-/// Activates a SLICC tab or opens an explicitly delivered web link in that profile; never evaluates JavaScript.
+/// Activates a SLICC tab or opens an explicitly delivered web or file URL in that profile; never evaluates JavaScript.
 enum BrowserTabClient {
     struct Target: Decodable, Sendable { var id: String; var type: String; var url: String }
     enum Failure: LocalizedError {
@@ -51,8 +51,8 @@ enum BrowserTabClient {
         let (_, activated) = try await session.data(from: root.appending(path: "json/activate/\(target.id)"))
         guard (activated as? HTTPURLResponse)?.statusCode == 200 else { throw Failure.invalid }
     }
-    static func openRequest(_ url: URL, endpoint: String, applicationSupport: URL = .applicationSupportDirectory) throws -> URLRequest {
-        guard IncomingWebLinks.accepts(url, applicationSupport: applicationSupport) else { throw Failure.invalid }
+    static func openRequest(_ url: URL, endpoint: String) throws -> URLRequest {
+        guard IncomingWebLinks.accepts(url) else { throw Failure.invalid }
         let root = try endpointURL(endpoint)
         var components = URLComponents(url: root.appending(path: "json/new"), resolvingAgainstBaseURL: false)!
         // The CDP endpoint uses the entire query as the target URL, not key/value pairs.
