@@ -51,8 +51,8 @@ enum BrowserTabClient {
         let (_, activated) = try await session.data(from: root.appending(path: "json/activate/\(target.id)"))
         guard (activated as? HTTPURLResponse)?.statusCode == 200 else { throw Failure.invalid }
     }
-    static func openRequest(_ url: URL, endpoint: String) throws -> URLRequest {
-        guard IncomingWebLinks.accepts(url) else { throw Failure.invalid }
+    static func openRequest(_ url: URL, endpoint: String, applicationSupport: URL = .applicationSupportDirectory) throws -> URLRequest {
+        guard IncomingWebLinks.accepts(url, applicationSupport: applicationSupport) else { throw Failure.invalid }
         let root = try endpointURL(endpoint)
         var components = URLComponents(url: root.appending(path: "json/new"), resolvingAgainstBaseURL: false)!
         // The CDP endpoint uses the entire query as the target URL, not key/value pairs.

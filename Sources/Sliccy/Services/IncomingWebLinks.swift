@@ -13,19 +13,35 @@ import Foundation
         self.open = open
         self.report = report
     }
-    nonisolated static func accepts(_ url: URL) -> Bool {
-        ["http", "https"].contains(url.scheme?.lowercased() ?? "") &&
-            !(url.host ?? "").isEmpty && url.user == nil && url.password == nil &&
-            url.absoluteString.utf8.count <= 16_384 &&
-            !url.absoluteString.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
+    nonisolated static func accepts(_ url: URL, applicationSupport: URL = .applicationSupportDirectory) -> Bool {
+        guard url.absoluteString.utf8.count <= 16_384, url.user == nil, url.password == nil,
+              !url.absoluteString.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { return false }
+        if url.isFileURL { return isGlobalProtectForm(url, in: applicationSupport) }
+        return ["http", "https"].contains(url.scheme?.lowercased() ?? "") && !(url.host ?? "").isEmpty
     }
+
+    /// GlobalProtect's SAML POST binding opens an auto-submitting HTML file, not a web URL.
+    /// Check its location and metadata only. Let the browser submit the original form.
+    private nonisolated static func isGlobalProtectForm(_ url: URL, in applicationSupport: URL) -> Bool {
+        let name = url.lastPathComponent
+        guard name.wholeMatch(of: /_samlpost_[0-9]+\.html/) != nil else { return false }
+        let path = "PaloAltoNetworks/GlobalProtect/\(name)"
+        let expected = applicationSupport.appending(path: path, directoryHint: .notDirectory)
+        // Compare the whole URL: no other authority, path, query or fragment may reach the browser.
+        let localhostURL = "file://localhost" + expected.path(percentEncoded: true)
+        guard url.absoluteString == expected.absoluteString || url.absoluteString == localhostURL else { return false }
+        let resolvedBase = applicationSupport.resolvingSymlinksInPath()
+        guard expected.resolvingSymlinksInPath().path == resolvedBase.appending(path: path, directoryHint: .notDirectory).path else { return false }
+        return (try? expected.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
+    }
+
     func receive(_ urls: [URL]) {
-        guard urls.allSatisfy(Self.accepts) else {
-            report("Sliccy opens HTTP and HTTPS web links only, without embedded credentials.")
-            return
-        }
         guard pending.count + (inFlight ? 1 : 0) + urls.count <= 32 else {
             report("Too many links arrived at once. Open them in smaller groups.")
+            return
+        }
+        guard urls.allSatisfy({ Self.accepts($0) }) else {
+            report("Sliccy can open HTTP and HTTPS links without embedded credentials, or a GlobalProtect sign-in form from its application support folder.")
             return
         }
         pending.append(contentsOf: urls)
