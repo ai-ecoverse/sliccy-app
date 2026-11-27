@@ -1,7 +1,19 @@
 import Foundation
 
 struct CLICapabilities: Decodable, Sendable {
-    struct Command: Decodable, Sendable { var json: String }
+    struct Command: Decodable, Sendable {
+        var json: String
+        var cdpLeaseV1: Bool?
+
+        init(json: String, cdpLeaseV1: Bool? = nil) { self.json = json; self.cdpLeaseV1 = cdpLeaseV1 }
+        enum CodingKeys: CodingKey { case json, cdpLeaseV1 }
+        init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            json = try c.decode(String.self, forKey: .json)
+            // Unknown representations cannot enable this feature or break ordinary follow.
+            cdpLeaseV1 = try? c.decode(Bool.self, forKey: .cdpLeaseV1)
+        }
+    }
     struct Agent: Decodable, Sendable { var own: [String]?; var ops: [String]? }
     struct Control: Decodable, Sendable { var v: Int; var ops: [String] }
     struct Events: Decodable, Sendable { var schema: Int?; var names: [String] }
@@ -23,6 +35,10 @@ struct CLICapabilities: Decodable, Sendable {
     var supportsApprovals: Bool {
         commands["approvals"]?.json == "events" && commands["decide"]?.json == "events" &&
         (agent?.ops.map { ["approvals", "decide"].allSatisfy($0.contains) } ?? true)
+    }
+
+    var supportsBrowserLeaseControl: Bool {
+        supportsRemoteWorkspace && commands["follow"]?.cdpLeaseV1 == true && BrowserLeaseControl.hasOperations(control.ops)
     }
 
     var supportsCredentialLeases: Bool {
@@ -227,8 +243,10 @@ final class CLIProcess {
     private let process = Process()
     private let output = Pipe()
     private let input = Pipe()
-    private var reader: Task<Void, Never>?
-    private var statusReader: Task<Void, Never>?
+    // A follower can stay silent for its entire lifetime. Blocking FileHandle
+    // reads, writes and waitUntilExit must not occupy Swift cooperative executor
+    // workers: the socket, link timers and cancellation tasks need those workers.
+    private static let pipeIO = DispatchQueue(label: "ai.sliccy.cli.pipe-io", qos: .utility, attributes: .concurrent)
     /// Present when stderr is captured.
     private(set) var status: CLIStatusBuffer?
     private var timeout: Task<Void, Never>?
@@ -253,7 +271,7 @@ final class CLIProcess {
             try? errors.fileHandleForWriting.close()
             let handle = errors.fileHandleForReading
             // Always drain, so a blocked stderr write can never stall the child.
-            statusReader = Task.detached {
+            Self.pipeIO.async {
                 defer { try? handle.close(); buffer.finish() }
                 var lines = CLIStatusLines(redact: capture.redact)
                 while true {
@@ -269,11 +287,11 @@ final class CLIProcess {
         let process = process
         let data = invocation.input
         let stream = AsyncThrowingStream<Data, Error>(bufferingPolicy: .bufferingOldest(256)) { continuation in
-            Task.detached {
+            Self.pipeIO.async {
                 defer { try? writer.close() }
                 try? writer.write(contentsOf: data)
             }
-            reader = Task.detached {
+            Self.pipeIO.async {
                 defer { try? handle.close() }
                 do {
                     while true {

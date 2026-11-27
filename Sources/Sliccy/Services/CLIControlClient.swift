@@ -4,10 +4,19 @@ import Darwin
 struct CLIControlRequest: Encodable, Sendable {
     var v = 1
     var op: String
-    var leaseId: String?
+    var leaseId: String? // Credential control, not a browser lease.
+    var request: String?
+    var lease: String?
 }
 
-struct CLIControlReply: Decodable, Sendable {
+protocol OwnedCLIControlReply: Decodable, Sendable {
+    var v: Int { get }
+    var pid: Int32? { get }
+    var ok: Bool? { get }
+    var error: String? { get }
+}
+
+struct CLIControlReply: OwnedCLIControlReply {
     var v: Int
     var pid: Int32?
     var ops: [String]?
@@ -34,14 +43,16 @@ enum CLIControlError: LocalizedError {
 /// Public, same-user CLI control protocol; only addresses a child owned by Sliccy.
 /// This is unrelated to the private, still-unimplemented screen transport.
 enum CLIControlClient {
-    static func request(pid: Int32, request: CLIControlRequest) async throws -> CLIControlReply {
-        let worker = Task.detached { try exchange(pid: pid, request: request) }
+    static func request<Reply: OwnedCLIControlReply>(pid: Int32, request: CLIControlRequest,
+            as type: Reply.Type = CLIControlReply.self) async throws -> Reply {
+        let worker = Task.detached { try exchange(pid: pid, request: request, as: type) }
         return try await withTaskCancellationHandler {
             try await worker.value
         } onCancel: { worker.cancel() }
     }
 
-    static func exchange(pid: Int32, request: CLIControlRequest, socketDirectory: String? = nil) throws -> CLIControlReply {
+    static func exchange<Reply: OwnedCLIControlReply>(pid: Int32, request: CLIControlRequest,
+            socketDirectory: String? = nil, as type: Reply.Type = CLIControlReply.self) throws -> Reply {
         let root = ProcessInfo.processInfo.environment["TMPDIR"] ?? "/tmp"
         var directory = URL(fileURLWithPath: root).appending(path: "slicc-\(getuid())").path
         if "\(directory)/\(pid).sock".utf8.count >= 104 { directory = "/tmp/slicc-\(getuid())" }
@@ -104,7 +115,7 @@ enum CLIControlClient {
             response.append(contentsOf: buffer.prefix(count))
             guard response.count <= 1024 * 1024 else { throw CLIControlError.invalid }
             if let end = response.firstIndex(of: 10) {
-                let reply = try JSONDecoder().decode(CLIControlReply.self, from: response[..<end])
+                let reply = try JSONDecoder().decode(type, from: response[..<end])
                 guard reply.v == 1 else { throw CLIControlError.invalid }
                 if reply.error != nil || reply.ok == false { throw CLIControlError.refused }
                 if request.op == "status", reply.pid != pid { throw CLIControlError.invalid }

@@ -41,6 +41,8 @@ final class WorkspaceStore {
     @ObservationIgnored var abortProcesses: [UUID: CLIProcess] = [:]
     var cliVersion: String?
     var checkingCLI = false
+    var browserLeaseLinks: [UUID: BrowserLeaseLink] = [:]
+    var browserLeaseCapable: Set<UUID> = []
     var credentialAccess: [UUID: CredentialAccess] = [:]
     var leaseSupported: Set<UUID> = []
     var credentialOffers: Set<UUID> = []

@@ -185,6 +185,80 @@ not enable native screen grants; runtime screen pins and capture scopes remain
 disabled pending native validation. The build script bundles it if present;
 otherwise Settings can select an installed binary. App-owned CLI updates must go through app packaging.
 
+## Signed browser leases (unreleased, disabled)
+
+A **Browser leases · one task tab** section on a local live connection is distinct
+from Browser control, Keys & credentials, and Seven approvals. With the bundled
+v1.68.0 CLI it says **Browser leases unavailable**; no connect/grant button is
+offered. No `decide`, browser-sharing switch or ordinary follow fallback.
+
+**Selecting a route.** The owner selects a local browser/profile with the
+existing picker. This increment only accepts a connected browser *launched by
+its owned CLI*. It does not launch a browser for a remote job, discover a
+localhost service, or adopt an arbitrary browser. It retains the literal
+loopback HTTP origin (port required) from that process's lifecycle event in
+memory. For a dedicated, previously paired job tray the owner supplies a local
+link label (`^[a-z][a-z0-9-]{0,47}$`, no normalization) and the HTTPS join URL
+in a secure field. Comparing device
+fingerprints and pinning the peer under that label is a broker prerequisite;
+Sliccy does not perform pairing or silently trust a new peer.
+
+**Launch gates.** In addition to the usual native contract, the executable's
+`capabilities --json` must report `commands.follow.cdpLeaseV1: true` and
+`control.ops` must include `status` and all four operations below. Check again
+before starting a separate child with `- follow --json --lease-browser <origin>
+--name <label>`. The join URL goes on stdin; Sliccy never puts it in argv,
+the keychain or iCloud. No automatic restart of this child on app or parent-session restart.
+No agent inventory, notifications, human stderr, credential offers or approval
+watcher for it. A relink invalidates all open review sheets.
+
+**Owner control v1.** Only the app-owned, linked child's UID- and peer-PID-
+checked Unix socket is used. Require its `status.pid` to match, `status.offers`
+**exactly** `["cdp-lease-v1"]`, and `status.ops` to include all operations. No
+PID, socket path or browser endpoint comes from the requester.
+
+| op | arguments | success |
+|---|---|---|
+| `cdp-lease-list` | none | `{v:1,ok:true,pending:[…],active:[…]}` |
+| `cdp-lease-approve` / `cdp-lease-deny` | `request` | `{v:1,ok:true}`; reload |
+| `cdp-lease-revoke` | `lease` | `{v:1,ok:true}`; reload |
+
+Requests also carry `v:1`. The broker projects metadata only: full bare RFC 7638
+`jkt`, `browser` (must equal the selected origin), `link` (must equal the
+selected label) and typed `allow:[{kind,url}]`. Each pending row has `request`
+and **either** `ttlSeconds` (initial) **or** `parent` (expansion). Active rows
+have `lease` and `exp` (exclusive Unix seconds). Never put a compact grant,
+private key, login/tray secret or secret-bearing URL in this projection. Display
+only validated fields, locally and in memory. IDs in this protocol are not
+authority. No lease metadata or outcomes enter the persisted session history.
+
+Opening a sheet does nothing. Review the full fingerprint, rule type, literal
+URL, browser/profile, link and duration. Return selects **Deny**; Escape leaves
+the request pending. For an expansion show only additions beside what stays,
+with the active parent's actual deadline and no time extension. Denial leaves
+the original scope intact. An unmatched, changed or expired parent cannot be
+approved. Each decision rechecks the route and reads a fresh list; do not send
+from an invalidated sheet or retry an ambiguous acknowledgement. Refresh is
+manual. The broker must atomically validate the immutable offer, parent, time,
+worker and browser epoch at mutation; UI preflight is not authorization.
+
+**Release gate and verification.** `BrowserLeaseControl.verifiedForRelease` is
+false in this increment, with no CLI flag, preference or environment override.
+The static or dynamic claims of a development binary alone cannot turn this
+on. Run `swift test --filter BrowserLeaseTests` for the disposable local
+executable/socket fixture, including startup, expiry, changed offers, denial,
+replacement, revoke, a lost ack, and missing/excess capabilities. It uses a
+fresh Ed25519 test holder and never opens a browser. The released v1.68.0
+binary's actual capabilities omit the launch bit and the four lease ops.
+
+Before enabling, repeat the owner flows with a real paired broker and job
+adapter, disposable keys and a fresh test profile; confirm no grant before
+explicit approval, no access on denial, retained expiry and same task tab on
+expansion, and no data after expiry, revoke, peer mismatch or link loss. Verify
+broker proof/replay checks, guarded redirects/frames and mediated action/output
+containment. Inspect keyboard/default action and full URL/fingerprint rendering
+in the actual native sheet. Fixture success is **not** that release evidence.
+
 ## Pending CLI / seven work
 
 The lifecycle, control, pairing and resumable-watch CLI interfaces have shipped. Local browser
