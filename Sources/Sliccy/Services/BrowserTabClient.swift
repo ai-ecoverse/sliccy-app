@@ -1,7 +1,7 @@
 import Foundation
 
 /// Uses only the loopback endpoint reported by our local CLI.
-/// Activates a SLICC tab or opens an explicitly delivered web link in that profile; never evaluates JavaScript.
+/// Activates a SLICC tab or opens an explicitly delivered web or file URL in that profile; never evaluates JavaScript.
 enum BrowserTabClient {
     struct Target: Decodable, Sendable { var id: String; var type: String; var url: String }
     enum Failure: LocalizedError {

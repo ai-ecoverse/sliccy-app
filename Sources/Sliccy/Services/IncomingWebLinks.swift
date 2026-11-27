@@ -14,18 +14,25 @@ import Foundation
         self.report = report
     }
     nonisolated static func accepts(_ url: URL) -> Bool {
-        ["http", "https"].contains(url.scheme?.lowercased() ?? "") &&
-            !(url.host ?? "").isEmpty && url.user == nil && url.password == nil &&
-            url.absoluteString.utf8.count <= 16_384 &&
-            !url.absoluteString.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
-    }
-    func receive(_ urls: [URL]) {
-        guard urls.allSatisfy(Self.accepts) else {
-            report("Sliccy opens HTTP and HTTPS web links only, without embedded credentials.")
-            return
+        guard url.absoluteString.utf8.count <= 16_384, url.user == nil, url.password == nil,
+              !url.absoluteString.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { return false }
+        if url.isFileURL {
+            // Hand the original URL to the browser; Sliccy doesn't need to inspect the file.
+            let host = url.host(percentEncoded: true)?.lowercased() ?? ""
+            let path = url.path(percentEncoded: true)
+            return (host.isEmpty || host == "localhost") && url.port == nil &&
+                path.hasPrefix("/") && !path.hasPrefix("//")
         }
+        return ["http", "https"].contains(url.scheme?.lowercased() ?? "") && !(url.host ?? "").isEmpty
+    }
+
+    func receive(_ urls: [URL]) {
         guard pending.count + (inFlight ? 1 : 0) + urls.count <= 32 else {
             report("Too many links arrived at once. Open them in smaller groups.")
+            return
+        }
+        guard urls.allSatisfy(Self.accepts) else {
+            report("Sliccy can open local files and HTTP or HTTPS links without embedded credentials.")
             return
         }
         pending.append(contentsOf: urls)
